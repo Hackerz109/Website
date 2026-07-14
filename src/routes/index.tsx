@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
@@ -59,13 +59,14 @@ function Index() {
             {categories.length > 0 && (
               <div className="mt-8 flex flex-wrap gap-2">
                 {categories.slice(0, 6).map((c) => (
-                  <a
+                  <Link
                     key={c}
-                    href="#products"
+                    to="/category/$name"
+                    params={{ name: c }}
                     className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
                   >
                     {c}
-                  </a>
+                  </Link>
                 ))}
               </div>
             )}

@@ -132,7 +132,17 @@ function ProductPage() {
             <div>
               {(product.brand || product.category) && (
                 <p className="text-xs font-semibold text-primary">
-                  {[product.brand, product.category].filter(Boolean).join(" · ")}
+                  {product.brand}
+                  {product.brand && product.category ? " · " : ""}
+                  {product.category && (
+                    <Link
+                      to="/category/$name"
+                      params={{ name: product.category }}
+                      className="hover:underline"
+                    >
+                      {product.category}
+                    </Link>
+                  )}
                 </p>
               )}
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight">{product.name}</h1>
