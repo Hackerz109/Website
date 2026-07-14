@@ -1,0 +1,79 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, PackageSearch } from "lucide-react";
+import { StoreHeader } from "@/components/StoreHeader";
+import { ProductCard } from "@/components/ProductCard";
+import { supabase } from "@/integrations/supabase/client";
+
+export const Route = createFileRoute("/category/$name")({ component: CategoryPage });
+
+function CategoryPage() {
+  const { name } = Route.useParams();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["category-products", name],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, product_images(url, is_primary), product_variants(price_cents, stock)")
+        .eq("active", true)
+        .eq("category", name)
+        .order("featured", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const products = data ?? [];
+
+  return (
+    <div className="min-h-screen bg-background">
+      <StoreHeader />
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> All products
+        </Link>
+
+        <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
+          {name}
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {isLoading
+            ? "Loading…"
+            : `${products.length} product${products.length !== 1 ? "s" : ""} in this category`}
+        </p>
+
+        <div className="mt-10">
+          {isLoading ? (
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-square rounded-2xl bg-secondary" />
+                  <div className="mt-4 h-4 w-2/3 rounded bg-secondary" />
+                </div>
+              ))}
+            </div>
+          ) : products.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-16 text-center">
+              <PackageSearch className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
+              <h3 className="text-lg font-semibold">No products here yet</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                Nothing is currently listed under "{name}".
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
+              {products.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
