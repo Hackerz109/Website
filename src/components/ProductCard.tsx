@@ -29,8 +29,12 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <Link to="/product/$slug" params={{ slug: product.slug }} className="group block">
-      <div className="relative aspect-square overflow-hidden rounded-2xl border-2 border-foreground/10 bg-card transition-colors group-hover:border-primary">
+    <Link
+      to="/product/$slug"
+      params={{ slug: product.slug }}
+      className="group block rounded-2xl transition-transform duration-300 hover:-translate-y-1"
+    >
+      <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow duration-300 group-hover:shadow-soft-lg">
         {primaryImage ? (
           <img
             src={primaryImage}
@@ -39,27 +43,27 @@ export function ProductCard({ product }: { product: Product }) {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-secondary">
-            <span className="text-xs font-bold text-muted-foreground">No image</span>
+            <span className="text-xs font-medium text-muted-foreground">No image</span>
           </div>
         )}
 
         {product.featured && (
-          <div className="absolute right-2.5 top-2.5 rounded-full bg-charge px-2.5 py-1 text-[10px] font-extrabold uppercase text-charge-foreground shadow-[2px_2px_0_var(--color-foreground)]">
+          <div className="absolute right-2.5 top-2.5 rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground shadow-soft">
             Featured
           </div>
         )}
         {outOfStock && (
-          <div className="absolute left-2.5 top-2.5 rounded-full bg-foreground px-2.5 py-1 text-[10px] font-extrabold uppercase text-background">
+          <div className="absolute left-2.5 top-2.5 rounded-full border border-border bg-card px-2.5 py-1 text-[10px] font-medium text-muted-foreground shadow-soft">
             Sold out
           </div>
         )}
       </div>
       <div className="mt-3">
         {product.category && (
-          <p className="text-[11px] font-extrabold uppercase tracking-wide text-charge">{product.category}</p>
+          <p className="text-[11px] font-medium text-primary">{product.category}</p>
         )}
-        <h3 className="mt-0.5 text-sm font-bold text-foreground">{product.name}</h3>
-        <p className="mt-1 text-base font-extrabold text-foreground">{priceLabel}</p>
+        <h3 className="mt-0.5 truncate text-sm font-medium text-foreground">{product.name}</h3>
+        <p className="mt-1 text-base font-bold text-foreground">{priceLabel}</p>
       </div>
     </Link>
   );
