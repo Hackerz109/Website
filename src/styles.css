@@ -5,10 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition — "drafting sheet" theme.
- * Palette: paper background, ink text, copper signature accent (echoes bare
- * copper conductor), steel-blue for secondary/technical text, hairline
- * blue-gray grid/border lines evoking graph paper.
+ * Design system definition — "high voltage" theme.
+ * Palette: off-white base, ink text, two saturated signature accents —
+ * volt (electric yellow, primary) and charge (electric blue-violet,
+ * secondary) — echoing hazard/voltage signage and current.
  *
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
@@ -22,13 +22,13 @@
  */
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 4px);
-  --radius-xl: calc(var(--radius) + 8px);
-  --radius-2xl: calc(var(--radius) + 12px);
-  --radius-3xl: calc(var(--radius) + 16px);
-  --radius-4xl: calc(var(--radius) + 20px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-3xl: calc(var(--radius) + 14px);
+  --radius-4xl: calc(var(--radius) + 18px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -49,6 +49,8 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+  --color-charge: var(--charge);
+  --color-charge-foreground: var(--charge-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -62,80 +64,83 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", "IBM Plex Sans", ui-sans-serif, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo Black", "Manrope", ui-sans-serif, sans-serif;
 }
 
 :root {
-  --radius: 0.3rem;
-  --background: oklch(0.974 0.002 165.076);
-  --foreground: oklch(0.193 0.014 253.182);
+  --radius: 1rem;
+  --background: oklch(0.985 0.003 106.448);
+  --foreground: oklch(0.165 0.004 285.935);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.193 0.014 253.182);
+  --card-foreground: oklch(0.165 0.004 285.935);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.193 0.014 253.182);
-  --primary: oklch(0.631 0.168 44.328);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.939 0.006 170.441);
-  --secondary-foreground: oklch(0.193 0.014 253.182);
-  --muted: oklch(0.939 0.006 170.441);
-  --muted-foreground: oklch(0.457 0.043 230.552);
-  --accent: oklch(0.939 0.006 170.441);
-  --accent-foreground: oklch(0.193 0.014 253.182);
-  --destructive: oklch(0.561 0.169 32.694);
+  --popover-foreground: oklch(0.165 0.004 285.935);
+  --primary: oklch(0.906 0.192 104.452);
+  --primary-foreground: oklch(0.165 0.004 285.935);
+  --secondary: oklch(0.929 0.004 286.321);
+  --secondary-foreground: oklch(0.165 0.004 285.935);
+  --muted: oklch(0.929 0.004 286.321);
+  --muted-foreground: oklch(0.529 0.008 286.133);
+  --accent: oklch(0.929 0.004 286.321);
+  --accent-foreground: oklch(0.165 0.004 285.935);
+  --destructive: oklch(0.654 0.232 28.659);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.850 0.011 167.747);
-  --input: oklch(0.850 0.011 167.747);
-  --ring: oklch(0.631 0.168 44.328);
-  --chart-1: oklch(0.631 0.168 44.328);
-  --chart-2: oklch(0.457 0.043 230.552);
-  --chart-3: oklch(0.755 0.124 45.646);
-  --chart-4: oklch(0.850 0.011 167.747);
-  --chart-5: oklch(0.561 0.169 32.694);
+  --border: oklch(0.906 0.008 286.2);
+  --input: oklch(0.906 0.008 286.2);
+  --ring: oklch(0.517 0.273 275.136);
+  --charge: oklch(0.517 0.273 275.136);
+  --charge-foreground: oklch(1 0 0);
+  --chart-1: oklch(0.906 0.192 104.452);
+  --chart-2: oklch(0.517 0.273 275.136);
+  --chart-3: oklch(0.654 0.232 28.659);
+  --chart-4: oklch(0.771 0.163 103.632);
+  --chart-5: oklch(0.394 0.220 273.686);
   --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.193 0.014 253.182);
-  --sidebar-primary: oklch(0.631 0.168 44.328);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.939 0.006 170.441);
-  --sidebar-accent-foreground: oklch(0.193 0.014 253.182);
-  --sidebar-border: oklch(0.850 0.011 167.747);
-  --sidebar-ring: oklch(0.631 0.168 44.328);
+  --sidebar-foreground: oklch(0.165 0.004 285.935);
+  --sidebar-primary: oklch(0.906 0.192 104.452);
+  --sidebar-primary-foreground: oklch(0.165 0.004 285.935);
+  --sidebar-accent: oklch(0.929 0.004 286.321);
+  --sidebar-accent-foreground: oklch(0.165 0.004 285.935);
+  --sidebar-border: oklch(0.906 0.008 286.2);
+  --sidebar-ring: oklch(0.517 0.273 275.136);
 }
 
 .dark {
-  --background: oklch(0.166 0.011 248.467);
-  --foreground: oklch(0.974 0.002 165.076);
-  --card: oklch(0.218 0.016 244.464);
-  --card-foreground: oklch(0.974 0.002 165.076);
-  --popover: oklch(0.218 0.016 244.464);
-  --popover-foreground: oklch(0.974 0.002 165.076);
-  --primary: oklch(0.755 0.124 45.646);
-  --primary-foreground: oklch(0.166 0.011 248.467);
-  --secondary: oklch(0.320 0.021 231.790);
-  --secondary-foreground: oklch(0.974 0.002 165.076);
-  --muted: oklch(0.320 0.021 231.790);
-  --muted-foreground: oklch(0.722 0.035 226.529);
-  --accent: oklch(0.320 0.021 231.790);
-  --accent-foreground: oklch(0.974 0.002 165.076);
-  --destructive: oklch(0.561 0.169 32.694);
-  --destructive-foreground: oklch(0.974 0.002 165.076);
-  --border: oklch(0.320 0.021 231.790);
-  --input: oklch(0.320 0.021 231.790);
-  --ring: oklch(0.755 0.124 45.646);
-  --chart-1: oklch(0.755 0.124 45.646);
-  --chart-2: oklch(0.722 0.035 226.529);
-  --chart-3: oklch(0.631 0.168 44.328);
-  --chart-4: oklch(0.320 0.021 231.790);
-  --chart-5: oklch(0.561 0.169 32.694);
-  --sidebar: oklch(0.218 0.016 244.464);
-  --sidebar-foreground: oklch(0.974 0.002 165.076);
-  --sidebar-primary: oklch(0.755 0.124 45.646);
-  --sidebar-primary-foreground: oklch(0.166 0.011 248.467);
-  --sidebar-accent: oklch(0.320 0.021 231.790);
-  --sidebar-accent-foreground: oklch(0.974 0.002 165.076);
-  --sidebar-border: oklch(0.320 0.021 231.790);
-  --sidebar-ring: oklch(0.755 0.124 45.646);
+  --background: oklch(0.165 0.004 285.935);
+  --foreground: oklch(0.985 0.003 106.448);
+  --card: oklch(0.224 0.008 285.761);
+  --card-foreground: oklch(0.985 0.003 106.448);
+  --popover: oklch(0.224 0.008 285.761);
+  --popover-foreground: oklch(0.985 0.003 106.448);
+  --primary: oklch(0.906 0.192 104.452);
+  --primary-foreground: oklch(0.165 0.004 285.935);
+  --secondary: oklch(0.323 0.009 285.898);
+  --secondary-foreground: oklch(0.985 0.003 106.448);
+  --muted: oklch(0.323 0.009 285.898);
+  --muted-foreground: oklch(0.708 0.009 286.177);
+  --accent: oklch(0.323 0.009 285.898);
+  --accent-foreground: oklch(0.985 0.003 106.448);
+  --destructive: oklch(0.654 0.232 28.659);
+  --destructive-foreground: oklch(0.985 0.003 106.448);
+  --border: oklch(0.323 0.009 285.898);
+  --input: oklch(0.323 0.009 285.898);
+  --ring: oklch(0.517 0.273 275.136);
+  --charge: oklch(0.596 0.24 275.136);
+  --charge-foreground: oklch(1 0 0);
+  --chart-1: oklch(0.906 0.192 104.452);
+  --chart-2: oklch(0.596 0.24 275.136);
+  --chart-3: oklch(0.654 0.232 28.659);
+  --chart-4: oklch(0.771 0.163 103.632);
+  --chart-5: oklch(0.394 0.220 273.686);
+  --sidebar: oklch(0.224 0.008 285.761);
+  --sidebar-foreground: oklch(0.985 0.003 106.448);
+  --sidebar-primary: oklch(0.906 0.192 104.452);
+  --sidebar-primary-foreground: oklch(0.165 0.004 285.935);
+  --sidebar-accent: oklch(0.323 0.009 285.898);
+  --sidebar-accent-foreground: oklch(0.985 0.003 106.448);
+  --sidebar-border: oklch(0.323 0.009 285.898);
+  --sidebar-ring: oklch(0.517 0.273 275.136);
 }
 
 @layer base {
@@ -152,77 +157,56 @@
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
+    text-transform: uppercase;
   }
 }
 
-/* ---- Drafting-sheet motifs -------------------------------------------- */
+/* ---- High-voltage motifs ------------------------------------------------ */
 
-/* Fine graph-paper grid, layered as a low-opacity overlay behind content */
-.bp-grid {
-  background-image:
-    linear-gradient(to right, var(--color-border) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
-  background-size: 28px 28px;
+/* Infinite scrolling ticker band, hazard-strip style. */
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 18s linear infinite;
 }
 
-/* Dimension line: a hairline rule with tick marks at each end, like a
-   measurement callout on a technical drawing. */
-.dim-line {
+/* Hand-marked highlighter behind a key word. */
+.highlight-mark {
   position: relative;
-  height: 1px;
-  background: var(--color-border);
+  white-space: nowrap;
+  z-index: 0;
 }
-.dim-line::before,
-.dim-line::after {
+.highlight-mark::before {
   content: "";
   position: absolute;
-  top: -4px;
-  width: 1px;
-  height: 9px;
-  background: var(--color-border);
-}
-.dim-line::before { left: 0; }
-.dim-line::after { right: 0; }
-
-/* Uppercase, tracked, monospace "spec label" — used for eyebrows and
-   data captions (SKU, category, gauge). */
-.spec-label {
-  font-family: var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  left: -0.1em;
+  right: -0.1em;
+  bottom: 0.05em;
+  top: 0.35em;
+  background: var(--color-primary);
+  transform: rotate(-1.2deg);
+  z-index: -1;
+  border-radius: 3px;
 }
 
-/* Slow, subtle dash-offset crawl used behind the hero to suggest signal
-   flowing through a conductor. Respects reduced-motion. */
-@keyframes bp-current {
-  to { stroke-dashoffset: -40; }
-}
-.bp-current-line {
-  stroke-dasharray: 6 10;
-  animation: bp-current 3.2s linear infinite;
-}
-
-@keyframes bp-draw {
-  to { stroke-dashoffset: 0; }
-}
-.bp-draw-in {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: bp-draw 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-@keyframes bp-rise {
-  from { opacity: 0; transform: translateY(10px); }
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.bp-rise {
-  animation: bp-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+.reveal-up {
+  animation: reveal-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bp-current-line, .bp-draw-in, .bp-rise {
+  .marquee-track {
     animation: none !important;
-    stroke-dashoffset: 0 !important;
+  }
+  .reveal-up {
+    animation: none !important;
     opacity: 1 !important;
     transform: none !important;
   }
