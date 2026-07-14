@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingBag, Zap, PackageCheck, ShieldCheck } from "lucide-react";
+import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
@@ -30,25 +30,28 @@ function Index() {
     <div className="min-h-screen bg-background">
       <StoreHeader />
 
-      <section className="overflow-hidden">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-2 md:py-24">
+      <section className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-glow-mesh" />
+
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
           <div className="reveal-up">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-charge px-3 py-1 text-xs font-bold text-charge-foreground">
-              <Zap className="h-3 w-3 fill-current" /> Everything electrical, in one place
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Live inventory, every category
             </span>
-            <h1 className="mt-6 text-5xl leading-[0.95] text-foreground md:text-7xl">
-              Power your
+            <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground md:text-6xl">
+              Everything electrical,
               <br />
-              <span className="highlight-mark">whole place.</span>
+              <span className="text-primary">done right.</span>
             </h1>
-            <p className="mt-6 max-w-md text-base font-medium text-muted-foreground md:text-lg">
-              Switches, fans, wires, fittings — every electrical essential in stock, with live
-              counts so you never guess.
+            <p className="mt-5 max-w-md text-base text-muted-foreground md:text-lg">
+              Switches, fans, wires, and fittings — one shop, real-time stock, and checkout in
+              under a minute.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="rounded-full text-base font-bold">
+              <Button asChild size="lg" className="rounded-xl shadow-soft">
                 <a href="#products">
-                  <ShoppingBag className="mr-2 h-4 w-4" /> Shop now
+                  <ShoppingBag className="mr-2 h-4 w-4" /> Shop the catalog
                 </a>
               </Button>
             </div>
@@ -58,7 +61,7 @@ function Index() {
                   <a
                     key={c}
                     href="#products"
-                    className="rounded-full border-2 border-foreground/10 bg-card px-3 py-1 text-xs font-bold text-foreground hover:border-primary"
+                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
                   >
                     {c}
                   </a>
@@ -67,32 +70,25 @@ function Index() {
             )}
           </div>
 
-          <div className="relative mx-auto hidden aspect-square w-full max-w-md items-center justify-center md:flex">
-            <div className="absolute h-[85%] w-[85%] -rotate-6 rounded-[2.5rem] bg-charge shadow-[10px_10px_0_var(--color-foreground)]" />
-            <span className="absolute -left-2 top-6 h-10 w-10 rounded-full bg-destructive shadow-[4px_4px_0_var(--color-foreground)]" />
-            <span className="absolute -right-4 bottom-16 h-16 w-16 rotate-12 rounded-2xl bg-card shadow-[4px_4px_0_var(--color-foreground)]" />
-            <Zap
-              className="relative h-40 w-40 rotate-6 fill-primary text-foreground drop-shadow-[6px_6px_0_var(--color-foreground)]"
-              strokeWidth={1.5}
-              style={{ animation: "float 3.4s ease-in-out infinite" }}
-            />
+          <div className="relative hidden md:block">
+            <HeroPanel />
           </div>
         </div>
       </section>
 
-      <section className="border-y-2 border-foreground/10 bg-card">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-6 py-10 md:grid-cols-3">
+      <section className="border-y border-border bg-card">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-10 md:grid-cols-3">
           {[
-            { icon: PackageCheck, bg: "bg-primary text-foreground", title: "Live stock counts", desc: "Know what's in stock before you order" },
-            { icon: Zap, bg: "bg-charge text-charge-foreground", title: "Every category", desc: "Wires, switches, fans, fittings & more" },
-            { icon: ShieldCheck, bg: "bg-destructive text-destructive-foreground", title: "Secure checkout", desc: "Encrypted payment on every order" },
-          ].map(({ icon: Icon, bg, title, desc }) => (
-            <div key={title} className="flex items-start gap-3">
-              <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${bg}`}>
-                <Icon className="h-5 w-5 fill-current" />
+            { icon: PackageCheck, title: "Live stock counts", desc: "Know what's in stock before you order" },
+            { icon: Zap, title: "Every category", desc: "Wires, switches, fans, fittings & more" },
+            { icon: ShieldCheck, title: "Secure checkout", desc: "Encrypted payment on every order" },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex items-start gap-3 rounded-2xl border border-border bg-background p-4 shadow-soft">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+                <Icon className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-display text-sm">{title}</p>
+                <p className="text-sm font-semibold">{title}</p>
                 <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
               </div>
             </div>
@@ -102,8 +98,8 @@ function Index() {
 
       <section id="products" className="mx-auto max-w-6xl px-6 py-16 md:py-24">
         <div className="mb-10">
-          <h2 className="text-3xl text-foreground md:text-4xl">The collection</h2>
-          <p className="mt-2 text-sm font-medium text-muted-foreground">
+          <h2 className="text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">The collection</h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             {products.length > 0
               ? `${products.length} product${products.length !== 1 ? "s" : ""} available`
               : "Fresh arrivals coming soon"}
@@ -120,13 +116,13 @@ function Index() {
             ))}
           </div>
         ) : isError ? (
-          <div className="rounded-2xl border-2 border-foreground/10 bg-card p-12 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-border bg-card p-12 text-center text-sm text-muted-foreground shadow-soft">
             Couldn't load products right now.
           </div>
         ) : products.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-foreground/15 bg-card p-16 text-center">
+          <div className="rounded-2xl border border-dashed border-border bg-card p-16 text-center">
             <ShoppingBag className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-            <h3 className="font-display text-lg">No products yet</h3>
+            <h3 className="text-lg font-semibold">No products yet</h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
               Sign in as admin and add your first product from the dashboard.
             </p>
@@ -140,29 +136,68 @@ function Index() {
         )}
       </section>
 
-      <footer className="border-t-2 border-foreground/10 bg-foreground text-background">
+      <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-10 md:flex-row md:items-center">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-foreground">
-              <Zap className="h-4 w-4 fill-current" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Zap className="h-3.5 w-3.5 fill-current" />
             </span>
-            <p className="font-display text-sm">My Shop</p>
+            <p className="font-display text-sm font-bold">My Shop</p>
           </div>
-          <p className="text-xs font-medium text-background/60">
+          <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} My Shop — All rights reserved
           </p>
         </div>
       </footer>
+    </div>
+  );
+}
 
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0) rotate(6deg); }
-          50% { transform: translateY(-10px) rotate(6deg); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          * { animation: none !important; }
-        }
-      `}</style>
+/** Signature element: a floating panel showing the shop's categories,
+ *  linked by circuit-trace lines with an animated current pulse. */
+function HeroPanel() {
+  const nodes = [
+    { icon: ToggleLeft, label: "Switches", x: 60, y: 46 },
+    { icon: Fan, label: "Fans", x: 300, y: 30 },
+    { icon: Cable, label: "Wires", x: 50, y: 210 },
+    { icon: Plug, label: "Fittings", x: 290, y: 220 },
+  ];
+
+  return (
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-md rounded-3xl border border-border bg-card p-2 shadow-soft-lg">
+      <div className="relative h-full w-full overflow-hidden rounded-2xl bg-secondary/40">
+        <svg viewBox="0 0 380 280" className="absolute inset-0 h-full w-full">
+          <path d="M 95 60 H 190 V 130 H 190" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
+          <path d="M 285 55 H 190 V 130" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
+          <path d="M 90 220 H 190 V 130" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
+          <path d="M 275 230 H 190 V 130" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
+          <circle cx="190" cy="130" r="4" fill="var(--color-primary)" />
+
+          <path
+            d="M 95 60 H 190 V 130" fill="none" stroke="var(--color-primary)" strokeWidth="2"
+            pathLength="1" className="trace-pulse" style={{ animationDelay: "0s" }}
+          />
+          <path
+            d="M 90 220 H 190 V 130" fill="none" stroke="var(--color-primary)" strokeWidth="2"
+            pathLength="1" className="trace-pulse" style={{ animationDelay: "1.8s" }}
+          />
+        </svg>
+
+        {nodes.map(({ icon: Icon, label, x, y }) => (
+          <div
+            key={label}
+            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
+            style={{ left: x, top: y }}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-soft">
+              <Icon className="h-5 w-5" />
+            </span>
+            <span className="rounded-full bg-foreground/90 px-2 py-0.5 text-[10px] font-medium text-background">
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
