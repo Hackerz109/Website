@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { ProductCard } from "@/components/ProductCard";
+import { BrandsStrip } from "@/components/BrandsStrip";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -95,6 +96,8 @@ function Index() {
           ))}
         </div>
       </section>
+
+      <BrandsStrip />
 
       <section id="products" className="mx-auto max-w-6xl px-6 py-16 md:py-24">
         <div className="mb-10">
