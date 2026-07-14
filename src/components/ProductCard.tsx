@@ -29,12 +29,8 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <Link
-      to="/product/$slug"
-      params={{ slug: product.slug }}
-      className="group block"
-    >
-      <div className="relative aspect-square overflow-hidden rounded-md border border-border bg-secondary/40">
+    <Link to="/product/$slug" params={{ slug: product.slug }} className="group block">
+      <div className="relative aspect-square overflow-hidden rounded-2xl border-2 border-foreground/10 bg-card transition-colors group-hover:border-primary">
         {primaryImage ? (
           <img
             src={primaryImage}
@@ -42,41 +38,28 @@ export function ProductCard({ product }: { product: Product }) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <span className="spec-label text-[10px] text-muted-foreground">No image</span>
+          <div className="flex h-full w-full items-center justify-center bg-secondary">
+            <span className="text-xs font-bold text-muted-foreground">No image</span>
           </div>
         )}
 
-        {/* corner brackets — appear on hover, like a viewfinder focus */}
-        {[
-          "left-1.5 top-1.5 border-l border-t",
-          "right-1.5 top-1.5 border-r border-t",
-          "left-1.5 bottom-1.5 border-l border-b",
-          "right-1.5 bottom-1.5 border-r border-b",
-        ].map((pos) => (
-          <span
-            key={pos}
-            className={`absolute h-3 w-3 border-primary opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${pos}`}
-          />
-        ))}
-
         {product.featured && (
-          <div className="spec-label absolute right-2 top-2 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] leading-none text-primary-foreground">
+          <div className="absolute right-2.5 top-2.5 rounded-full bg-charge px-2.5 py-1 text-[10px] font-extrabold uppercase text-charge-foreground shadow-[2px_2px_0_var(--color-foreground)]">
             Featured
           </div>
         )}
         {outOfStock && (
-          <div className="spec-label absolute left-2 top-2 rounded-sm border border-border bg-card px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+          <div className="absolute left-2.5 top-2.5 rounded-full bg-foreground px-2.5 py-1 text-[10px] font-extrabold uppercase text-background">
             Sold out
           </div>
         )}
       </div>
       <div className="mt-3">
         {product.category && (
-          <p className="spec-label text-[10px] text-muted-foreground">{product.category}</p>
+          <p className="text-[11px] font-extrabold uppercase tracking-wide text-charge">{product.category}</p>
         )}
-        <h3 className="mt-0.5 text-sm font-medium text-foreground">{product.name}</h3>
-        <p className="mt-1 font-mono text-sm text-foreground">{priceLabel}</p>
+        <h3 className="mt-0.5 text-sm font-bold text-foreground">{product.name}</h3>
+        <p className="mt-1 text-base font-extrabold text-foreground">{priceLabel}</p>
       </div>
     </Link>
   );
