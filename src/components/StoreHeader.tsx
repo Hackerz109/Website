@@ -18,10 +18,16 @@ export function StoreHeader() {
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link to="/" className="text-lg font-semibold tracking-tight">
-          My Shop
+        <Link to="/" className="group flex items-center gap-2.5">
+          <span className="relative flex h-7 w-7 items-center justify-center rounded-sm border border-primary/40 text-primary">
+            <span className="absolute inset-0 rounded-sm border border-primary/20" style={{ margin: 3 }} />
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+          </span>
+          <span className="font-display text-lg font-semibold leading-none tracking-tight text-foreground">
+            My Shop
+          </span>
         </Link>
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
@@ -29,7 +35,7 @@ export function StoreHeader() {
               <ShoppingBag className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Cart</span>
               {count > 0 && (
-                <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                <span className="spec-label ml-2 rounded-sm bg-primary px-1.5 py-0.5 text-[10px] leading-none text-primary-foreground">
                   {count}
                 </span>
               )}
