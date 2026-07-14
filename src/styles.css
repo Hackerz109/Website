@@ -196,7 +196,23 @@
   animation: trace-pulse 3.6s ease-in-out infinite;
 }
 
+@keyframes brand-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.brand-track {
+  display: flex;
+  width: max-content;
+  animation: brand-scroll 28s linear infinite;
+}
+.brand-track:hover {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .brand-track {
+    animation: none !important;
+  }
   .reveal-up {
     animation: none !important;
     opacity: 1 !important;
