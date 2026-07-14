@@ -97,7 +97,7 @@ function ProductPage() {
 
         {isLoading ? (
           <div className="mt-8 grid gap-8 md:grid-cols-2">
-            <div className="aspect-square animate-pulse rounded-2xl bg-secondary/60" />
+            <div className="aspect-square animate-pulse rounded-md bg-secondary/60" />
             <div className="space-y-3">
               <div className="h-8 w-2/3 animate-pulse rounded bg-secondary/60" />
               <div className="h-4 w-1/3 animate-pulse rounded bg-secondary/60" />
@@ -106,9 +106,9 @@ function ProductPage() {
         ) : !product ? (
           <div className="mt-12 text-center text-muted-foreground">Product not found.</div>
         ) : (
-          <div className="mt-8 grid gap-8 md:grid-cols-2">
+          <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div>
-              <div className="aspect-square overflow-hidden rounded-2xl bg-secondary/60">
+              <div className="aspect-square overflow-hidden rounded-md border border-border bg-secondary/40">
                 {mainImage ? (
                   <img src={mainImage} alt={product.name} className="h-full w-full object-cover" />
                 ) : null}
@@ -119,8 +119,8 @@ function ProductPage() {
                     <button
                       key={url}
                       onClick={() => setActiveImage(url)}
-                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 ${
-                        (mainImage === url) ? "border-foreground" : "border-transparent"
+                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-sm border ${
+                        (mainImage === url) ? "border-primary" : "border-border opacity-70 hover:opacity-100"
                       }`}
                     >
                       <img src={url} alt="" className="h-full w-full object-cover" />
@@ -131,29 +131,32 @@ function ProductPage() {
             </div>
             <div>
               {(product.brand || product.category) && (
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="spec-label text-xs text-primary">
                   {[product.brand, product.category].filter(Boolean).join(" · ")}
                 </p>
               )}
               <h1 className="mt-1 text-3xl font-semibold tracking-tight">{product.name}</h1>
-              <p className="mt-2 text-xl">{formatMoney(price, product.currency)}</p>
+              <p className="mt-3 font-mono text-xl">{formatMoney(price, product.currency)}</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {stock > 0 ? `${stock} in stock` : "Sold out"}
+                {hasVariants && selectedVariant?.sku ? ` · SKU ${selectedVariant.sku}` : ""}
               </p>
 
+              <div className="dim-line my-6" />
+
               {hasVariants && (
-                <div className="mt-6">
-                  <p className="mb-2 text-sm font-medium">Choose an option</p>
+                <div className="mb-6">
+                  <p className="spec-label mb-2 text-xs text-muted-foreground">Choose an option</p>
                   <div className="flex flex-wrap gap-2">
                     {variants.map((v) => (
                       <button
                         key={v.id}
                         onClick={() => setVariantId(v.id)}
                         disabled={v.stock <= 0}
-                        className={`rounded-lg border px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        className={`rounded-sm border px-3 py-2 font-mono text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                           selectedVariant?.id === v.id
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border hover:border-foreground"
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:border-primary"
                         }`}
                       >
                         {v.name}
@@ -172,24 +175,24 @@ function ProductPage() {
 
               {canAdd && (
                 <div className="mt-6 flex items-center gap-3">
-                  <p className="text-sm font-medium">Quantity</p>
+                  <p className="spec-label text-xs text-muted-foreground">Qty</p>
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8"
+                      className="h-8 w-8 rounded-sm"
                       disabled={qty <= 1}
                       onClick={() => changeQty(-1)}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    <span className="w-8 text-center text-sm tabular-nums">{qty}</span>
+                    <span className="w-8 text-center font-mono text-sm tabular-nums">{qty}</span>
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8"
+                      className="h-8 w-8 rounded-sm"
                       disabled={qty >= stock}
                       onClick={() => changeQty(1)}
                     >
