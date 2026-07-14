@@ -108,7 +108,7 @@ function ProductPage() {
         ) : (
           <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div>
-              <div className="aspect-square overflow-hidden rounded-2xl border-2 border-foreground/10 bg-secondary">
+              <div className="aspect-square overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft">
                 {mainImage ? (
                   <img src={mainImage} alt={product.name} className="h-full w-full object-cover" />
                 ) : null}
@@ -119,8 +119,8 @@ function ProductPage() {
                     <button
                       key={url}
                       onClick={() => setActiveImage(url)}
-                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 ${
-                        (mainImage === url) ? "border-primary" : "border-foreground/10 opacity-70 hover:opacity-100"
+                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border ${
+                        (mainImage === url) ? "border-primary" : "border-border opacity-70 hover:opacity-100"
                       }`}
                     >
                       <img src={url} alt="" className="h-full w-full object-cover" />
@@ -131,32 +131,32 @@ function ProductPage() {
             </div>
             <div>
               {(product.brand || product.category) && (
-                <p className="text-xs font-extrabold uppercase tracking-wide text-charge">
+                <p className="text-xs font-semibold text-primary">
                   {[product.brand, product.category].filter(Boolean).join(" · ")}
                 </p>
               )}
-              <h1 className="mt-1 text-3xl tracking-tight">{product.name}</h1>
-              <p className="mt-3 text-2xl font-extrabold">{formatMoney(price, product.currency)}</p>
-              <p className="mt-1 text-sm font-medium text-muted-foreground">
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight">{product.name}</h1>
+              <p className="mt-3 text-2xl font-bold">{formatMoney(price, product.currency)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {stock > 0 ? `${stock} in stock` : "Sold out"}
                 {hasVariants && selectedVariant?.sku ? ` · SKU ${selectedVariant.sku}` : ""}
               </p>
 
-              <div className="my-6 h-0.5 rounded-full bg-foreground/10" />
+              <div className="my-6 h-px bg-border" />
 
               {hasVariants && (
                 <div className="mb-6">
-                  <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Choose an option</p>
+                  <p className="mb-2 text-xs font-semibold text-muted-foreground">Choose an option</p>
                   <div className="flex flex-wrap gap-2">
                     {variants.map((v) => (
                       <button
                         key={v.id}
                         onClick={() => setVariantId(v.id)}
                         disabled={v.stock <= 0}
-                        className={`rounded-full border-2 px-4 py-2 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                           selectedVariant?.id === v.id
-                            ? "border-primary bg-primary text-foreground"
-                            : "border-foreground/10 hover:border-primary"
+                            ? "border-primary bg-primary text-primary-foreground shadow-soft"
+                            : "border-border hover:border-primary"
                         }`}
                       >
                         {v.name}
@@ -175,36 +175,36 @@ function ProductPage() {
 
               {canAdd && (
                 <div className="mt-6 flex items-center gap-3">
-                  <p className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Qty</p>
+                  <p className="text-xs font-semibold text-muted-foreground">Qty</p>
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8 rounded-full"
+                      className="h-8 w-8 rounded-lg"
                       disabled={qty <= 1}
                       onClick={() => changeQty(-1)}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    <span className="w-8 text-center text-sm font-bold tabular-nums">{qty}</span>
+                    <span className="w-8 text-center text-sm font-semibold tabular-nums">{qty}</span>
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8 rounded-full"
+                      className="h-8 w-8 rounded-lg"
                       disabled={qty >= stock}
                       onClick={() => changeQty(1)}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
-                  <span className="text-xs font-medium text-muted-foreground">{stock} available</span>
+                  <span className="text-xs text-muted-foreground">{stock} available</span>
                 </div>
               )}
 
               <Button
-                className="mt-4 w-full rounded-full text-base font-bold"
+                className="mt-4 w-full rounded-xl text-base font-semibold shadow-soft"
                 size="lg"
                 disabled={!canAdd}
                 onClick={() => {
