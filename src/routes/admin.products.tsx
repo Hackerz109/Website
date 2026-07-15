@@ -68,12 +68,27 @@ function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, product_variants(price_cents, stock)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+
+  function priceDisplay(p: Product & { product_variants?: { price_cents: number; stock: number }[] }) {
+    const variants = p.product_variants ?? [];
+    if (variants.length === 0) return formatMoney(p.price_cents, p.currency);
+    const prices = variants.map((v) => v.price_cents);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max ? formatMoney(min, p.currency) : `${formatMoney(min, p.currency)}–${formatMoney(max, p.currency)}`;
+  }
+
+  function stockDisplay(p: Product & { product_variants?: { price_cents: number; stock: number }[] }) {
+    const variants = p.product_variants ?? [];
+    if (variants.length === 0) return p.stock;
+    return variants.reduce((sum, v) => sum + v.stock, 0);
+  }
 
   function invalidateStoreFront() {
     qc.invalidateQueries({ queryKey: ["admin-products"] });
@@ -190,9 +205,14 @@ function AdminProducts() {
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>{formatMoney(p.price_cents, p.currency)}</TableCell>
+                <TableCell>{priceDisplay(p)}</TableCell>
                 <TableCell>
-                  <span className={p.stock <= 3 ? "text-amber-600" : ""}>{p.stock}</span>
+                  <span className={stockDisplay(p) <= 3 ? "text-amber-600" : ""}>{stockDisplay(p)}</span>
+                  {(p.product_variants?.length ?? 0) > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      ({p.product_variants!.length} variant{p.product_variants!.length !== 1 ? "s" : ""})
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Switch checked={p.active} onCheckedChange={() => toggleActive(p)} />
@@ -346,14 +366,34 @@ function VariantsEditor({
   }
 
   async function addVariant() {
+    const isFirstVariant = (variants?.length ?? 0) === 0;
+
+    if (isFirstVariant) {
+      // Adding the first variant switches the product to variant-based
+      // pricing entirely, which would otherwise hide the price/stock the
+      // admin already set on the product itself. Carry that over as a
+      // "Standard" option instead of losing it.
+      const { error: seedError } = await supabase.from("product_variants").insert({
+        product_id: product.id,
+        name: "Standard",
+        price_cents: product.price_cents,
+        stock: product.stock,
+        sort_order: 0,
+      });
+      if (seedError) return toast.error(seedError.message);
+    }
+
     const { error } = await supabase.from("product_variants").insert({
       product_id: product.id,
       name: "New variant",
       price_cents: product.price_cents,
       stock: 0,
-      sort_order: variants?.length ?? 0,
+      sort_order: isFirstVariant ? 1 : variants?.length ?? 0,
     });
     if (error) return toast.error(error.message);
+    if (isFirstVariant) {
+      toast.success("Added \"Standard\" (your existing price & stock) plus a new variant to edit");
+    }
     refresh();
   }
 
