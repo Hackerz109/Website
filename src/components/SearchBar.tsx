@@ -36,7 +36,7 @@ export function SearchBar({
       const term = `%${debounced}%`;
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price_cents, currency, category, image_url, product_images(url, is_primary)")
+        .select("id, name, slug, price_cents, currency, category, image_url, product_images(url, is_primary), product_variants(price_cents, stock)")
         .eq("active", true)
         .or(`name.ilike.${term},category.ilike.${term},brand.ilike.${term},description.ilike.${term}`)
         .limit(6);
@@ -110,6 +110,12 @@ export function SearchBar({
                   const img = p.product_images?.find((i) => i.is_primary)?.url
                     ?? p.product_images?.[0]?.url
                     ?? p.image_url;
+                  const variantPrices = (p.product_variants ?? []).map((v) => v.price_cents);
+                  const priceLabel = variantPrices.length > 0
+                    ? (Math.min(...variantPrices) === Math.max(...variantPrices)
+                      ? formatMoney(Math.min(...variantPrices), p.currency)
+                      : `From ${formatMoney(Math.min(...variantPrices), p.currency)}`)
+                    : formatMoney(p.price_cents, p.currency);
                   return (
                     <li key={p.id}>
                       <button
@@ -133,7 +139,7 @@ export function SearchBar({
                           )}
                         </div>
                         <p className="flex-shrink-0 text-sm font-semibold">
-                          {formatMoney(p.price_cents, p.currency)}
+                          {priceLabel}
                         </p>
                       </button>
                     </li>
