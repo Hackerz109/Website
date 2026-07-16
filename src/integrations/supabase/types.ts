@@ -83,6 +83,10 @@ export type Database = {
           customer_name: string | null
           id: string
           notes: string | null
+          paid_at: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
           shipping_address: Json | null
           shipping_cents: number
           status: Database["public"]["Enums"]["order_status"]
@@ -98,6 +102,10 @@ export type Database = {
           customer_name?: string | null
           id?: string
           notes?: string | null
+          paid_at?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           shipping_address?: Json | null
           shipping_cents?: number
           status?: Database["public"]["Enums"]["order_status"]
@@ -113,6 +121,10 @@ export type Database = {
           customer_name?: string | null
           id?: string
           notes?: string | null
+          paid_at?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           shipping_address?: Json | null
           shipping_cents?: number
           status?: Database["public"]["Enums"]["order_status"]
@@ -314,6 +326,7 @@ export type Database = {
         | "delivered"
         | "cancelled"
         | "refunded"
+      payment_status: "pending" | "paid" | "failed" | "refunded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -450,6 +463,7 @@ export const Constants = {
         "cancelled",
         "refunded",
       ],
+      payment_status: ["pending", "paid", "failed", "refunded"],
     },
   },
 } as const
