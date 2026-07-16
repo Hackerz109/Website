@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCart, formatMoney } from "@/stores/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { payForOrder } from "@/lib/razorpay";
 
 export const Route = createFileRoute("/cart")({ component: CartPage });
 
@@ -72,7 +73,20 @@ function CartPage() {
     setPlacing(false);
     if (itemsErr) return toast.error(itemsErr.message);
     clear();
-    toast.success("Order placed — we'll be in touch about payment & shipping");
+
+    const result = await payForOrder({
+      id: order.id,
+      customer_name: name,
+      customer_email: user.email,
+    });
+
+    if (result.status === "paid") {
+      toast.success("Payment received — thank you!");
+    } else if (result.status === "dismissed") {
+      toast("Order placed — you can pay anytime from My Orders", { icon: "🛒" });
+    } else {
+      toast.error(result.message);
+    }
     navigate({ to: "/orders" });
   }
 
@@ -143,10 +157,10 @@ function CartPage() {
                 </div>
               </div>
               <Button className="w-full" onClick={placeOrder} disabled={placing}>
-                Place order
+                {placing ? "Placing order…" : "Place order & pay"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Payment set up separately by the shop owner.
+                Secure payment via Razorpay. You can also pay later from "My orders" if you close the payment window.
               </p>
             </div>
           </div>

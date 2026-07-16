@@ -1,17 +1,35 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMoney } from "@/stores/cart";
+import { payForOrder } from "@/lib/razorpay";
 
 export const Route = createFileRoute("/orders")({ component: OrdersPage });
+
+function paymentBadge(status: string) {
+  switch (status) {
+    case "paid":
+      return <Badge className="bg-green-600 hover:bg-green-600">Paid</Badge>;
+    case "failed":
+      return <Badge variant="destructive">Payment failed</Badge>;
+    case "refunded":
+      return <Badge variant="secondary">Refunded</Badge>;
+    default:
+      return <Badge variant="outline">Payment pending</Badge>;
+  }
+}
 
 function OrdersPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -30,6 +48,22 @@ function OrdersPage() {
     },
   });
 
+  async function retryPay(order: { id: string; customer_name: string | null; customer_email: string }) {
+    setPayingId(order.id);
+    const result = await payForOrder({
+      id: order.id,
+      customer_name: order.customer_name,
+      customer_email: order.customer_email,
+    });
+    setPayingId(null);
+    if (result.status === "paid") {
+      toast.success("Payment received — thank you!");
+      qc.invalidateQueries({ queryKey: ["my-orders", user?.id] });
+    } else if (result.status === "error") {
+      toast.error(result.message);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <StoreHeader />
@@ -43,14 +77,17 @@ function OrdersPage() {
           <div className="mt-6 space-y-4">
             {data?.map((o) => (
               <div key={o.id} className="rounded-xl border p-5">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-xs text-muted-foreground">
                       {new Date(o.created_at).toLocaleString()}
                     </p>
                     <p className="font-mono text-xs">#{o.id.slice(0, 8)}</p>
                   </div>
-                  <Badge variant="secondary">{o.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    {paymentBadge(o.payment_status)}
+                    <Badge variant="secondary">{o.status}</Badge>
+                  </div>
                 </div>
                 <div className="mt-3 space-y-1 text-sm">
                   {o.order_items?.map((it) => (
@@ -60,10 +97,20 @@ function OrdersPage() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex justify-between border-t pt-3 text-sm font-medium">
+                <div className="mt-3 flex items-center justify-between border-t pt-3 text-sm font-medium">
                   <span>Total</span>
                   <span>{formatMoney(o.total_cents)}</span>
                 </div>
+                {o.payment_status === "pending" || o.payment_status === "failed" ? (
+                  <Button
+                    className="mt-3 w-full"
+                    size="sm"
+                    disabled={payingId === o.id}
+                    onClick={() => retryPay({ id: o.id, customer_name: o.customer_name, customer_email: o.customer_email })}
+                  >
+                    {payingId === o.id ? "Opening payment…" : o.payment_status === "failed" ? "Try payment again" : "Pay now"}
+                  </Button>
+                ) : null}
               </div>
             ))}
           </div>
