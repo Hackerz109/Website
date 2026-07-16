@@ -91,30 +91,30 @@ function CartPage() {
           <div className="mt-8 grid gap-8 md:grid-cols-3">
             <div className="md:col-span-2 space-y-4">
               {items.map((i) => (
-                <div key={`${i.id}::${i.variantId ?? ""}`} className="flex gap-4 rounded-xl border p-4">
+                <div key={`${i.id}::${i.variantId ?? ""}`} className="flex gap-3 rounded-xl border p-4 sm:gap-4">
                   <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-secondary/60">
                     {i.image_url && <img src={i.image_url} alt="" className="h-full w-full object-cover" />}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{i.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{i.name}</p>
                     {i.sku && <p className="text-xs text-muted-foreground">SKU: {i.sku}</p>}
                     <p className="text-sm text-muted-foreground">
                       {formatMoney(i.price_cents)}
                     </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setQty(i.id, i.quantity - 1, i.variantId)}>
-                        <Minus className="h-3 w-3" />
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => setQty(i.id, i.quantity - 1, i.variantId)}>
+                        <Minus className="h-3.5 w-3.5" />
                       </Button>
-                      <span className="w-6 text-center text-sm">{i.quantity}</span>
-                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setQty(i.id, i.quantity + 1, i.variantId)}>
-                        <Plus className="h-3 w-3" />
+                      <span className="w-7 text-center text-sm">{i.quantity}</span>
+                      <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => setQty(i.id, i.quantity + 1, i.variantId)}>
+                        <Plus className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="ml-auto h-7 w-7" onClick={() => remove(i.id, i.variantId)}>
-                        <Trash2 className="h-3 w-3" />
+                      <Button size="icon" variant="ghost" className="ml-auto h-9 w-9" onClick={() => remove(i.id, i.variantId)}>
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
-                  <div className="text-sm font-medium">
+                  <div className="flex-shrink-0 text-sm font-medium">
                     {formatMoney(i.price_cents * i.quantity)}
                   </div>
                 </div>

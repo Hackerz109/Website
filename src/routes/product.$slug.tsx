@@ -191,7 +191,7 @@ function ProductPage() {
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8 rounded-lg"
+                      className="h-9 w-9 rounded-lg"
                       disabled={qty <= 1}
                       onClick={() => changeQty(-1)}
                     >
@@ -202,7 +202,7 @@ function ProductPage() {
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8 rounded-lg"
+                      className="h-9 w-9 rounded-lg"
                       disabled={qty >= stock}
                       onClick={() => changeQty(1)}
                     >

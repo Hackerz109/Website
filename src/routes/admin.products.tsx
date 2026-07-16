@@ -168,14 +168,63 @@ function AdminProducts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
         <Button onClick={openNew}>
           <Plus className="mr-2 h-4 w-4" /> Add product
         </Button>
       </div>
 
-      <div className="rounded-xl border">
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {(products ?? []).map((p) => (
+          <div key={p.id} className="rounded-xl border p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-secondary/60">
+                {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1 font-medium">
+                  <span className="truncate">{p.name}</span>
+                  {p.featured && <Star className="h-3 w-3 flex-shrink-0 fill-current text-amber-500" />}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  /{p.slug}{p.category ? ` · ${p.category}` : ""}
+                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <span className="font-medium">{priceDisplay(p)}</span>
+                  <span className={stockDisplay(p) <= 3 ? "text-amber-600" : "text-muted-foreground"}>
+                    {stockDisplay(p)} in stock
+                    {(p.product_variants?.length ?? 0) > 0 && ` (${p.product_variants!.length} variants)`}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t pt-3">
+              <div className="flex items-center gap-2">
+                <Switch checked={p.active} onCheckedChange={() => toggleActive(p)} />
+                <span className="text-xs text-muted-foreground">{p.active ? "Active" : "Hidden"}</span>
+              </div>
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => openEdit(p)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => del(p)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {(products ?? []).length === 0 && (
+          <div className="rounded-xl border py-12 text-center text-sm text-muted-foreground">
+            No products yet — tap "Add product" to create your first one.
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden rounded-xl border md:block">
         <Table>
           <TableHeader>
             <TableRow>
