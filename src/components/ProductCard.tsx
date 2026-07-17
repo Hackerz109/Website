@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ShieldCheck } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { formatMoney } from "@/stores/cart";
 
@@ -72,6 +73,11 @@ export function ProductCard({ product }: { product: Product }) {
           <p className="text-[11px] font-medium text-primary">{product.categories.name}</p>
         )}
         <h3 className="mt-0.5 truncate text-sm font-medium text-foreground">{product.name}</h3>
+        {product.warranty_available && (
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-primary/80">
+            <ShieldCheck className="h-3 w-3" /> Warranty included
+          </p>
+        )}
         <div className="mt-1 flex items-center gap-1.5">
           <p className="text-base font-bold text-foreground">{priceLabel}</p>
           {hasDiscount && (
