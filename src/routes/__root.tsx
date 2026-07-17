@@ -78,17 +78,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "My Shop — Modern online store" },
+      { title: "My Shop — Quality electrical products, backed by real support" },
       {
         name: "description",
         content:
-          "Shop the collection online — curated products, secure checkout, and fast delivery.",
+          "Shop switches, wiring, fans, and fittings with clear warranty details, secure checkout, and a support team that's genuinely happy to help.",
       },
       { name: "author", content: "My Shop" },
-      { property: "og:title", content: "My Shop — Modern online store" },
+      { property: "og:title", content: "My Shop — Quality electrical products, backed by real support" },
       {
         property: "og:description",
-        content: "Curated products, secure checkout, and fast delivery.",
+        content: "Clear warranty details, secure checkout, and support you can count on.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
