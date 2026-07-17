@@ -273,6 +273,12 @@ export type Database = {
           stock: number
           updated_at: string
           warranty: string | null
+          warranty_available: boolean
+          warranty_type: Database["public"]["Enums"]["warranty_type"] | null
+          warranty_duration: string | null
+          warranty_provider: string | null
+          warranty_service_method: Database["public"]["Enums"]["warranty_service_method"] | null
+          warranty_notes: string | null
         }
         Insert: {
           active?: boolean
@@ -293,6 +299,12 @@ export type Database = {
           stock?: number
           updated_at?: string
           warranty?: string | null
+          warranty_available?: boolean
+          warranty_type?: Database["public"]["Enums"]["warranty_type"] | null
+          warranty_duration?: string | null
+          warranty_provider?: string | null
+          warranty_service_method?: Database["public"]["Enums"]["warranty_service_method"] | null
+          warranty_notes?: string | null
         }
         Update: {
           active?: boolean
@@ -313,6 +325,12 @@ export type Database = {
           stock?: number
           updated_at?: string
           warranty?: string | null
+          warranty_available?: boolean
+          warranty_type?: Database["public"]["Enums"]["warranty_type"] | null
+          warranty_duration?: string | null
+          warranty_provider?: string | null
+          warranty_service_method?: Database["public"]["Enums"]["warranty_service_method"] | null
+          warranty_notes?: string | null
         }
         Relationships: [
           {
@@ -393,6 +411,13 @@ export type Database = {
         | "cancelled"
         | "refunded"
       payment_status: "pending" | "paid" | "failed" | "refunded"
+      warranty_type: "manufacturer" | "seller" | "extended"
+      warranty_service_method:
+        | "home_service"
+        | "authorized_service_center"
+        | "bring_to_store"
+        | "carry_in_service"
+        | "on_site_service"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -530,6 +555,14 @@ export const Constants = {
         "refunded",
       ],
       payment_status: ["pending", "paid", "failed", "refunded"],
+      warranty_type: ["manufacturer", "seller", "extended"],
+      warranty_service_method: [
+        "home_service",
+        "authorized_service_center",
+        "bring_to_store",
+        "carry_in_service",
+        "on_site_service",
+      ],
     },
   },
 } as const
