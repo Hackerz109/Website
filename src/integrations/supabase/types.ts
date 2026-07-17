@@ -264,11 +264,15 @@ export type Database = {
           featured: boolean
           id: string
           image_url: string | null
+          mrp_cents: number | null
           name: string
           price_cents: number
+          specifications: Json
+          sku: string | null
           slug: string
           stock: number
           updated_at: string
+          warranty: string | null
         }
         Insert: {
           active?: boolean
@@ -280,11 +284,15 @@ export type Database = {
           featured?: boolean
           id?: string
           image_url?: string | null
+          mrp_cents?: number | null
           name: string
           price_cents: number
+          specifications?: Json
+          sku?: string | null
           slug: string
           stock?: number
           updated_at?: string
+          warranty?: string | null
         }
         Update: {
           active?: boolean
@@ -296,11 +304,15 @@ export type Database = {
           featured?: boolean
           id?: string
           image_url?: string | null
+          mrp_cents?: number | null
           name?: string
           price_cents?: number
+          specifications?: Json
+          sku?: string | null
           slug?: string
           stock?: number
           updated_at?: string
+          warranty?: string | null
         }
         Relationships: [
           {
