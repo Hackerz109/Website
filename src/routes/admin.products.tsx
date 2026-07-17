@@ -41,8 +41,12 @@ const empty = {
   category: null as string | null,
   brand: null as string | null,
   price: "",
+  mrp: "",
+  sku: "",
   stock: "0",
   image_url: "",
+  warranty: "",
+  specifications: [] as { key: string; value: string }[],
   active: true,
   featured: false,
 };
@@ -111,8 +115,14 @@ function AdminProducts() {
       category: p.category_id ?? null,
       brand: p.brand_id ?? null,
       price: (p.price_cents / 100).toString(),
+      mrp: p.mrp_cents ? (p.mrp_cents / 100).toString() : "",
+      sku: p.sku ?? "",
       stock: p.stock.toString(),
       image_url: p.image_url ?? "",
+      warranty: p.warranty ?? "",
+      specifications: Array.isArray(p.specifications)
+        ? (p.specifications as { key: string; value: string }[])
+        : [],
       active: p.active,
       featured: p.featured,
     });
@@ -123,6 +133,16 @@ function AdminProducts() {
     const price_cents = Math.round(parseFloat(form.price || "0") * 100);
     const stock = parseInt(form.stock || "0", 10);
     if (!form.name || isNaN(price_cents)) return toast.error("Name and price required");
+
+    let mrp_cents: number | null = null;
+    if (form.mrp.trim()) {
+      mrp_cents = Math.round(parseFloat(form.mrp) * 100);
+      if (isNaN(mrp_cents)) return toast.error("MRP must be a number");
+      if (mrp_cents < price_cents) return toast.error("MRP can't be lower than the price");
+    }
+
+    const cleanSpecs = form.specifications.filter((s) => s.key.trim() || s.value.trim());
+
     setSaving(true);
     const payload = {
       name: form.name,
@@ -131,8 +151,12 @@ function AdminProducts() {
       category_id: form.category || null,
       brand_id: form.brand || null,
       price_cents,
+      mrp_cents,
+      sku: form.sku || null,
       stock,
       image_url: form.image_url || null,
+      warranty: form.warranty || null,
+      specifications: cleanSpecs,
       active: form.active,
       featured: form.featured,
     };
@@ -334,9 +358,43 @@ function AdminProducts() {
                 <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>MRP (INR)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="Optional"
+                  value={form.mrp}
+                  onChange={(e) => setForm({ ...form, mrp: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Shown struck-through if higher than price.</p>
+              </div>
+              <div>
+                <Label>SKU</Label>
+                <Input
+                  placeholder="Optional"
+                  value={form.sku}
+                  onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                />
+              </div>
+            </div>
             <p className="-mt-2 text-xs text-muted-foreground">
-              Price & stock above are used only if this product has no variants (see below).
+              Price, MRP, stock & SKU above are used only if this product has no variants (see below).
             </p>
+            <div>
+              <Label>Warranty / policy</Label>
+              <Textarea
+                placeholder="e.g. 1 year manufacturer warranty. No returns on used items."
+                value={form.warranty}
+                onChange={(e) => setForm({ ...form, warranty: e.target.value })}
+                rows={2}
+              />
+            </div>
+            <SpecificationsEditor
+              specs={form.specifications}
+              onChange={(specs) => setForm({ ...form, specifications: specs })}
+            />
             <div>
               <Label>Fallback image URL</Label>
               <Input value={form.image_url} placeholder="https://…" onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
@@ -655,6 +713,62 @@ function ImagesEditor({
                 <Trash2 className="mx-auto h-3 w-3" />
               </button>
             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SpecificationsEditor({
+  specs,
+  onChange,
+}: {
+  specs: { key: string; value: string }[];
+  onChange: (specs: { key: string; value: string }[]) => void;
+}) {
+  function update(i: number, field: "key" | "value", val: string) {
+    const next = specs.map((s, idx) => (idx === i ? { ...s, [field]: val } : s));
+    onChange(next);
+  }
+  function add() {
+    onChange([...specs, { key: "", value: "" }]);
+  }
+  function remove(i: number) {
+    onChange(specs.filter((_, idx) => idx !== i));
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <Label>Specifications</Label>
+        <Button type="button" size="sm" variant="outline" onClick={add}>
+          <Plus className="mr-1 h-3 w-3" /> Add row
+        </Button>
+      </div>
+      {specs.length === 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          e.g. Voltage — 220V, Material — Copper, Wattage — 60W
+        </p>
+      )}
+      <div className="mt-2 space-y-2">
+        {specs.map((s, i) => (
+          <div key={i} className="flex gap-2">
+            <Input
+              placeholder="Spec name (e.g. Voltage)"
+              value={s.key}
+              onChange={(e) => update(i, "key", e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              placeholder="Value (e.g. 220V)"
+              value={s.value}
+              onChange={(e) => update(i, "value", e.target.value)}
+              className="flex-1"
+            />
+            <Button type="button" size="icon" variant="ghost" className="flex-shrink-0" onClick={() => remove(i)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ))}
       </div>

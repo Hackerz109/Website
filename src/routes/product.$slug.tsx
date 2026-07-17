@@ -76,6 +76,14 @@ function ProductPage() {
   const stock = hasVariants ? selectedVariant?.stock ?? 0 : product?.stock ?? 0;
   const canAdd = hasVariants ? !!selectedVariant && stock > 0 : stock > 0;
 
+  const hasDiscount = !hasVariants && !!product?.mrp_cents && product.mrp_cents > (product?.price_cents ?? 0);
+  const discountPct = hasDiscount
+    ? Math.round(((product!.mrp_cents! - product!.price_cents) / product!.mrp_cents!) * 100)
+    : 0;
+  const specs = Array.isArray(product?.specifications)
+    ? (product!.specifications as { key: string; value: string }[]).filter((s) => s.key || s.value)
+    : [];
+
   const [qty, setQtyState] = useState(1);
   // Keep quantity within [1, stock] whenever the selected variant (or its stock) changes
   useEffect(() => {
@@ -146,10 +154,19 @@ function ProductPage() {
                 </p>
               )}
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight">{product.name}</h1>
-              <p className="mt-3 text-2xl font-bold">{formatMoney(price, product.currency)}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <p className="text-2xl font-bold">{formatMoney(price, product.currency)}</p>
+                {hasDiscount && (
+                  <>
+                    <p className="text-sm text-muted-foreground line-through">{formatMoney(product.mrp_cents!, product.currency)}</p>
+                    <p className="text-sm font-semibold text-green-600">{discountPct}% off</p>
+                  </>
+                )}
+              </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {stock > 0 ? `${stock} in stock` : "Sold out"}
                 {hasVariants && selectedVariant?.sku ? ` · SKU ${selectedVariant.sku}` : ""}
+                {!hasVariants && product.sku ? ` · SKU ${product.sku}` : ""}
               </p>
 
               <div className="my-6 h-px bg-border" />
@@ -181,6 +198,30 @@ function ProductPage() {
                 <p className="mt-6 whitespace-pre-wrap text-sm text-muted-foreground">
                   {product.description}
                 </p>
+              )}
+
+              {specs.length > 0 && (
+                <div className="mt-6">
+                  <p className="mb-2 text-sm font-semibold">Specifications</p>
+                  <div className="overflow-hidden rounded-xl border border-border">
+                    {specs.map((s, i) => (
+                      <div
+                        key={i}
+                        className={`flex justify-between gap-4 px-4 py-2 text-sm ${i % 2 === 1 ? "bg-secondary/40" : ""}`}
+                      >
+                        <span className="text-muted-foreground">{s.key}</span>
+                        <span className="text-right font-medium">{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {product.warranty && (
+                <div className="mt-6 rounded-xl border border-border bg-secondary/30 p-4">
+                  <p className="text-sm font-semibold">Warranty & policy</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{product.warranty}</p>
+                </div>
               )}
 
               {canAdd && (
