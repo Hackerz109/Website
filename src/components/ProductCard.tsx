@@ -30,6 +30,13 @@ export function ProductCard({ product }: { product: Product }) {
     priceLabel = formatMoney(product.price_cents, product.currency);
   }
 
+  // MRP comparison only applies cleanly to simple (non-variant) products —
+  // a single "was/now" line doesn't make sense once prices vary by option.
+  const hasDiscount = variants.length === 0 && !!product.mrp_cents && product.mrp_cents > product.price_cents;
+  const discountPct = hasDiscount
+    ? Math.round(((product.mrp_cents! - product.price_cents) / product.mrp_cents!) * 100)
+    : 0;
+
   return (
     <Link
       to="/product/$slug"
@@ -65,7 +72,15 @@ export function ProductCard({ product }: { product: Product }) {
           <p className="text-[11px] font-medium text-primary">{product.categories.name}</p>
         )}
         <h3 className="mt-0.5 truncate text-sm font-medium text-foreground">{product.name}</h3>
-        <p className="mt-1 text-base font-bold text-foreground">{priceLabel}</p>
+        <div className="mt-1 flex items-center gap-1.5">
+          <p className="text-base font-bold text-foreground">{priceLabel}</p>
+          {hasDiscount && (
+            <>
+              <p className="text-xs text-muted-foreground line-through">{formatMoney(product.mrp_cents!, product.currency)}</p>
+              <p className="text-xs font-semibold text-green-600">{discountPct}% off</p>
+            </>
+          )}
+        </div>
       </div>
     </Link>
   );
