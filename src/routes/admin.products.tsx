@@ -34,6 +34,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { formatMoney } from "@/stores/cart";
 import { TaxonomySelect } from "@/components/TaxonomySelect";
+import { SmartSpecImporter } from "@/components/SmartSpecImporter";
+import type { ParsedSpec } from "@/lib/parseSmartSpecifications";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type Variant = Database["public"]["Tables"]["product_variants"]["Row"];
@@ -867,17 +869,36 @@ function SpecificationsEditor({
     onChange(specs.filter((_, idx) => idx !== i));
   }
 
+  function handleSmartImport(imported: ParsedSpec[]) {
+    // Merge on key (case-insensitive): update the value if the spec already
+    // exists, otherwise append it as a new row.
+    const next = [...specs];
+    for (const { key, value } of imported) {
+      const existingIndex = next.findIndex((s) => s.key.trim().toLowerCase() === key.trim().toLowerCase());
+      if (existingIndex >= 0) {
+        next[existingIndex] = { key: next[existingIndex].key, value };
+      } else {
+        next.push({ key, value });
+      }
+    }
+    onChange(next);
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between">
         <Label>Specifications</Label>
-        <Button type="button" size="sm" variant="outline" onClick={add}>
-          <Plus className="mr-1 h-3 w-3" /> Add row
-        </Button>
+        <div className="flex gap-2">
+          <SmartSpecImporter onImport={handleSmartImport} />
+          <Button type="button" size="sm" variant="outline" onClick={add}>
+            <Plus className="mr-1 h-3 w-3" /> Add row
+          </Button>
+        </div>
       </div>
       {specs.length === 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          e.g. Voltage — 220V, Material — Copper, Wattage — 60W
+          e.g. Voltage — 220V, Material — Copper, Wattage — 60W. Or paste a spec sheet with{" "}
+          <span className="font-medium text-foreground">Smart import</span> above.
         </p>
       )}
       <div className="mt-2 space-y-2">
