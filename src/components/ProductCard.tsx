@@ -5,6 +5,8 @@ import { formatMoney } from "@/stores/cart";
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   product_images?: { url: string; is_primary: boolean }[];
   product_variants?: { price_cents: number; stock: number }[];
+  categories?: { name: string } | null;
+  brands?: { name: string } | null;
 };
 
 export function ProductCard({ product }: { product: Product }) {
@@ -59,8 +61,8 @@ export function ProductCard({ product }: { product: Product }) {
         )}
       </div>
       <div className="mt-3">
-        {product.category && (
-          <p className="text-[11px] font-medium text-primary">{product.category}</p>
+        {product.categories?.name && (
+          <p className="text-[11px] font-medium text-primary">{product.categories.name}</p>
         )}
         <h3 className="mt-0.5 truncate text-sm font-medium text-foreground">{product.name}</h3>
         <p className="mt-1 text-base font-bold text-foreground">{priceLabel}</p>

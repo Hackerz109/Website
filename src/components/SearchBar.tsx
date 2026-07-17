@@ -34,11 +34,23 @@ export function SearchBar({
     queryKey: ["search-preview", debounced],
     queryFn: async () => {
       const term = `%${debounced}%`;
+
+      const [{ data: matchedCategories }, { data: matchedBrands }] = await Promise.all([
+        supabase.from("categories").select("id").ilike("name", term),
+        supabase.from("brands").select("id").ilike("name", term),
+      ]);
+      const categoryIds = (matchedCategories ?? []).map((c) => c.id);
+      const brandIds = (matchedBrands ?? []).map((b) => b.id);
+
+      const orParts = [`name.ilike.${term}`, `description.ilike.${term}`];
+      if (categoryIds.length > 0) orParts.push(`category_id.in.(${categoryIds.join(",")})`);
+      if (brandIds.length > 0) orParts.push(`brand_id.in.(${brandIds.join(",")})`);
+
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price_cents, currency, category, image_url, product_images(url, is_primary), product_variants(price_cents, stock)")
+        .select("id, name, slug, price_cents, currency, image_url, product_images(url, is_primary), product_variants(price_cents, stock), categories(name)")
         .eq("active", true)
-        .or(`name.ilike.${term},category.ilike.${term},brand.ilike.${term},description.ilike.${term}`)
+        .or(orParts.join(","))
         .limit(6);
       if (error) throw error;
       return data;
@@ -134,8 +146,8 @@ export function SearchBar({
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{p.name}</p>
-                          {p.category && (
-                            <p className="truncate text-xs text-muted-foreground">{p.category}</p>
+                          {p.categories?.name && (
+                            <p className="truncate text-xs text-muted-foreground">{p.categories.name}</p>
                           )}
                         </div>
                         <p className="flex-shrink-0 text-sm font-semibold">
