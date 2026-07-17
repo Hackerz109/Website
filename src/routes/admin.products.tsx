@@ -9,6 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -46,10 +53,30 @@ const empty = {
   stock: "0",
   image_url: "",
   warranty: "",
+  warranty_available: false,
+  warranty_type: null as Database["public"]["Enums"]["warranty_type"] | null,
+  warranty_duration: "",
+  warranty_provider: "",
+  warranty_service_method: null as Database["public"]["Enums"]["warranty_service_method"] | null,
+  warranty_notes: "",
   specifications: [] as { key: string; value: string }[],
   active: true,
   featured: false,
 };
+
+const WARRANTY_TYPE_OPTIONS: { value: Database["public"]["Enums"]["warranty_type"]; label: string }[] = [
+  { value: "manufacturer", label: "Manufacturer Warranty" },
+  { value: "seller", label: "Seller Warranty" },
+  { value: "extended", label: "Extended Warranty" },
+];
+
+const SERVICE_METHOD_OPTIONS: { value: Database["public"]["Enums"]["warranty_service_method"]; label: string }[] = [
+  { value: "home_service", label: "Home Service" },
+  { value: "authorized_service_center", label: "Authorized Service Center" },
+  { value: "bring_to_store", label: "Bring to Store" },
+  { value: "carry_in_service", label: "Carry-in Service" },
+  { value: "on_site_service", label: "On-site Service" },
+];
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -120,6 +147,12 @@ function AdminProducts() {
       stock: p.stock.toString(),
       image_url: p.image_url ?? "",
       warranty: p.warranty ?? "",
+      warranty_available: p.warranty_available ?? false,
+      warranty_type: p.warranty_type ?? null,
+      warranty_duration: p.warranty_duration ?? "",
+      warranty_provider: p.warranty_provider ?? "",
+      warranty_service_method: p.warranty_service_method ?? null,
+      warranty_notes: p.warranty_notes ?? "",
       specifications: Array.isArray(p.specifications)
         ? (p.specifications as { key: string; value: string }[])
         : [],
@@ -156,6 +189,12 @@ function AdminProducts() {
       stock,
       image_url: form.image_url || null,
       warranty: form.warranty || null,
+      warranty_available: form.warranty_available,
+      warranty_type: form.warranty_available ? form.warranty_type : null,
+      warranty_duration: form.warranty_available ? form.warranty_duration || null : null,
+      warranty_provider: form.warranty_available ? form.warranty_provider || null : null,
+      warranty_service_method: form.warranty_available ? form.warranty_service_method : null,
+      warranty_notes: form.warranty_available ? form.warranty_notes || null : null,
       specifications: cleanSpecs,
       active: form.active,
       featured: form.featured,
@@ -382,9 +421,99 @@ function AdminProducts() {
             <p className="-mt-2 text-xs text-muted-foreground">
               Price, MRP, stock & SKU above are used only if this product has no variants (see below).
             </p>
-            <div>
-              <Label>Warranty / policy</Label>
+            <div className="rounded-xl border border-border p-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.warranty_available}
+                  onCheckedChange={(v) => setForm({ ...form, warranty_available: v })}
+                />
+                <Label>Warranty available</Label>
+              </div>
+              {!form.warranty_available ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  The product page will show "No Warranty".
+                </p>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label>Warranty type</Label>
+                      <Select
+                        value={form.warranty_type ?? undefined}
+                        onValueChange={(v) =>
+                          setForm({ ...form, warranty_type: v as Database["public"]["Enums"]["warranty_type"] })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {WARRANTY_TYPE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Warranty duration</Label>
+                      <Input
+                        placeholder="e.g. 1 Year"
+                        value={form.warranty_duration}
+                        onChange={(e) => setForm({ ...form, warranty_duration: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label>Warranty provider</Label>
+                      <Input
+                        placeholder="e.g. SummerCool"
+                        value={form.warranty_provider}
+                        onChange={(e) => setForm({ ...form, warranty_provider: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Service method</Label>
+                      <Select
+                        value={form.warranty_service_method ?? undefined}
+                        onValueChange={(v) =>
+                          setForm({
+                            ...form,
+                            warranty_service_method: v as Database["public"]["Enums"]["warranty_service_method"],
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select service method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SERVICE_METHOD_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Warranty notes</Label>
+                    <Textarea
+                      placeholder="e.g. Original purchase invoice required."
+                      value={form.warranty_notes}
+                      onChange={(e) => setForm({ ...form, warranty_notes: e.target.value })}
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )}
+              <p className="mt-3 text-xs text-muted-foreground">
+                Legacy free-text warranty note (only shown if the fields above are left off):
+              </p>
               <Textarea
+                className="mt-1"
                 placeholder="e.g. 1 year manufacturer warranty. No returns on used items."
                 value={form.warranty}
                 onChange={(e) => setForm({ ...form, warranty: e.target.value })}

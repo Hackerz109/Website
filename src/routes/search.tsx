@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { SearchX, ShoppingBag } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
+import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { SearchBar } from "@/components/SearchBar";
 import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
@@ -123,6 +124,7 @@ function SearchPage() {
           )}
         </div>
       </div>
+      <StoreFooter />
     </div>
   );
 }

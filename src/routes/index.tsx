@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
+import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { BrandsStrip } from "@/components/BrandsStrip";
 import { Button } from "@/components/ui/button";
@@ -46,8 +47,8 @@ function Index() {
               <span className="text-primary">done right.</span>
             </h1>
             <p className="mt-5 max-w-md text-base text-muted-foreground md:text-lg">
-              Switches, fans, wires, and fittings — one shop, real-time stock, and checkout in
-              under a minute.
+              Switches, fans, wiring, and fittings from brands you can trust — with clear
+              stock levels, honest warranty details, and a checkout that takes minutes.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg" className="rounded-xl shadow-soft">
@@ -81,9 +82,9 @@ function Index() {
       <section className="border-y border-border bg-card">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-10 md:grid-cols-3">
           {[
-            { icon: PackageCheck, title: "Live stock counts", desc: "Know what's in stock before you order" },
-            { icon: Zap, title: "Every category", desc: "Wires, switches, fans, fittings & more" },
-            { icon: ShieldCheck, title: "Secure checkout", desc: "Encrypted payment on every order" },
+            { icon: PackageCheck, title: "Real-time stock", desc: "See exactly what's available before you order" },
+            { icon: Zap, title: "Every category", desc: "Wiring, switches, fans, fittings & more" },
+            { icon: ShieldCheck, title: "Secure, worry-free checkout", desc: "Encrypted payment and clear warranty details on every order" },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="flex items-start gap-3 rounded-2xl border border-border bg-background p-4 shadow-soft">
               <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
@@ -126,9 +127,10 @@ function Index() {
         ) : products.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-16 text-center">
             <ShoppingBag className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">No products yet</h3>
+            <h3 className="text-lg font-semibold">New arrivals on the way</h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Sign in as admin and add your first product from the dashboard.
+              We're setting up the shelves. Check back soon, or sign in as admin to add
+              your first product from the dashboard.
             </p>
           </div>
         ) : (
@@ -140,19 +142,7 @@ function Index() {
         )}
       </section>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-10 md:flex-row md:items-center">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Zap className="h-3.5 w-3.5 fill-current" />
-            </span>
-            <p className="font-display text-sm font-bold">My Shop</p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} My Shop — All rights reserved
-          </p>
-        </div>
-      </footer>
+      <StoreFooter />
     </div>
   );
 }

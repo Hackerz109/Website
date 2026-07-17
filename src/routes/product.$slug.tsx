@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ShoppingBag, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
+import { StoreFooter } from "@/components/StoreFooter";
+import { WarrantyCard } from "@/components/WarrantyCard";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, formatMoney } from "@/stores/cart";
@@ -217,12 +219,7 @@ function ProductPage() {
                 </div>
               )}
 
-              {product.warranty && (
-                <div className="mt-6 rounded-xl border border-border bg-secondary/30 p-4">
-                  <p className="text-sm font-semibold">Warranty & policy</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{product.warranty}</p>
-                </div>
-              )}
+              <WarrantyCard product={product} />
 
               {canAdd && (
                 <div className="mt-6 flex items-center gap-3">
@@ -284,6 +281,7 @@ function ProductPage() {
           </div>
         )}
       </div>
+      <StoreFooter />
     </div>
   );
 }

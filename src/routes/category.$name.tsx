@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, PackageSearch } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
+import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
 import { supabase } from "@/integrations/supabase/client";
@@ -105,6 +106,7 @@ function CategoryPage() {
           )}
         </div>
       </div>
+      <StoreFooter />
     </div>
   );
 }
