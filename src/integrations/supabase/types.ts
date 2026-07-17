@@ -214,11 +214,50 @@ export type Database = {
           },
         ]
       }
+      brands: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active: boolean
-          brand: string | null
-          category: string | null
+          brand_id: string | null
+          category_id: string | null
           created_at: string
           currency: string
           description: string | null
@@ -233,8 +272,8 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          brand?: string | null
-          category?: string | null
+          brand_id?: string | null
+          category_id?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -249,8 +288,8 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          brand?: string | null
-          category?: string | null
+          brand_id?: string | null
+          category_id?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -263,7 +302,22 @@ export type Database = {
           stock?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
