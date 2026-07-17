@@ -53,15 +53,15 @@ function AdminLayout() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center gap-2">
             <LayoutDashboard className="h-5 w-5" />
             <span className="font-semibold">Admin</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button asChild variant="ghost" size="sm">
               <Link to="/">
-                <ExternalLink className="mr-2 h-4 w-4" /> View store
+                <ExternalLink className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">View store</span>
               </Link>
             </Button>
             <Button
@@ -72,14 +72,15 @@ function AdminLayout() {
                 navigate({ to: "/" });
               }}
             >
-              <LogOut className="mr-2 h-4 w-4" /> Sign out
+              <LogOut className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Sign out</span>
             </Button>
           </div>
         </div>
       </header>
-      <div className="mx-auto flex max-w-7xl gap-8 px-6 py-8">
-        <aside className="w-56 flex-shrink-0">
-          <nav className="space-y-1">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 sm:py-8 md:flex-row md:gap-8">
+        {/* Mobile: horizontal scrollable tab strip. Desktop: vertical sidebar. */}
+        <aside className="-mx-4 flex-shrink-0 border-b px-4 pb-3 sm:-mx-6 sm:px-6 md:mx-0 md:w-56 md:border-b-0 md:px-0 md:pb-0">
+          <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
             {nav.map((n) => {
               const active = n.exact ? location.pathname === n.to : location.pathname.startsWith(n.to);
               return (
@@ -87,7 +88,7 @@ function AdminLayout() {
                   key={n.to}
                   to={n.to}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                    "flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm",
                     active ? "bg-secondary font-medium" : "text-muted-foreground hover:bg-secondary/60",
                   )}
                 >
@@ -97,7 +98,7 @@ function AdminLayout() {
             })}
           </nav>
         </aside>
-        <main className="flex-1 min-w-0">
+        <main className="min-w-0 flex-1">
           <Outlet />
         </main>
       </div>

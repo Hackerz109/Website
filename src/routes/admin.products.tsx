@@ -375,7 +375,7 @@ function AdminProducts() {
               <Label>Description</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <TaxonomySelect
                 table="categories"
                 label="Category"
@@ -389,7 +389,7 @@ function AdminProducts() {
                 onChange={(id) => setForm({ ...form, brand: id })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>Price (INR)</Label>
                 <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
@@ -399,7 +399,7 @@ function AdminProducts() {
                 <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>MRP (INR)</Label>
                 <Input
