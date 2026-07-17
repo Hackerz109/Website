@@ -41,7 +41,7 @@ function ProductPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_images(id, url, is_primary, sort_order), product_variants(id, name, price_cents, stock, sku, sort_order)")
+        .select("*, product_images(id, url, is_primary, sort_order), product_variants(id, name, price_cents, stock, sku, sort_order), categories(name, slug), brands(name)")
         .eq("slug", slug)
         .eq("active", true)
         .maybeSingle();
@@ -130,17 +130,17 @@ function ProductPage() {
               )}
             </div>
             <div>
-              {(product.brand || product.category) && (
+              {(product.brands?.name || product.categories?.name) && (
                 <p className="text-xs font-semibold text-primary">
-                  {product.brand}
-                  {product.brand && product.category ? " · " : ""}
-                  {product.category && (
+                  {product.brands?.name}
+                  {product.brands?.name && product.categories?.name ? " · " : ""}
+                  {product.categories?.name && (
                     <Link
                       to="/category/$name"
-                      params={{ name: product.category }}
+                      params={{ name: product.categories.slug }}
                       className="hover:underline"
                     >
-                      {product.category}
+                      {product.categories.name}
                     </Link>
                   )}
                 </p>

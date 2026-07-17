@@ -26,6 +26,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { formatMoney } from "@/stores/cart";
+import { TaxonomySelect } from "@/components/TaxonomySelect";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type Variant = Database["public"]["Tables"]["product_variants"]["Row"];
@@ -37,8 +38,8 @@ const empty = {
   name: "",
   slug: "",
   description: "",
-  category: "",
-  brand: "",
+  category: null as string | null,
+  brand: null as string | null,
   price: "",
   stock: "0",
   image_url: "",
@@ -68,7 +69,7 @@ function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_variants(price_cents, stock)")
+        .select("*, product_variants(price_cents, stock), categories(name), brands(name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -107,8 +108,8 @@ function AdminProducts() {
       name: p.name,
       slug: p.slug,
       description: p.description ?? "",
-      category: p.category ?? "",
-      brand: p.brand ?? "",
+      category: p.category_id ?? null,
+      brand: p.brand_id ?? null,
       price: (p.price_cents / 100).toString(),
       stock: p.stock.toString(),
       image_url: p.image_url ?? "",
@@ -127,8 +128,8 @@ function AdminProducts() {
       name: form.name,
       slug: form.slug || slugify(form.name),
       description: form.description || null,
-      category: form.category || null,
-      brand: form.brand || null,
+      category_id: form.category || null,
+      brand_id: form.brand || null,
       price_cents,
       stock,
       image_url: form.image_url || null,
@@ -189,7 +190,7 @@ function AdminProducts() {
                   {p.featured && <Star className="h-3 w-3 flex-shrink-0 fill-current text-amber-500" />}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  /{p.slug}{p.category ? ` · ${p.category}` : ""}
+                  /{p.slug}{p.categories?.name ? ` · ${p.categories.name}` : ""}
                 </p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <span className="font-medium">{priceDisplay(p)}</span>
@@ -249,7 +250,7 @@ function AdminProducts() {
                         {p.featured && <Star className="h-3 w-3 fill-current text-amber-500" />}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        /{p.slug}{p.category ? ` · ${p.category}` : ""}
+                        /{p.slug}{p.categories?.name ? ` · ${p.categories.name}` : ""}
                       </p>
                     </div>
                   </div>
@@ -310,14 +311,18 @@ function AdminProducts() {
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Category</Label>
-                <Input value={form.category} placeholder="e.g. Cables" onChange={(e) => setForm({ ...form, category: e.target.value })} />
-              </div>
-              <div>
-                <Label>Brand</Label>
-                <Input value={form.brand} placeholder="e.g. Acme" onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-              </div>
+              <TaxonomySelect
+                table="categories"
+                label="Category"
+                value={form.category}
+                onChange={(id) => setForm({ ...form, category: id })}
+              />
+              <TaxonomySelect
+                table="brands"
+                label="Brand"
+                value={form.brand}
+                onChange={(id) => setForm({ ...form, brand: id })}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

@@ -1,31 +1,51 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, PackageSearch } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { ProductCard } from "@/components/ProductCard";
+import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/category/$name")({ component: CategoryPage });
+export const Route = createFileRoute("/category/$name")({
+  component: CategoryPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    sort: (typeof search.sort === "string" ? search.sort : "featured") as SortOption,
+    brand: typeof search.brand === "string" ? search.brand : null,
+  }),
+});
 
 function CategoryPage() {
-  const { name } = Route.useParams();
+  const { name: slug } = Route.useParams();
+  const { sort, brand } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+
+  const { data: category } = useQuery({
+    queryKey: ["category-meta", slug],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categories").select("id, name").eq("slug", slug).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["category-products", name],
+    enabled: !!category,
+    queryKey: ["category-products", slug, sort, brand],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("products")
-        .select("*, product_images(url, is_primary), product_variants(price_cents, stock)")
+        .select("*, product_images(url, is_primary), product_variants(price_cents, stock), categories(name, slug), brands(name)")
         .eq("active", true)
-        .eq("category", name)
-        .order("featured", { ascending: false })
-        .order("created_at", { ascending: false });
+        .eq("category_id", category!.id);
+      query = applySortAndFilter(query, sort, null, brand);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
   });
 
   const products = data ?? [];
+  const categoryName = category?.name ?? slug;
 
   return (
     <div className="min-h-screen bg-background">
@@ -39,13 +59,24 @@ function CategoryPage() {
         </Link>
 
         <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
-          {name}
+          {categoryName}
         </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {isLoading
-            ? "Loading…"
-            : `${products.length} product${products.length !== 1 ? "s" : ""} in this category`}
-        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            {isLoading
+              ? "Loading…"
+              : `${products.length} product${products.length !== 1 ? "s" : ""} in this category`}
+          </p>
+          <ProductFilters
+            sort={sort}
+            onSortChange={(v) => navigate({ search: (prev) => ({ ...prev, sort: v }) })}
+            categoryId={null}
+            onCategoryChange={() => {}}
+            brandId={brand}
+            onBrandChange={(v) => navigate({ search: (prev) => ({ ...prev, brand: v }) })}
+            showCategoryFilter={false}
+          />
+        </div>
 
         <div className="mt-10">
           {isLoading ? (
@@ -62,7 +93,7 @@ function CategoryPage() {
               <PackageSearch className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
               <h3 className="text-lg font-semibold">No products here yet</h3>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                Nothing is currently listed under "{name}".
+                Nothing is currently listed under "{categoryName}".
               </p>
             </div>
           ) : (

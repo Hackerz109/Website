@@ -4,6 +4,7 @@ import { SearchX, ShoppingBag } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { ProductCard } from "@/components/ProductCard";
 import { SearchBar } from "@/components/SearchBar";
+import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
 import { supabase } from "@/integrations/supabase/client";
 
 function sanitize(q: string) {
@@ -14,24 +15,42 @@ export const Route = createFileRoute("/search")({
   component: SearchPage,
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === "string" ? search.q : "",
+    sort: (typeof search.sort === "string" ? search.sort : "featured") as SortOption,
+    category: typeof search.category === "string" ? search.category : null,
+    brand: typeof search.brand === "string" ? search.brand : null,
   }),
 });
 
 function SearchPage() {
-  const { q } = Route.useSearch();
+  const { q, sort, category, brand } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const term = sanitize(q);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["search-results", term],
+    queryKey: ["search-results", term, sort, category, brand],
     queryFn: async () => {
       const like = `%${term}%`;
-      const { data, error } = await supabase
+
+      // category/brand are now separate tables, not text columns on products —
+      // resolve any name matches to ids first so they still count as hits.
+      const [{ data: matchedCategories }, { data: matchedBrands }] = await Promise.all([
+        supabase.from("categories").select("id").ilike("name", like),
+        supabase.from("brands").select("id").ilike("name", like),
+      ]);
+      const categoryIds = (matchedCategories ?? []).map((c) => c.id);
+      const brandIds = (matchedBrands ?? []).map((b) => b.id);
+
+      const orParts = [`name.ilike.${like}`, `description.ilike.${like}`];
+      if (categoryIds.length > 0) orParts.push(`category_id.in.(${categoryIds.join(",")})`);
+      if (brandIds.length > 0) orParts.push(`brand_id.in.(${brandIds.join(",")})`);
+
+      let query = supabase
         .from("products")
-        .select("*, product_images(url, is_primary), product_variants(price_cents, stock)")
+        .select("*, product_images(url, is_primary), product_variants(price_cents, stock), categories(name, slug), brands(name)")
         .eq("active", true)
-        .or(`name.ilike.${like},category.ilike.${like},brand.ilike.${like},description.ilike.${like}`)
-        .order("featured", { ascending: false })
-        .order("created_at", { ascending: false });
+        .or(orParts.join(","));
+      query = applySortAndFilter(query, sort, category, brand);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -58,6 +77,19 @@ function SearchPage() {
         <div className="mt-6 max-w-lg">
           <SearchBar />
         </div>
+
+        {term && (
+          <div className="mt-6">
+            <ProductFilters
+              sort={sort}
+              onSortChange={(v) => navigate({ search: (prev) => ({ ...prev, sort: v }) })}
+              categoryId={category}
+              onCategoryChange={(v) => navigate({ search: (prev) => ({ ...prev, category: v }) })}
+              brandId={brand}
+              onBrandChange={(v) => navigate({ search: (prev) => ({ ...prev, brand: v }) })}
+            />
+          </div>
+        )}
 
         <div className="mt-10">
           {isLoading ? (
