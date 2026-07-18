@@ -550,6 +550,36 @@ export type Database = {
           visibility: Database["public"]["Enums"]["coupon_visibility"]
         }[]
       }
+      get_offers_for_product: {
+        Args: {
+          p_product_id: string
+          p_category_id: string | null
+          p_brand_id: string | null
+        }
+        Returns: {
+          code: string
+          description: string | null
+          discount_type: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value: number
+          max_discount_cents: number | null
+          min_order_cents: number | null
+          visibility: Database["public"]["Enums"]["coupon_visibility"]
+        }[]
+      }
+      get_offers_for_cart: {
+        Args: {
+          p_items: Json
+        }
+        Returns: {
+          code: string
+          description: string | null
+          discount_type: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value: number
+          max_discount_cents: number | null
+          min_order_cents: number | null
+          visibility: Database["public"]["Enums"]["coupon_visibility"]
+        }[]
+      }
       validate_coupon: {
         Args: {
           p_code: string
