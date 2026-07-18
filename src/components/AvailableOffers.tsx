@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Ticket } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { fetchOffersForProduct, describeCoupon, type VisibleCoupon } from "@/lib/coupons";
 
 /**
- * Surfaces "visible" coupons that actually apply to this product — based on
- * its category/brand and any specific product/category/brand targeting or
- * exclusions on the coupon. The same eligibility check runs again at
+ * Surfaces "visible" coupons that actually apply to this product AND to
+ * this specific shopper — category/brand/product targeting, exclusions,
+ * and eligibility rules (first order, logged-in only, new/existing
+ * customer, usage limits) are all checked. The same rules run again at
  * checkout, so what's shown here always matches what will actually work.
  */
 export function AvailableOffers({
@@ -17,13 +19,14 @@ export function AvailableOffers({
   categoryId: string | null;
   brandId: string | null;
 }) {
+  const { user } = useAuth();
   const [coupons, setCoupons] = useState<VisibleCoupon[]>([]);
 
   useEffect(() => {
-    fetchOffersForProduct(productId, categoryId, brandId).then((all) =>
+    fetchOffersForProduct(productId, categoryId, brandId, user?.id ?? null).then((all) =>
       setCoupons(all.filter((c) => c.visibility === "visible")),
     );
-  }, [productId, categoryId, brandId]);
+  }, [productId, categoryId, brandId, user?.id]);
 
   if (coupons.length === 0) return null;
 
