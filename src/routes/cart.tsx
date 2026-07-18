@@ -44,10 +44,10 @@ function CartPage() {
       setSuggested([]);
       return;
     }
-    fetchOffersForCart(items).then(setSuggested);
+    fetchOffersForCart(items, user?.id ?? null).then(setSuggested);
     // Re-run whenever the set of products/quantities in the cart changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.map((i) => `${i.id}:${i.quantity}`).join(",")]);
+  }, [items.map((i) => `${i.id}:${i.quantity}`).join(","), user?.id]);
 
   // Try auto-apply coupons once the cart has items, without overriding a
   // coupon the shopper already applied themselves.

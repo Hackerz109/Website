@@ -5,6 +5,7 @@ import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { BrandsStrip } from "@/components/BrandsStrip";
+import { CouponShowcase } from "@/components/CouponShowcase";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -78,6 +79,8 @@ function Index() {
           </div>
         </div>
       </section>
+
+      <CouponShowcase />
 
       <section className="border-y border-border bg-card">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-10 md:grid-cols-3">
