@@ -12,6 +12,8 @@ export type CartItem = {
   variantId: string | null;
   variantName: string | null;
   sku: string | null;
+  category_id: string | null;
+  brand_id: string | null;
 };
 
 // A cart "line" is identified by product + variant together, since the same
@@ -61,7 +63,20 @@ export const useCart = create<CartState>()(
         })),
       clear: () => set({ items: [] }),
     }),
-    { name: "shop-cart", version: 2 },
+    {
+      name: "shop-cart",
+      version: 3,
+      migrate: (persisted: any, version) => {
+        if (version < 3 && persisted?.items) {
+          persisted.items = persisted.items.map((i: any) => ({
+            category_id: null,
+            brand_id: null,
+            ...i,
+          }));
+        }
+        return persisted;
+      },
+    },
   ),
 );
 
