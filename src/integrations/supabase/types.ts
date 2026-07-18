@@ -77,10 +77,12 @@ export type Database = {
       }
       orders: {
         Row: {
+          coupon_code: string | null
           created_at: string
           currency: string
           customer_email: string
           customer_name: string | null
+          discount_cents: number
           id: string
           notes: string | null
           paid_at: string | null
@@ -96,10 +98,12 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          coupon_code?: string | null
           created_at?: string
           currency?: string
           customer_email: string
           customer_name?: string | null
+          discount_cents?: number
           id?: string
           notes?: string | null
           paid_at?: string | null
@@ -115,10 +119,12 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          coupon_code?: string | null
           created_at?: string
           currency?: string
           customer_email?: string
           customer_name?: string | null
+          discount_cents?: number
           id?: string
           notes?: string | null
           paid_at?: string | null
@@ -134,6 +140,138 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      coupons: {
+        Row: {
+          id: string
+          code: string
+          description: string | null
+          discount_type: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value: number
+          max_discount_cents: number | null
+          visibility: Database["public"]["Enums"]["coupon_visibility"]
+          active: boolean
+          min_order_cents: number | null
+          max_order_cents: number | null
+          first_order_only: boolean
+          login_required: boolean
+          customer_type: Database["public"]["Enums"]["coupon_customer_type"]
+          eligible_product_ids: string[]
+          eligible_category_ids: string[]
+          eligible_brand_ids: string[]
+          excluded_product_ids: string[]
+          excluded_category_ids: string[]
+          excluded_brand_ids: string[]
+          stackable: boolean
+          valid_from: string | null
+          valid_until: string | null
+          usage_limit: number | null
+          usage_limit_per_customer: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          description?: string | null
+          discount_type?: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value?: number
+          max_discount_cents?: number | null
+          visibility?: Database["public"]["Enums"]["coupon_visibility"]
+          active?: boolean
+          min_order_cents?: number | null
+          max_order_cents?: number | null
+          first_order_only?: boolean
+          login_required?: boolean
+          customer_type?: Database["public"]["Enums"]["coupon_customer_type"]
+          eligible_product_ids?: string[]
+          eligible_category_ids?: string[]
+          eligible_brand_ids?: string[]
+          excluded_product_ids?: string[]
+          excluded_category_ids?: string[]
+          excluded_brand_ids?: string[]
+          stackable?: boolean
+          valid_from?: string | null
+          valid_until?: string | null
+          usage_limit?: number | null
+          usage_limit_per_customer?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          description?: string | null
+          discount_type?: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value?: number
+          max_discount_cents?: number | null
+          visibility?: Database["public"]["Enums"]["coupon_visibility"]
+          active?: boolean
+          min_order_cents?: number | null
+          max_order_cents?: number | null
+          first_order_only?: boolean
+          login_required?: boolean
+          customer_type?: Database["public"]["Enums"]["coupon_customer_type"]
+          eligible_product_ids?: string[]
+          eligible_category_ids?: string[]
+          eligible_brand_ids?: string[]
+          excluded_product_ids?: string[]
+          excluded_category_ids?: string[]
+          excluded_brand_ids?: string[]
+          stackable?: boolean
+          valid_from?: string | null
+          valid_until?: string | null
+          usage_limit?: number | null
+          usage_limit_per_customer?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      coupon_redemptions: {
+        Row: {
+          id: string
+          coupon_id: string
+          order_id: string
+          user_id: string | null
+          discount_cents: number
+          order_total_cents: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          coupon_id: string
+          order_id: string
+          user_id?: string | null
+          discount_cents?: number
+          order_total_cents?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          coupon_id?: string
+          order_id?: string
+          user_id?: string | null
+          discount_cents?: number
+          order_total_cents?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_images: {
         Row: {
@@ -400,6 +538,35 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_visible_coupons: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          code: string
+          description: string | null
+          discount_type: Database["public"]["Enums"]["coupon_discount_type"]
+          discount_value: number
+          max_discount_cents: number | null
+          min_order_cents: number | null
+          visibility: Database["public"]["Enums"]["coupon_visibility"]
+        }[]
+      }
+      validate_coupon: {
+        Args: {
+          p_code: string
+          p_user_id: string | null
+          p_items: Json
+        }
+        Returns: Json
+      }
+      get_coupon_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          coupon_id: string
+          usage_count: number
+          total_discount_cents: number
+          revenue_cents: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "customer"
@@ -418,6 +585,9 @@ export type Database = {
         | "bring_to_store"
         | "carry_in_service"
         | "on_site_service"
+      coupon_discount_type: "percentage" | "fixed" | "free_shipping"
+      coupon_visibility: "visible" | "hidden" | "auto_apply"
+      coupon_customer_type: "any" | "new" | "existing"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -563,6 +733,9 @@ export const Constants = {
         "carry_in_service",
         "on_site_service",
       ],
+      coupon_discount_type: ["percentage", "fixed", "free_shipping"],
+      coupon_visibility: ["visible", "hidden", "auto_apply"],
+      coupon_customer_type: ["any", "new", "existing"],
     },
   },
 } as const
