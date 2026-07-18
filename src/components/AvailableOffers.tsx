@@ -1,19 +1,29 @@
 import { useEffect, useState } from "react";
 import { Ticket } from "lucide-react";
-import { fetchVisibleCoupons, describeCoupon, type VisibleCoupon } from "@/lib/coupons";
+import { fetchOffersForProduct, describeCoupon, type VisibleCoupon } from "@/lib/coupons";
 
 /**
- * Surfaces "visible" coupons so shoppers see them before they even reach
- * checkout. Exact eligibility (which products/categories a coupon covers)
- * is always the final call of validate_coupon() at checkout — this is just
- * a heads-up, not a guarantee.
+ * Surfaces "visible" coupons that actually apply to this product — based on
+ * its category/brand and any specific product/category/brand targeting or
+ * exclusions on the coupon. The same eligibility check runs again at
+ * checkout, so what's shown here always matches what will actually work.
  */
-export function AvailableOffers() {
+export function AvailableOffers({
+  productId,
+  categoryId,
+  brandId,
+}: {
+  productId: string;
+  categoryId: string | null;
+  brandId: string | null;
+}) {
   const [coupons, setCoupons] = useState<VisibleCoupon[]>([]);
 
   useEffect(() => {
-    fetchVisibleCoupons().then((all) => setCoupons(all.filter((c) => c.visibility === "visible")));
-  }, []);
+    fetchOffersForProduct(productId, categoryId, brandId).then((all) =>
+      setCoupons(all.filter((c) => c.visibility === "visible")),
+    );
+  }, [productId, categoryId, brandId]);
 
   if (coupons.length === 0) return null;
 
