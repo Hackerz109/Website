@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { WarrantyCard } from "@/components/WarrantyCard";
+import { AvailableOffers } from "@/components/AvailableOffers";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, formatMoney } from "@/stores/cart";
@@ -220,6 +221,7 @@ function ProductPage() {
               )}
 
               <WarrantyCard product={product} />
+              <AvailableOffers />
 
               {canAdd && (
                 <div className="mt-6 flex items-center gap-3">
