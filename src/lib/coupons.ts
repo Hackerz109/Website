@@ -65,21 +65,37 @@ export async function fetchOffersForProduct(
   productId: string,
   categoryId: string | null,
   brandId: string | null,
+  userId: string | null,
 ): Promise<VisibleCoupon[]> {
   const { data, error } = await supabase.rpc("get_offers_for_product", {
     p_product_id: productId,
     p_category_id: categoryId,
     p_brand_id: brandId,
+    p_user_id: userId,
   });
   if (error || !data) return [];
   return data as unknown as VisibleCoupon[];
 }
 
 /** Only the visible coupons that apply to at least one item in the cart — for checkout suggestions. */
-export async function fetchOffersForCart(items: CartItem[]): Promise<VisibleCoupon[]> {
+export async function fetchOffersForCart(items: CartItem[], userId: string | null): Promise<VisibleCoupon[]> {
   const { data, error } = await supabase.rpc("get_offers_for_cart", {
     p_items: toValidationItems(items),
+    p_user_id: userId,
   });
+  if (error || !data) return [];
+  return data as unknown as VisibleCoupon[];
+}
+
+/**
+ * Store-wide coupons the given shopper genuinely qualifies for right now —
+ * a first-order coupon disappears the moment they have an order, a
+ * logged-in-only coupon is hidden from guests, usage-limited coupons drop
+ * off once they're used up, and so on. Powers the site-wide highlight
+ * widget (not scoped to any one product or cart).
+ */
+export async function fetchEligibleCoupons(userId: string | null): Promise<VisibleCoupon[]> {
+  const { data, error } = await supabase.rpc("get_eligible_coupons", { p_user_id: userId });
   if (error || !data) return [];
   return data as unknown as VisibleCoupon[];
 }
