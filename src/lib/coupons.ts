@@ -23,16 +23,15 @@ export interface VisibleCoupon {
 }
 
 /**
- * Cart items carry product/category/brand info directly where available.
- * Category/brand aren't stored on the cart line today, so this maps what
- * we have — the validate_coupon() function treats missing ids as "doesn't
- * match category/brand-specific rules", which is the safe default.
+ * Maps cart lines into the shape validate_coupon() expects, carrying each
+ * item's real category/brand so category- and brand-restricted coupons can
+ * actually match.
  */
 function toValidationItems(items: CartItem[]) {
   return items.map((i) => ({
     product_id: i.id,
-    category_id: null,
-    brand_id: null,
+    category_id: i.category_id,
+    brand_id: i.brand_id,
     line_total_cents: i.price_cents * i.quantity,
   }));
 }
@@ -57,6 +56,30 @@ export async function validateCoupon(
 /** Coupons that should be proactively surfaced (visible + auto-apply), for suggestions. */
 export async function fetchVisibleCoupons(): Promise<VisibleCoupon[]> {
   const { data, error } = await supabase.rpc("get_visible_coupons");
+  if (error || !data) return [];
+  return data as unknown as VisibleCoupon[];
+}
+
+/** Only the visible coupons that actually apply to this specific product — for product pages. */
+export async function fetchOffersForProduct(
+  productId: string,
+  categoryId: string | null,
+  brandId: string | null,
+): Promise<VisibleCoupon[]> {
+  const { data, error } = await supabase.rpc("get_offers_for_product", {
+    p_product_id: productId,
+    p_category_id: categoryId,
+    p_brand_id: brandId,
+  });
+  if (error || !data) return [];
+  return data as unknown as VisibleCoupon[];
+}
+
+/** Only the visible coupons that apply to at least one item in the cart — for checkout suggestions. */
+export async function fetchOffersForCart(items: CartItem[]): Promise<VisibleCoupon[]> {
+  const { data, error } = await supabase.rpc("get_offers_for_cart", {
+    p_items: toValidationItems(items),
+  });
   if (error || !data) return [];
   return data as unknown as VisibleCoupon[];
 }
