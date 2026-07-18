@@ -221,7 +221,7 @@ function ProductPage() {
               )}
 
               <WarrantyCard product={product} />
-              <AvailableOffers />
+              <AvailableOffers productId={product.id} categoryId={product.category_id} brandId={product.brand_id} />
 
               {canAdd && (
                 <div className="mt-6 flex items-center gap-3">
@@ -269,6 +269,8 @@ function ProductPage() {
                       variantId: hasVariants ? selectedVariant?.id ?? null : null,
                       variantName: hasVariants ? selectedVariant?.name ?? null : null,
                       sku: hasVariants ? selectedVariant?.sku ?? null : null,
+                      category_id: product.category_id ?? null,
+                      brand_id: product.brand_id ?? null,
                     },
                     qty,
                   );

@@ -12,7 +12,7 @@ import { useCart, formatMoney } from "@/stores/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { payForOrder } from "@/lib/razorpay";
-import { validateCoupon, fetchVisibleCoupons, describeCoupon, type CouponValidationResult, type VisibleCoupon } from "@/lib/coupons";
+import { validateCoupon, fetchOffersForCart, describeCoupon, type CouponValidationResult, type VisibleCoupon } from "@/lib/coupons";
 
 export const Route = createFileRoute("/cart")({ component: CartPage });
 
@@ -40,8 +40,14 @@ function CartPage() {
   const total = Math.max(0, subtotal - discount);
 
   useEffect(() => {
-    fetchVisibleCoupons().then(setSuggested);
-  }, []);
+    if (items.length === 0) {
+      setSuggested([]);
+      return;
+    }
+    fetchOffersForCart(items).then(setSuggested);
+    // Re-run whenever the set of products/quantities in the cart changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => `${i.id}:${i.quantity}`).join(",")]);
 
   // Try auto-apply coupons once the cart has items, without overriding a
   // coupon the shopper already applied themselves.
