@@ -42,7 +42,7 @@ function OrderDetailPage() {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [loading, user, navigate]);
 
-  const { data: order, error: orderError } = useQuery({
+  const { data: order, isLoading: orderLoading, isError: orderErrored, error: orderError } = useQuery({
     enabled: !!user,
     queryKey: ["order-detail", id],
     queryFn: async () => {
@@ -50,6 +50,7 @@ function OrderDetailPage() {
       if (error) throw error;
       return data;
     },
+    retry: 1,
   });
 
   const { data: history } = useQuery({
@@ -88,12 +89,16 @@ function OrderDetailPage() {
     }
   }
 
-  if (orderError) {
+  if (orderErrored) {
     return (
       <div className="min-h-screen bg-background">
         <StoreHeader />
-        <div className="p-12 text-center text-sm text-destructive">
-          Couldn't load this order: {orderError.message}
+        <div className="mx-auto max-w-lg p-12 text-center">
+          <p className="text-sm font-medium text-red-600">Couldn't load this order.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {(orderError as { message?: string })?.message ?? "Please check the link and try again."}
+          </p>
+          <Link to="/orders" className="mt-4 inline-block text-sm text-primary underline">Back to orders</Link>
         </div>
       </div>
     );
@@ -103,7 +108,9 @@ function OrderDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <StoreHeader />
-        <div className="p-12 text-center text-sm text-muted-foreground">Loading order…</div>
+        <div className="p-12 text-center text-sm text-muted-foreground">
+          {orderLoading ? "Loading order…" : "Order not found."}
+        </div>
       </div>
     );
   }
@@ -115,9 +122,10 @@ function OrderDetailPage() {
       alreadyReturnedQty[item.order_item_id] = (alreadyReturnedQty[item.order_item_id] ?? 0) + item.quantity;
     }
   }
+  const orderItems = order.order_items ?? [];
   const canRequestReturn =
     (order.status === "delivered" || order.status === "return_rejected") &&
-    order.order_items.some((it) => (alreadyReturnedQty[it.id] ?? 0) < it.quantity);
+    orderItems.some((it) => (alreadyReturnedQty[it.id] ?? 0) < it.quantity);
 
   const addr = (order.shipping_address ?? {}) as Record<string, string>;
 
@@ -172,7 +180,7 @@ function OrderDetailPage() {
         <div className="mt-6 rounded-xl border p-5">
           <h2 className="font-semibold">Items</h2>
           <div className="mt-3 space-y-2 text-sm">
-            {order.order_items.map((it) => (
+            {orderItems.map((it) => (
               <div key={it.id} className="flex justify-between">
                 <span>
                   {it.product_name}
@@ -215,7 +223,7 @@ function OrderDetailPage() {
                 </DialogTrigger>
                 <DialogContent className="max-h-[85vh] overflow-y-auto">
                   <ReturnRequestForm
-                    order={order}
+                    order={{ ...order, order_items: orderItems }}
                     alreadyReturnedQty={alreadyReturnedQty}
                     userId={user!.id}
                     onDone={() => {
