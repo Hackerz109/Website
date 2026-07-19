@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingBag, User as UserIcon, LayoutDashboard, LogOut, Zap, Search, X } from "lucide-react";
+import { ShoppingBag, User as UserIcon, LayoutDashboard, LogOut, Zap, Search, X, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/stores/cart";
 import { useAuth } from "@/hooks/useAuth";
@@ -69,6 +69,9 @@ export function StoreHeader() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => navigate({ to: "/orders" })}>
                   My orders
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ to: "/wallet" })}>
+                  <Wallet className="mr-2 h-4 w-4" /> Store Wallet
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem onClick={() => navigate({ to: "/admin" })}>

@@ -96,6 +96,20 @@ export type Database = {
           total_cents: number
           updated_at: string
           user_id: string | null
+          fulfillment_type: Database["public"]["Enums"]["fulfillment_type"]
+          delivery_zone_id: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          delivery_distance_km: number | null
+          delivery_instructions_snapshot: string | null
+          pickup_instructions_snapshot: string | null
+          wallet_used_cents: number
+          confirmed_at: string | null
+          packed_at: string | null
+          ready_for_pickup_at: string | null
+          out_for_delivery_at: string | null
+          delivered_at: string | null
+          cancelled_at: string | null
         }
         Insert: {
           coupon_code?: string | null
@@ -117,6 +131,20 @@ export type Database = {
           total_cents?: number
           updated_at?: string
           user_id?: string | null
+          fulfillment_type?: Database["public"]["Enums"]["fulfillment_type"]
+          delivery_zone_id?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          delivery_distance_km?: number | null
+          delivery_instructions_snapshot?: string | null
+          pickup_instructions_snapshot?: string | null
+          wallet_used_cents?: number
+          confirmed_at?: string | null
+          packed_at?: string | null
+          ready_for_pickup_at?: string | null
+          out_for_delivery_at?: string | null
+          delivered_at?: string | null
+          cancelled_at?: string | null
         }
         Update: {
           coupon_code?: string | null
@@ -138,8 +166,30 @@ export type Database = {
           total_cents?: number
           updated_at?: string
           user_id?: string | null
+          fulfillment_type?: Database["public"]["Enums"]["fulfillment_type"]
+          delivery_zone_id?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          delivery_distance_km?: number | null
+          delivery_instructions_snapshot?: string | null
+          pickup_instructions_snapshot?: string | null
+          wallet_used_cents?: number
+          confirmed_at?: string | null
+          packed_at?: string | null
+          ready_for_pickup_at?: string | null
+          out_for_delivery_at?: string | null
+          delivered_at?: string | null
+          cancelled_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_delivery_zone_id_fkey"
+            columns: ["delivery_zone_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_zones"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coupons: {
         Row: {
@@ -269,6 +319,374 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_locations: {
+        Row: {
+          id: string
+          name: string
+          address: string | null
+          lat: number
+          lng: number
+          is_primary: boolean
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name?: string
+          address?: string | null
+          lat: number
+          lng: number
+          is_primary?: boolean
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          address?: string | null
+          lat?: number
+          lng?: number
+          is_primary?: boolean
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      delivery_zones: {
+        Row: {
+          id: string
+          store_location_id: string
+          name: string
+          radius_km: number
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          store_location_id: string
+          name: string
+          radius_km: number
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          store_location_id?: string
+          name?: string
+          radius_km?: number
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_zones_store_location_id_fkey"
+            columns: ["store_location_id"]
+            isOneToOne: false
+            referencedRelation: "store_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_rate_tiers: {
+        Row: {
+          id: string
+          min_km: number
+          max_km: number | null
+          charge_cents: number
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          min_km?: number
+          max_km?: number | null
+          charge_cents?: number
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          min_km?: number
+          max_km?: number | null
+          charge_cents?: number
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      delivery_settings: {
+        Row: {
+          id: boolean
+          charge_type: Database["public"]["Enums"]["delivery_charge_type"]
+          flat_charge_cents: number
+          free_delivery_min_cents: number | null
+          pickup_charge_cents: number
+          delivery_eta_text: string
+          pickup_eta_text: string
+          delivery_instructions: string | null
+          pickup_instructions: string | null
+          pickup_address: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          charge_type?: Database["public"]["Enums"]["delivery_charge_type"]
+          flat_charge_cents?: number
+          free_delivery_min_cents?: number | null
+          pickup_charge_cents?: number
+          delivery_eta_text?: string
+          pickup_eta_text?: string
+          delivery_instructions?: string | null
+          pickup_instructions?: string | null
+          pickup_address?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          charge_type?: Database["public"]["Enums"]["delivery_charge_type"]
+          flat_charge_cents?: number
+          free_delivery_min_cents?: number | null
+          pickup_charge_cents?: number
+          delivery_eta_text?: string
+          pickup_eta_text?: string
+          delivery_instructions?: string | null
+          pickup_instructions?: string | null
+          pickup_address?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      order_status_history: {
+        Row: {
+          id: string
+          order_id: string
+          status: Database["public"]["Enums"]["order_status"]
+          note: string | null
+          changed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          status: Database["public"]["Enums"]["order_status"]
+          note?: string | null
+          changed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          note?: string | null
+          changed_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_requests: {
+        Row: {
+          id: string
+          order_id: string
+          user_id: string
+          status: Database["public"]["Enums"]["return_status"]
+          reason: string
+          preferred_refund_method: Database["public"]["Enums"]["refund_method_type"]
+          refund_method: Database["public"]["Enums"]["refund_method_type"] | null
+          refund_amount_cents: number
+          admin_notes: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          refunded_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          user_id: string
+          status?: Database["public"]["Enums"]["return_status"]
+          reason: string
+          preferred_refund_method?: Database["public"]["Enums"]["refund_method_type"]
+          refund_method?: Database["public"]["Enums"]["refund_method_type"] | null
+          refund_amount_cents?: number
+          admin_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          refunded_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          user_id?: string
+          status?: Database["public"]["Enums"]["return_status"]
+          reason?: string
+          preferred_refund_method?: Database["public"]["Enums"]["refund_method_type"]
+          refund_method?: Database["public"]["Enums"]["refund_method_type"] | null
+          refund_amount_cents?: number
+          admin_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          refunded_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_items: {
+        Row: {
+          id: string
+          return_request_id: string
+          order_item_id: string
+          quantity: number
+          approved_quantity: number | null
+          unit_price_cents: number
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          return_request_id: string
+          order_item_id: string
+          quantity: number
+          approved_quantity?: number | null
+          unit_price_cents: number
+          reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          return_request_id?: string
+          order_item_id?: string
+          quantity?: number
+          approved_quantity?: number | null
+          unit_price_cents?: number
+          reason?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_items_return_request_id_fkey"
+            columns: ["return_request_id"]
+            isOneToOne: false
+            referencedRelation: "return_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_images: {
+        Row: {
+          id: string
+          return_request_id: string
+          url: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          return_request_id: string
+          url: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          return_request_id?: string
+          url?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_images_return_request_id_fkey"
+            columns: ["return_request_id"]
+            isOneToOne: false
+            referencedRelation: "return_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transactions: {
+        Row: {
+          id: string
+          user_id: string
+          amount_cents: number
+          type: Database["public"]["Enums"]["wallet_transaction_type"]
+          reference_order_id: string | null
+          reference_return_id: string | null
+          description: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          amount_cents: number
+          type: Database["public"]["Enums"]["wallet_transaction_type"]
+          reference_order_id?: string | null
+          reference_return_id?: string | null
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          amount_cents?: number
+          type?: Database["public"]["Enums"]["wallet_transaction_type"]
+          reference_order_id?: string | null
+          reference_return_id?: string | null
+          description?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_reference_order_id_fkey"
+            columns: ["reference_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_reference_return_id_fkey"
+            columns: ["reference_return_id"]
+            isOneToOne: false
+            referencedRelation: "return_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -613,6 +1031,87 @@ export type Database = {
           revenue_cents: number
         }[]
       }
+      haversine_km: {
+        Args: {
+          lat1: number
+          lng1: number
+          lat2: number
+          lng2: number
+        }
+        Returns: number
+      }
+      check_delivery_eligibility: {
+        Args: {
+          p_lat: number
+          p_lng: number
+        }
+        Returns: Json
+      }
+      calculate_delivery_charge: {
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_subtotal_cents: number
+        }
+        Returns: Json
+      }
+      get_delivery_info: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      create_return_request: {
+        Args: {
+          p_order_id: string
+          p_items: Json
+          p_reason: string
+          p_preferred_refund_method: Database["public"]["Enums"]["refund_method_type"]
+          p_image_urls?: string[]
+          p_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_review_return: {
+        Args: {
+          p_return_id: string
+          p_decision: Database["public"]["Enums"]["return_status"]
+          p_admin_notes?: string | null
+          p_item_decisions?: Json
+        }
+        Returns: Json
+      }
+      admin_process_refund: {
+        Args: {
+          p_return_id: string
+          p_method: Database["public"]["Enums"]["refund_method_type"]
+          p_external_ref?: string | null
+        }
+        Returns: Json
+      }
+      wallet_redeem_for_order: {
+        Args: {
+          p_order_id: string
+          p_amount_cents: number
+        }
+        Returns: Json
+      }
+      admin_wallet_adjust: {
+        Args: {
+          p_user_id: string
+          p_amount_cents: number
+          p_reason: string
+        }
+        Returns: Json
+      }
+      admin_search_customers: {
+        Args: {
+          p_query: string
+        }
+        Returns: {
+          id: string
+          email: string | null
+          full_name: string | null
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "customer"
@@ -623,7 +1122,24 @@ export type Database = {
         | "delivered"
         | "cancelled"
         | "refunded"
+        | "confirmed"
+        | "packed"
+        | "ready_for_pickup"
+        | "out_for_delivery"
+        | "return_requested"
+        | "return_approved"
+        | "return_rejected"
       payment_status: "pending" | "paid" | "failed" | "refunded"
+      fulfillment_type: "delivery" | "pickup"
+      delivery_charge_type: "flat" | "distance"
+      return_status:
+        | "requested"
+        | "approved"
+        | "partially_approved"
+        | "rejected"
+        | "refunded"
+      refund_method_type: "original_payment" | "wallet_credit"
+      wallet_transaction_type: "credit" | "debit" | "refund" | "adjustment"
       warranty_type: "manufacturer" | "seller" | "extended"
       warranty_service_method:
         | "home_service"
@@ -769,6 +1285,13 @@ export const Constants = {
         "delivered",
         "cancelled",
         "refunded",
+        "confirmed",
+        "packed",
+        "ready_for_pickup",
+        "out_for_delivery",
+        "return_requested",
+        "return_approved",
+        "return_rejected",
       ],
       payment_status: ["pending", "paid", "failed", "refunded"],
       warranty_type: ["manufacturer", "seller", "extended"],
@@ -782,6 +1305,17 @@ export const Constants = {
       coupon_discount_type: ["percentage", "fixed", "free_shipping"],
       coupon_visibility: ["visible", "hidden", "auto_apply"],
       coupon_customer_type: ["any", "new", "existing"],
+      fulfillment_type: ["delivery", "pickup"],
+      delivery_charge_type: ["flat", "distance"],
+      return_status: [
+        "requested",
+        "approved",
+        "partially_approved",
+        "rejected",
+        "refunded",
+      ],
+      refund_method_type: ["original_payment", "wallet_credit"],
+      wallet_transaction_type: ["credit", "debit", "refund", "adjustment"],
     },
   },
 } as const
