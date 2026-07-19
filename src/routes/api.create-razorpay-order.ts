@@ -22,13 +22,19 @@ export const Route = createFileRoute("/api/create-razorpay-order")({
         // naturally fails unless it's genuinely their order.
         const { data: order, error: fetchErr } = await auth.supabase
           .from("orders")
-          .select("id, user_id, total_cents, currency, payment_status")
+          .select("id, user_id, total_cents, wallet_used_cents, currency, payment_status")
           .eq("id", orderId)
           .maybeSingle();
 
         if (fetchErr || !order) return json({ error: "Order not found" }, 404);
         if (order.user_id !== auth.userId) return json({ error: "Forbidden" }, 403);
         if (order.payment_status === "paid") return json({ error: "Order is already paid" }, 400);
+
+        // Wallet credit (if any was applied at checkout) reduces what's
+        // actually charged via Razorpay — never double-charge the wallet
+        // portion.
+        const amountDue = order.total_cents - (order.wallet_used_cents ?? 0);
+        if (amountDue <= 0) return json({ error: "Order is already fully paid" }, 400);
 
         const keyId = process.env.RAZORPAY_KEY_ID;
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -45,7 +51,7 @@ export const Route = createFileRoute("/api/create-razorpay-order")({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            amount: order.total_cents, // Razorpay expects the amount in paise — same unit we already store in.
+            amount: amountDue, // Razorpay expects the amount in paise — same unit we already store in.
             currency: order.currency || "INR",
             receipt: order.id,
           }),
@@ -72,7 +78,7 @@ export const Route = createFileRoute("/api/create-razorpay-order")({
 
         return json({
           razorpayOrderId: rzpOrder.id,
-          amount: order.total_cents,
+          amount: amountDue,
           currency: order.currency || "INR",
           keyId,
         });

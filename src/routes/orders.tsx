@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ChevronRight, Store, Truck } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMoney } from "@/stores/cart";
 import { payForOrder } from "@/lib/razorpay";
+import { ORDER_STATUS_LABELS, ORDER_STATUS_BADGE_CLASS } from "@/lib/orderStatus";
 
 export const Route = createFileRoute("/orders")({ component: OrdersPage });
 
@@ -87,8 +89,12 @@ function OrdersPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {paymentBadge(o.payment_status)}
-                    <Badge variant="secondary">{o.status}</Badge>
+                    <Badge className={ORDER_STATUS_BADGE_CLASS[o.status]}>{ORDER_STATUS_LABELS[o.status]}</Badge>
                   </div>
+                </div>
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {o.fulfillment_type === "pickup" ? <Store className="h-3 w-3" /> : <Truck className="h-3 w-3" />}
+                  {o.fulfillment_type === "pickup" ? "Store Pickup" : "Home Delivery"}
                 </div>
                 <div className="mt-3 space-y-1 text-sm">
                   {o.order_items?.map((it) => (
@@ -102,6 +108,13 @@ function OrdersPage() {
                   <span>Total</span>
                   <span>{formatMoney(o.total_cents)}</span>
                 </div>
+                <Link
+                  to="/orders/$id"
+                  params={{ id: o.id }}
+                  className="mt-3 flex items-center justify-center gap-1 text-sm text-primary hover:underline"
+                >
+                  View details & tracking <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
                 {o.payment_status === "pending" || o.payment_status === "failed" ? (
                   <Button
                     className="mt-3 w-full"

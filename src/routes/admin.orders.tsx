@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Store, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,12 +22,20 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { formatMoney } from "@/stores/cart";
+import { ALL_ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_BADGE_CLASS } from "@/lib/orderStatus";
 
 type OrderStatus = Database["public"]["Enums"]["order_status"];
 type PaymentStatus = Database["public"]["Enums"]["payment_status"];
-const STATUSES: OrderStatus[] = ["pending", "paid", "shipped", "delivered", "cancelled", "refunded"];
 
 export const Route = createFileRoute("/admin/orders")({ component: AdminOrders });
+
+function fulfillmentBadge(type: Database["public"]["Enums"]["fulfillment_type"]) {
+  return type === "pickup" ? (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Store className="h-3 w-3" /> Pickup</span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Truck className="h-3 w-3" /> Delivery</span>
+  );
+}
 
 function paymentBadge(status: PaymentStatus) {
   switch (status) {
@@ -89,6 +98,7 @@ function AdminOrders() {
                 <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
                 <p className="mt-1 text-sm">{o.customer_name ?? "—"}</p>
                 <p className="text-xs text-muted-foreground">{o.customer_email}</p>
+                <div className="mt-1">{fulfillmentBadge(o.fulfillment_type)}</div>
               </div>
               <div className="flex flex-col items-end gap-1">
                 {paymentBadge(o.payment_status)}
@@ -106,8 +116,8 @@ function AdminOrders() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  {ALL_ORDER_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{ORDER_STATUS_LABELS[s]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -131,6 +141,7 @@ function AdminOrders() {
             <TableRow>
               <TableHead>Order</TableHead>
               <TableHead>Customer</TableHead>
+              <TableHead>Method</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Payment</TableHead>
@@ -150,6 +161,7 @@ function AdminOrders() {
                   <p className="text-sm">{o.customer_name ?? "—"}</p>
                   <p className="text-xs text-muted-foreground">{o.customer_email}</p>
                 </TableCell>
+                <TableCell>{fulfillmentBadge(o.fulfillment_type)}</TableCell>
                 <TableCell>
                   <div className="space-y-0.5 text-xs">
                     {o.order_items?.map((it) => (
@@ -170,21 +182,26 @@ function AdminOrders() {
                 </TableCell>
                 <TableCell>
                   <Select value={o.status} onValueChange={(v) => setStatus(o.id, v as OrderStatus)}>
-                    <SelectTrigger className="w-36">
+                    <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      {ALL_ORDER_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{ORDER_STATUS_LABELS[s]}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {o.fulfillment_type === "pickup" && o.status !== "ready_for_pickup" && o.status !== "delivered" && (
+                    <Button size="sm" variant="link" className="h-auto p-0 text-xs" onClick={() => setStatus(o.id, "ready_for_pickup")}>
+                      Mark ready for pickup
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
             {(data ?? []).length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
                   No orders yet.
                 </TableCell>
               </TableRow>
