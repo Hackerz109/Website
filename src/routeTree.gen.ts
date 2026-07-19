@@ -16,23 +16,15 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as WarrantyPolicyRouteImport } from './routes/warranty-policy'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as WalletRouteImport } from './routes/wallet'
-import { Route as SearchRouteImport } from './routes/search'
 import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OrdersIdRouteImport } from './routes/orders.$id'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
-import { Route as CategoryNameRouteImport } from './routes/category.$name'
-import { Route as AdminWalletRouteImport } from './routes/admin.wallet'
-import { Route as AdminTaxonomyRouteImport } from './routes/admin.taxonomy'
-import { Route as AdminReturnsRouteImport } from './routes/admin.returns'
 import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
-import { Route as AdminDeliveryRouteImport } from './routes/admin.delivery'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 
 const TermsRoute = TermsRouteImport.update({
@@ -70,16 +62,6 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WalletRoute = WalletRouteImport.update({
-  id: '/wallet',
-  path: '/wallet',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OrdersRoute = OrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
@@ -105,11 +87,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OrdersIdRoute = OrdersIdRouteImport.update({
-  id: '/orders/$id',
-  path: '/orders/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -120,26 +97,6 @@ const ProductSlugRoute = ProductSlugRouteImport.update({
   path: '/product/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CategoryNameRoute = CategoryNameRouteImport.update({
-  id: '/category/$name',
-  path: '/category/$name',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminWalletRoute = AdminWalletRouteImport.update({
-  id: '/wallet',
-  path: '/wallet',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminTaxonomyRoute = AdminTaxonomyRouteImport.update({
-  id: '/taxonomy',
-  path: '/taxonomy',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminReturnsRoute = AdminReturnsRouteImport.update({
-  id: '/returns',
-  path: '/returns',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -148,11 +105,6 @@ const AdminProductsRoute = AdminProductsRouteImport.update({
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminDeliveryRoute = AdminDeliveryRouteImport.update({
-  id: '/delivery',
-  path: '/delivery',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminCouponsRoute = AdminCouponsRouteImport.update({
@@ -171,21 +123,12 @@ export interface FileRoutesByFullPath {
   '/orders': typeof OrdersRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns-policy': typeof ReturnsPolicyRoute
-  '/search': typeof SearchRoute
   '/shipping-policy': typeof ShippingPolicyRoute
   '/terms': typeof TermsRoute
-  '/wallet': typeof WalletRoute
   '/warranty-policy': typeof WarrantyPolicyRoute
-  '/admin/coupons': typeof AdminCouponsRoute
-  '/admin/delivery': typeof AdminDeliveryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRoute
-  '/admin/returns': typeof AdminReturnsRoute
-  '/admin/taxonomy': typeof AdminTaxonomyRoute
-  '/admin/wallet': typeof AdminWalletRoute
-  '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
-  '/orders/$id': typeof OrdersIdRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -197,21 +140,12 @@ export interface FileRoutesByTo {
   '/orders': typeof OrdersRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns-policy': typeof ReturnsPolicyRoute
-  '/search': typeof SearchRoute
   '/shipping-policy': typeof ShippingPolicyRoute
   '/terms': typeof TermsRoute
-  '/wallet': typeof WalletRoute
   '/warranty-policy': typeof WarrantyPolicyRoute
-  '/admin/coupons': typeof AdminCouponsRoute
-  '/admin/delivery': typeof AdminDeliveryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRoute
-  '/admin/returns': typeof AdminReturnsRoute
-  '/admin/taxonomy': typeof AdminTaxonomyRoute
-  '/admin/wallet': typeof AdminWalletRoute
-  '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
-  '/orders/$id': typeof OrdersIdRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -225,21 +159,12 @@ export interface FileRoutesById {
   '/orders': typeof OrdersRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns-policy': typeof ReturnsPolicyRoute
-  '/search': typeof SearchRoute
   '/shipping-policy': typeof ShippingPolicyRoute
   '/terms': typeof TermsRoute
-  '/wallet': typeof WalletRoute
   '/warranty-policy': typeof WarrantyPolicyRoute
-  '/admin/coupons': typeof AdminCouponsRoute
-  '/admin/delivery': typeof AdminDeliveryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRoute
-  '/admin/returns': typeof AdminReturnsRoute
-  '/admin/taxonomy': typeof AdminTaxonomyRoute
-  '/admin/wallet': typeof AdminWalletRoute
-  '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
-  '/orders/$id': typeof OrdersIdRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -254,21 +179,12 @@ export interface FileRouteTypes {
     | '/orders'
     | '/privacy-policy'
     | '/returns-policy'
-    | '/search'
     | '/shipping-policy'
     | '/terms'
-    | '/wallet'
     | '/warranty-policy'
-    | '/admin/coupons'
-    | '/admin/delivery'
     | '/admin/orders'
     | '/admin/products'
-    | '/admin/returns'
-    | '/admin/taxonomy'
-    | '/admin/wallet'
-    | '/category/$name'
     | '/product/$slug'
-    | '/orders/$id'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -280,21 +196,12 @@ export interface FileRouteTypes {
     | '/orders'
     | '/privacy-policy'
     | '/returns-policy'
-    | '/search'
     | '/shipping-policy'
     | '/terms'
-    | '/wallet'
     | '/warranty-policy'
-    | '/admin/coupons'
-    | '/admin/delivery'
     | '/admin/orders'
     | '/admin/products'
-    | '/admin/returns'
-    | '/admin/taxonomy'
-    | '/admin/wallet'
-    | '/category/$name'
     | '/product/$slug'
-    | '/orders/$id'
     | '/admin'
   id:
     | '__root__'
@@ -307,21 +214,12 @@ export interface FileRouteTypes {
     | '/orders'
     | '/privacy-policy'
     | '/returns-policy'
-    | '/search'
     | '/shipping-policy'
     | '/terms'
-    | '/wallet'
     | '/warranty-policy'
-    | '/admin/coupons'
-    | '/admin/delivery'
     | '/admin/orders'
     | '/admin/products'
-    | '/admin/returns'
-    | '/admin/taxonomy'
-    | '/admin/wallet'
-    | '/category/$name'
     | '/product/$slug'
-    | '/orders/$id'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -335,14 +233,10 @@ export interface RootRouteChildren {
   OrdersRoute: typeof OrdersRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ReturnsPolicyRoute: typeof ReturnsPolicyRoute
-  SearchRoute: typeof SearchRoute
   ShippingPolicyRoute: typeof ShippingPolicyRoute
   TermsRoute: typeof TermsRoute
-  WalletRoute: typeof WalletRoute
   WarrantyPolicyRoute: typeof WarrantyPolicyRoute
   ProductSlugRoute: typeof ProductSlugRoute
-  CategoryNameRoute: typeof CategoryNameRoute
-  OrdersIdRoute: typeof OrdersIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -396,20 +290,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/wallet': {
-      id: '/wallet'
-      path: '/wallet'
-      fullPath: '/wallet'
-      preLoaderRoute: typeof WalletRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/orders': {
       id: '/orders'
       path: '/orders'
@@ -445,13 +325,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/orders/$id': {
-      id: '/orders/$id'
-      path: '/orders/$id'
-      fullPath: '/orders/$id'
-      preLoaderRoute: typeof OrdersIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/': {
       id: '/admin/'
       path: '/'
@@ -465,34 +338,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/product/$slug'
       preLoaderRoute: typeof ProductSlugRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/category/$name': {
-      id: '/category/$name'
-      path: '/category/$name'
-      fullPath: '/category/$name'
-      preLoaderRoute: typeof CategoryNameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/wallet': {
-      id: '/admin/wallet'
-      path: '/wallet'
-      fullPath: '/admin/wallet'
-      preLoaderRoute: typeof AdminWalletRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/taxonomy': {
-      id: '/admin/taxonomy'
-      path: '/taxonomy'
-      fullPath: '/admin/taxonomy'
-      preLoaderRoute: typeof AdminTaxonomyRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/returns': {
-      id: '/admin/returns'
-      path: '/returns'
-      fullPath: '/admin/returns'
-      preLoaderRoute: typeof AdminReturnsRouteImport
-      parentRoute: typeof AdminRoute
     }
     '/admin/products': {
       id: '/admin/products'
@@ -508,42 +353,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrdersRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/delivery': {
-      id: '/admin/delivery'
-      path: '/delivery'
-      fullPath: '/admin/delivery'
-      preLoaderRoute: typeof AdminDeliveryRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/coupons': {
-      id: '/admin/coupons'
-      path: '/coupons'
-      fullPath: '/admin/coupons'
-      preLoaderRoute: typeof AdminCouponsRouteImport
-      parentRoute: typeof AdminRoute
-    }
   }
 }
 
 interface AdminRouteChildren {
-  AdminCouponsRoute: typeof AdminCouponsRoute
-  AdminDeliveryRoute: typeof AdminDeliveryRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRoute
-  AdminReturnsRoute: typeof AdminReturnsRoute
-  AdminTaxonomyRoute: typeof AdminTaxonomyRoute
-  AdminWalletRoute: typeof AdminWalletRoute
+  AdminCouponsRoute: typeof AdminCouponsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminCouponsRoute: AdminCouponsRoute,
-  AdminDeliveryRoute: AdminDeliveryRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRoute,
-  AdminReturnsRoute: AdminReturnsRoute,
-  AdminTaxonomyRoute: AdminTaxonomyRoute,
-  AdminWalletRoute: AdminWalletRoute,
+  AdminCouponsRoute: AdminCouponsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
@@ -559,14 +382,10 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersRoute: OrdersRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ReturnsPolicyRoute: ReturnsPolicyRoute,
-  SearchRoute: SearchRoute,
   ShippingPolicyRoute: ShippingPolicyRoute,
   TermsRoute: TermsRoute,
-  WalletRoute: WalletRoute,
   WarrantyPolicyRoute: WarrantyPolicyRoute,
   ProductSlugRoute: ProductSlugRoute,
-  CategoryNameRoute: CategoryNameRoute,
-  OrdersIdRoute: OrdersIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
