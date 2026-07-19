@@ -277,8 +277,17 @@ function ZoneDialog({ locations, existing, onSaved, trigger }: { locations: Stor
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(existing?.name ?? "");
   const [radius, setRadius] = useState(String(existing?.radius_km ?? 5));
-  const [locationId, setLocationId] = useState(existing?.store_location_id ?? locations.find((l) => l.is_primary)?.id ?? locations[0]?.id ?? "");
+  const [locationId, setLocationId] = useState(existing?.store_location_id ?? "");
   const [saving, setSaving] = useState(false);
+
+  // `locations` loads asynchronously and can still be [] on first mount, so we
+  // can't rely on the useState initializer above (it only runs once). Sync it
+  // here instead so a newly-added shop location is picked up automatically.
+  useEffect(() => {
+    if (!locationId && !existing && locations.length > 0) {
+      setLocationId(locations.find((l) => l.is_primary)?.id ?? locations[0].id);
+    }
+  }, [locations, existing, locationId]);
 
   async function save() {
     if (!locationId) return toast.error("Add a shop location first");

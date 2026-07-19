@@ -42,7 +42,7 @@ function OrderDetailPage() {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [loading, user, navigate]);
 
-  const { data: order } = useQuery({
+  const { data: order, error: orderError } = useQuery({
     enabled: !!user,
     queryKey: ["order-detail", id],
     queryFn: async () => {
@@ -86,6 +86,17 @@ function OrderDetailPage() {
     } else if (result.status === "error") {
       toast.error(result.message);
     }
+  }
+
+  if (orderError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <StoreHeader />
+        <div className="p-12 text-center text-sm text-destructive">
+          Couldn't load this order: {orderError.message}
+        </div>
+      </div>
+    );
   }
 
   if (!order) {
