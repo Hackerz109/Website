@@ -77,10 +77,11 @@ function OrderTrackPage() {
       <StoreHeader />
       <div className="mx-auto max-w-2xl px-6 py-10">
         <Link
-          to="/orders"
+          to="/orders/$id"
+          params={{ id: order.id }}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to my orders
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to order details
         </Link>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
