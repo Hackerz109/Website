@@ -145,12 +145,12 @@ function OrdersPage() {
                 </div>
 
                 <Link
-                  to="/orders/$id/track"
+                  to="/orders/$id"
                   params={{ id: o.id }}
                   className="group flex w-full items-center justify-center gap-2 bg-gradient-to-r from-primary to-primary/85 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:opacity-80"
                 >
                   <PackageSearch className="h-4 w-4" />
-                  Track Order
+                  View Order Details
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>

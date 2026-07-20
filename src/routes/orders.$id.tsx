@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, BadgePercent, MapPin, PackageSearch, Store, Truck, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, BadgePercent, MapPin, Store, Truck, ImagePlus, X } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { Badge } from "@/components/ui/badge";
@@ -129,16 +129,6 @@ function OrderDetailPage() {
           </div>
           <Badge className={ORDER_STATUS_BADGE_CLASS[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
         </div>
-
-        {/* Track order CTA — this page is the purchase record; the timeline lives on its own page */}
-        <Link
-          to="/orders/$id/track"
-          params={{ id: order.id }}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/85 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 active:opacity-80"
-        >
-          <PackageSearch className="h-4 w-4" />
-          Track This Order
-        </Link>
 
         <div className="mt-6 rounded-xl border p-5">
           <h2 className="flex items-center gap-2 font-semibold">
