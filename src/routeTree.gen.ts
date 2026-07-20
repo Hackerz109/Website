@@ -32,6 +32,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
+import { Route as OrdersIdTrackRouteImport } from './routes/orders.$id.track'
 import { Route as CategoryNameRouteImport } from './routes/category.$name'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
@@ -121,6 +122,11 @@ const IndexRoute = IndexRouteImport.update({
 const OrdersIdRoute = OrdersIdRouteImport.update({
   id: '/orders/$id',
   path: '/orders/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersIdTrackRoute = OrdersIdTrackRouteImport.update({
+  id: '/orders/$id/track',
+  path: '/orders/$id/track',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CategoryNameRoute = CategoryNameRouteImport.update({
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
   '/orders/$id': typeof OrdersIdRoute
+  '/orders/$id/track': typeof OrdersIdTrackRoute
   '/admin/': typeof AdminIndexRoute
   '/api/create-razorpay-order': typeof ApiCreateRazorpayOrderRoute
   '/api/razorpay-webhook': typeof ApiRazorpayWebhookRoute
@@ -255,6 +262,7 @@ export interface FileRoutesByTo {
   '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
   '/orders/$id': typeof OrdersIdRoute
+  '/orders/$id/track': typeof OrdersIdTrackRoute
   '/admin': typeof AdminIndexRoute
   '/api/create-razorpay-order': typeof ApiCreateRazorpayOrderRoute
   '/api/razorpay-webhook': typeof ApiRazorpayWebhookRoute
@@ -288,6 +296,7 @@ export interface FileRoutesById {
   '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
   '/orders/$id': typeof OrdersIdRoute
+  '/orders/$id/track': typeof OrdersIdTrackRoute
   '/admin/': typeof AdminIndexRoute
   '/api/create-razorpay-order': typeof ApiCreateRazorpayOrderRoute
   '/api/razorpay-webhook': typeof ApiRazorpayWebhookRoute
@@ -322,6 +331,7 @@ export interface FileRouteTypes {
     | '/category/$name'
     | '/product/$slug'
     | '/orders/$id'
+    | '/orders/$id/track'
     | '/admin/'
     | '/api/create-razorpay-order'
     | '/api/razorpay-webhook'
@@ -353,6 +363,7 @@ export interface FileRouteTypes {
     | '/category/$name'
     | '/product/$slug'
     | '/orders/$id'
+    | '/orders/$id/track'
     | '/admin'
     | '/api/create-razorpay-order'
     | '/api/razorpay-webhook'
@@ -385,6 +396,7 @@ export interface FileRouteTypes {
     | '/category/$name'
     | '/product/$slug'
     | '/orders/$id'
+    | '/orders/$id/track'
     | '/admin/'
     | '/api/create-razorpay-order'
     | '/api/razorpay-webhook'
@@ -411,6 +423,7 @@ export interface RootRouteChildren {
   CategoryNameRoute: typeof CategoryNameRoute
   ProductSlugRoute: typeof ProductSlugRoute
   OrdersIdRoute: typeof OrdersIdRoute
+  OrdersIdTrackRoute: typeof OrdersIdTrackRoute
   ApiCreateRazorpayOrderRoute: typeof ApiCreateRazorpayOrderRoute
   ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
   ApiRefundRazorpayPaymentRoute: typeof ApiRefundRazorpayPaymentRoute
@@ -530,6 +543,13 @@ declare module '@tanstack/react-router' {
       path: '/orders/$id'
       fullPath: '/orders/$id'
       preLoaderRoute: typeof OrdersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders/$id/track': {
+      id: '/orders/$id/track'
+      path: '/orders/$id/track'
+      fullPath: '/orders/$id/track'
+      preLoaderRoute: typeof OrdersIdTrackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -675,6 +695,7 @@ const rootRouteChildren: RootRouteChildren = {
   CategoryNameRoute: CategoryNameRoute,
   ProductSlugRoute: ProductSlugRoute,
   OrdersIdRoute: OrdersIdRoute,
+  OrdersIdTrackRoute: OrdersIdTrackRoute,
   ApiCreateRazorpayOrderRoute: ApiCreateRazorpayOrderRoute,
   ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
   ApiRefundRazorpayPaymentRoute: ApiRefundRazorpayPaymentRoute,
