@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Store, Truck, MapPin, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, BadgePercent, MapPin, PackageSearch, Store, Truck, ImagePlus, X } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { OrderTimeline } from "@/components/OrderTimeline";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMoney } from "@/stores/cart";
@@ -51,20 +50,6 @@ function OrderDetailPage() {
       return data;
     },
     retry: 1,
-  });
-
-  const { data: history } = useQuery({
-    enabled: !!user,
-    queryKey: ["order-history", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("order_status_history")
-        .select("*")
-        .eq("order_id", id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
   });
 
   const { data: returns } = useQuery({
@@ -140,18 +125,20 @@ function OrderDetailPage() {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Order #{order.id.slice(0, 8)}</h1>
-            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Placed on {new Date(order.created_at).toLocaleString()}</p>
           </div>
           <Badge className={ORDER_STATUS_BADGE_CLASS[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
         </div>
 
-        <div className="mt-6 rounded-xl border p-5">
-          <OrderTimeline
-            fulfillmentType={order.fulfillment_type}
-            currentStatus={order.status}
-            history={(history ?? []).map((h) => ({ id: h.id, status: h.status, note: h.note, created_at: h.created_at }))}
-          />
-        </div>
+        {/* Track order CTA — this page is the purchase record; the timeline lives on its own page */}
+        <Link
+          to="/orders/$id/track"
+          params={{ id: order.id }}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/85 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 active:opacity-80"
+        >
+          <PackageSearch className="h-4 w-4" />
+          Track This Order
+        </Link>
 
         <div className="mt-6 rounded-xl border p-5">
           <h2 className="flex items-center gap-2 font-semibold">
@@ -195,17 +182,44 @@ function OrderDetailPage() {
               </div>
             ))}
           </div>
-          <div className="mt-3 space-y-1 border-t pt-3 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatMoney(order.subtotal_cents)}</span></div>
+
+          {/* Full price breakdown, exactly as calculated at checkout */}
+          <div className="mt-4 space-y-1.5 border-t pt-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatMoney(order.subtotal_cents)}</span>
+            </div>
+
             {order.discount_cents > 0 && (
-              <div className="flex justify-between text-primary"><span>Discount</span><span>-{formatMoney(order.discount_cents)}</span></div>
+              <div className="flex justify-between text-primary">
+                <span className="flex items-center gap-1.5">
+                  <BadgePercent className="h-3.5 w-3.5" />
+                  Coupon discount{order.coupon_code ? ` (${order.coupon_code})` : ""}
+                </span>
+                <span>-{formatMoney(order.discount_cents)}</span>
+              </div>
             )}
-            <div className="flex justify-between"><span className="text-muted-foreground">{order.fulfillment_type === "pickup" ? "Pickup charge" : "Delivery charge"}</span><span>{formatMoney(order.shipping_cents)}</span></div>
+
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                {order.fulfillment_type === "pickup" ? "Pickup charge" : "Delivery charge"}
+              </span>
+              <span>{formatMoney(order.shipping_cents)}</span>
+            </div>
+
             {order.wallet_used_cents > 0 && (
-              <div className="flex justify-between text-primary"><span>Paid via wallet</span><span>-{formatMoney(order.wallet_used_cents)}</span></div>
+              <div className="flex justify-between text-primary">
+                <span>Paid via wallet</span>
+                <span>-{formatMoney(order.wallet_used_cents)}</span>
+              </div>
             )}
-            <div className="flex justify-between font-semibold"><span>Total</span><span>{formatMoney(order.total_cents)}</span></div>
+
+            <div className="flex justify-between border-t pt-1.5 text-base font-semibold">
+              <span>Total paid</span>
+              <span>{formatMoney(order.total_cents)}</span>
+            </div>
           </div>
+
           {(order.payment_status === "pending" || order.payment_status === "failed") && order.total_cents > order.wallet_used_cents && (
             <Button className="mt-4 w-full" size="sm" disabled={paying} onClick={retryPay}>
               {paying ? "Opening payment…" : order.payment_status === "failed" ? "Try payment again" : "Pay now"}
