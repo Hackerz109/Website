@@ -1,12 +1,13 @@
-import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, PackageSearch, Store, Truck } from "lucide-react";
+import { ArrowRight, MapPin, PackageSearch, Store, Truck } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMoney } from "@/stores/cart";
@@ -31,21 +32,15 @@ function paymentBadge(status: string) {
 function OrdersPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const qc = useQueryClient();
   const [payingId, setPayingId] = useState<string | null>(null);
-
-  // This router nests any "orders.$id"-style file under "orders.tsx" and renders it
-  // through this Outlet. If we're not on the exact /orders list, hand off entirely to
-  // the matched child (e.g. the order details page) instead of also showing the list.
-  const isListView = location.pathname === "/orders";
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [loading, user, navigate]);
 
   const { data, isLoading } = useQuery({
-    enabled: !!user && isListView,
+    enabled: !!user,
     queryKey: ["my-orders", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -71,10 +66,6 @@ function OrdersPage() {
     } else if (result.status === "error") {
       toast.error(result.message);
     }
-  }
-
-  if (!isListView) {
-    return <Outlet />;
   }
 
   return (
@@ -152,6 +143,16 @@ function OrdersPage() {
                       {payingId === o.id ? "Opening payment…" : o.payment_status === "failed" ? "Try payment again" : "Pay now"}
                     </Button>
                   ) : null}
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button asChild size="sm" variant="outline" className="w-full gap-1.5">
+                      <Link to="/orders/$id/track" params={{ id: o.id }}>
+                        <MapPin className="h-3.5 w-3.5" />
+                        Track Order
+                      </Link>
+                    </Button>
+                    <OrderDetailsDialog order={o} />
+                  </div>
                 </div>
 
                 <Link
