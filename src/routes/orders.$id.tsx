@@ -1,8 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, BadgePercent, CreditCard, Mail, MapPin, Store, Truck, User, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, BadgePercent, MapPin, PackageSearch, Store, Truck, ImagePlus, X } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { Badge } from "@/components/ui/badge";
@@ -33,9 +33,14 @@ function OrderDetailPage() {
   const { id } = Route.useParams();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const [paying, setPaying] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
+
+  // "/orders/$id/track" nests under this route the same way this route nests under
+  // "orders.tsx" — so anywhere deeper than this exact page, hand off to the child via Outlet.
+  const isDetailView = location.pathname === `/orders/${id}`;
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -53,7 +58,7 @@ function OrderDetailPage() {
   });
 
   const { data: returns } = useQuery({
-    enabled: !!user,
+    enabled: !!user && isDetailView,
     queryKey: ["order-returns", id, user?.id],
     queryFn: async () => {
       const all = await fetchMyReturns(user!.id);
@@ -72,6 +77,10 @@ function OrderDetailPage() {
     } else if (result.status === "error") {
       toast.error(result.message);
     }
+  }
+
+  if (!isDetailView) {
+    return <Outlet />;
   }
 
   if (orderErrored) {
@@ -122,33 +131,22 @@ function OrderDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Back to orders
         </Link>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Order #{order.id.slice(0, 8)}</h1>
             <p className="text-xs text-muted-foreground">Placed on {new Date(order.created_at).toLocaleString()}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className={ORDER_STATUS_BADGE_CLASS[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
-            <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to="/orders/$id/track" params={{ id: order.id }}>
-                <MapPin className="h-3.5 w-3.5" />
-                Track Order
-              </Link>
-            </Button>
-          </div>
+          <Badge className={ORDER_STATUS_BADGE_CLASS[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
         </div>
 
-        <div className="mt-6 rounded-xl border p-5">
-          <h2 className="font-semibold">Customer</h2>
-          <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-            <p className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5 flex-shrink-0" /> {order.customer_name || "—"}
-            </p>
-            <p className="flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {order.customer_email}
-            </p>
-          </div>
-        </div>
+        <Link
+          to="/orders/$id/track"
+          params={{ id: order.id }}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/85 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 active:opacity-80"
+        >
+          <PackageSearch className="h-4 w-4" />
+          Track This Order
+        </Link>
 
         <div className="mt-6 rounded-xl border p-5">
           <h2 className="flex items-center gap-2 font-semibold">
@@ -228,23 +226,6 @@ function OrderDetailPage() {
               <span>Total paid</span>
               <span>{formatMoney(order.total_cents)}</span>
             </div>
-          </div>
-
-          <div className="mt-4 space-y-1 border-t pt-3 text-xs text-muted-foreground">
-            <p className="flex items-center gap-1.5">
-              <CreditCard className="h-3.5 w-3.5 flex-shrink-0" />
-              {order.razorpay_payment_id
-                ? "Paid online via Razorpay"
-                : order.wallet_used_cents > 0 && order.wallet_used_cents >= order.total_cents
-                  ? "Paid using Store Wallet"
-                  : order.payment_status === "paid"
-                    ? "Marked as paid by store"
-                    : order.payment_status === "failed"
-                      ? "Payment attempt failed"
-                      : "Not yet paid"}
-            </p>
-            {order.razorpay_payment_id && <p className="font-mono">Payment ID: {order.razorpay_payment_id}</p>}
-            {order.paid_at && <p>Paid on {new Date(order.paid_at).toLocaleString()}</p>}
           </div>
 
           {(order.payment_status === "pending" || order.payment_status === "failed") && order.total_cents > order.wallet_used_cents && (
