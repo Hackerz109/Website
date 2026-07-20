@@ -147,8 +147,6 @@ function OrdersPage() {
                 <Link
                   to="/orders/$id"
                   params={{ id: o.id }}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="group flex w-full items-center justify-center gap-2 bg-gradient-to-r from-primary to-primary/85 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:opacity-80"
                 >
                   <PackageSearch className="h-4 w-4" />

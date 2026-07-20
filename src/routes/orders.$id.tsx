@@ -134,8 +134,6 @@ function OrderDetailPage() {
         <Link
           to="/orders/$id/track"
           params={{ id: order.id }}
-          target="_blank"
-          rel="noopener noreferrer"
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/85 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 active:opacity-80"
         >
           <PackageSearch className="h-4 w-4" />
