@@ -1,0 +1,15 @@
+.leaflet-map-container {
+  font-family: inherit;
+  z-index: 0;
+}
+
+.leaflet-map-container .leaflet-pane,
+.leaflet-map-container .leaflet-top,
+.leaflet-map-container .leaflet-bottom {
+  z-index: 10;
+}
+
+.leaflet-map-container .leaflet-tooltip {
+  font-family: inherit;
+  font-size: 0.75rem;
+}
