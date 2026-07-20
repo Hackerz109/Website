@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tansta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, BadgePercent, MapPin, PackageSearch, Store, Truck, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, BadgePercent, Mail, MapPin, PackageSearch, Phone, Receipt, Store, StickyNote, Truck, ImagePlus, X } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { Badge } from "@/components/ui/badge";
@@ -148,6 +148,27 @@ function OrderDetailPage() {
           Track This Order
         </Link>
 
+        <div className="mt-6 grid grid-cols-1 gap-3 rounded-xl border p-5 sm:grid-cols-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Ordered by</p>
+            <p className="mt-0.5 truncate text-sm font-medium">{order.customer_name ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Mobile number</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium">
+              <Phone className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+              {addr.phone ?? "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Email</p>
+            <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm font-medium">
+              <Mail className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+              {order.customer_email}
+            </p>
+          </div>
+        </div>
+
         <div className="mt-6 rounded-xl border p-5">
           <h2 className="flex items-center gap-2 font-semibold">
             {order.fulfillment_type === "pickup" ? <Store className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
@@ -161,16 +182,38 @@ function OrderDetailPage() {
               )}
             </div>
           ) : (
-            <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-              {addr.address && (
-                <p className="flex items-start gap-1.5"><MapPin className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" /> {addr.address}</p>
+            <div className="mt-2 space-y-1.5 text-sm">
+              <div className="flex items-start gap-1.5 text-muted-foreground">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                <div>
+                  {addr.line1 && <p className="text-foreground">{addr.line1}</p>}
+                  {addr.line2 && <p>{addr.line2}</p>}
+                  <p>
+                    {[addr.city, addr.state].filter(Boolean).join(", ")}
+                    {addr.pincode ? ` – ${addr.pincode}` : ""}
+                  </p>
+                  {!addr.line1 && addr.address && <p>{addr.address}</p>}
+                </div>
+              </div>
+              {order.delivery_distance_km != null && (
+                <p className="text-muted-foreground">{order.delivery_distance_km} km from store</p>
               )}
-              {addr.phone && <p>Phone: {addr.phone}</p>}
-              {order.delivery_distance_km != null && <p>{order.delivery_distance_km} km from store</p>}
-              {order.delivery_instructions_snapshot && <p>{order.delivery_instructions_snapshot}</p>}
+              {order.delivery_instructions_snapshot && (
+                <p className="text-muted-foreground">{order.delivery_instructions_snapshot}</p>
+              )}
             </div>
           )}
         </div>
+
+        {order.notes && (
+          <div className="mt-6 rounded-xl border p-5">
+            <h2 className="flex items-center gap-2 font-semibold">
+              <StickyNote className="h-4 w-4" />
+              Note you left at checkout
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">{order.notes}</p>
+          </div>
+        )}
 
         <div className="mt-6 rounded-xl border p-5">
           <h2 className="font-semibold">Items</h2>
@@ -227,6 +270,20 @@ function OrderDetailPage() {
               <span>{formatMoney(order.total_cents)}</span>
             </div>
           </div>
+
+          {order.payment_status === "paid" && (order.paid_at || order.razorpay_payment_id) && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
+              {order.paid_at && (
+                <span className="flex items-center gap-1.5">
+                  <Receipt className="h-3.5 w-3.5" />
+                  Paid on {new Date(order.paid_at).toLocaleString()}
+                </span>
+              )}
+              {order.razorpay_payment_id && (
+                <span>Ref: {order.razorpay_payment_id.slice(-8)}</span>
+              )}
+            </div>
+          )}
 
           {(order.payment_status === "pending" || order.payment_status === "failed") && order.total_cents > order.wallet_used_cents && (
             <Button className="mt-4 w-full" size="sm" disabled={paying} onClick={retryPay}>
