@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ChevronRight, ChevronLeft, Shield, Users as UsersIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -16,14 +16,26 @@ const PAGE_SIZE = 20;
 
 function AdminUsersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [search, setSearch] = useState("");
   const [committedSearch, setCommittedSearch] = useState("");
   const [page, setPage] = useState(0);
 
+  // This router nests "admin.users.$id"-style files under "admin.users.tsx" and
+  // renders them through this Outlet. If we're not on the exact /admin/users list,
+  // hand off entirely to the matched child (e.g. the customer detail page) instead
+  // of also showing the list.
+  const isListView = location.pathname === "/admin/users";
+
   const { data, isLoading } = useQuery({
+    enabled: isListView,
     queryKey: ["admin-customers", committedSearch, page],
     queryFn: () => adminListCustomers(committedSearch, PAGE_SIZE, page * PAGE_SIZE),
   });
+
+  if (!isListView) {
+    return <Outlet />;
+  }
 
   const rows = data?.rows ?? [];
   const total = data?.totalCount ?? 0;

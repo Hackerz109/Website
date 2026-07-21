@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Store, Truck, ArrowUpRight } from "lucide-react";
@@ -52,7 +52,16 @@ function paymentBadge(status: PaymentStatus) {
 
 function AdminOrders() {
   const qc = useQueryClient();
+  const location = useLocation();
+
+  // This router nests "admin.orders.$id"-style files under "admin.orders.tsx" and
+  // renders them through this Outlet. If we're not on the exact /admin/orders list,
+  // hand off entirely to the matched child (e.g. the order detail page) instead of
+  // also showing the list.
+  const isListView = location.pathname === "/admin/orders";
+
   const { data } = useQuery({
+    enabled: isListView,
     queryKey: ["admin-orders"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -63,6 +72,10 @@ function AdminOrders() {
       return data;
     },
   });
+
+  if (!isListView) {
+    return <Outlet />;
+  }
 
   async function setStatus(id: string, status: OrderStatus) {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
