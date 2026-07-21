@@ -1,0 +1,74 @@
+//#region node_modules/.nitro/vite/services/ssr/assets/orderStatus-CtDgXVlR.js
+var ORDER_STATUS_LABELS = {
+	pending: "Order Placed",
+	confirmed: "Confirmed",
+	packed: "Packed",
+	ready_for_pickup: "Ready for Pickup",
+	out_for_delivery: "Out for Delivery",
+	shipped: "Shipped",
+	delivered: "Delivered",
+	cancelled: "Cancelled",
+	return_requested: "Return Requested",
+	return_approved: "Return Approved",
+	return_rejected: "Return Rejected",
+	refunded: "Refunded",
+	paid: "Paid"
+};
+var ORDER_STATUS_BADGE_CLASS = {
+	pending: "bg-secondary text-secondary-foreground hover:bg-secondary",
+	confirmed: "bg-blue-100 text-blue-700 hover:bg-blue-100",
+	packed: "bg-blue-100 text-blue-700 hover:bg-blue-100",
+	ready_for_pickup: "bg-violet-100 text-violet-700 hover:bg-violet-100",
+	out_for_delivery: "bg-amber-100 text-amber-700 hover:bg-amber-100",
+	shipped: "bg-amber-100 text-amber-700 hover:bg-amber-100",
+	delivered: "bg-green-100 text-green-700 hover:bg-green-100",
+	cancelled: "bg-red-100 text-red-700 hover:bg-red-100",
+	return_requested: "bg-amber-100 text-amber-700 hover:bg-amber-100",
+	return_approved: "bg-blue-100 text-blue-700 hover:bg-blue-100",
+	return_rejected: "bg-red-100 text-red-700 hover:bg-red-100",
+	refunded: "bg-secondary text-secondary-foreground hover:bg-secondary",
+	paid: "bg-green-100 text-green-700 hover:bg-green-100"
+};
+/** The full set of statuses admins may set directly (includes the
+* return/refund states, which are normally system-driven but an admin may
+* need to correct manually). */
+var ALL_ORDER_STATUSES = [
+	"pending",
+	"confirmed",
+	"packed",
+	"ready_for_pickup",
+	"out_for_delivery",
+	"delivered",
+	"cancelled",
+	"return_requested",
+	"return_approved",
+	"return_rejected",
+	"refunded"
+];
+/** Ordered "happy path" steps for the customer-facing progress stepper.
+* Statuses outside this list (cancelled, return_*, refunded) are shown as
+* their own distinct banner instead of a step position. */
+function happyPathSteps(fulfillmentType) {
+	return fulfillmentType === "pickup" ? [
+		"pending",
+		"confirmed",
+		"packed",
+		"ready_for_pickup",
+		"delivered"
+	] : [
+		"pending",
+		"confirmed",
+		"packed",
+		"out_for_delivery",
+		"delivered"
+	];
+}
+var SIDE_TRACK_STATUSES = [
+	"cancelled",
+	"return_requested",
+	"return_approved",
+	"return_rejected",
+	"refunded"
+];
+//#endregion
+export { happyPathSteps as a, SIDE_TRACK_STATUSES as i, ORDER_STATUS_BADGE_CLASS as n, ORDER_STATUS_LABELS as r, ALL_ORDER_STATUSES as t };

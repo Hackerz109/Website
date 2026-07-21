@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-By8HlURe.js";var t=e(),n=()=>(0,t.jsx)(`div`,{className:`p-8 text-center`,children:`Product not found`});export{n as notFoundComponent};
