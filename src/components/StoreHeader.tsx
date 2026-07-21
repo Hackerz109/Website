@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingBag, User as UserIcon, LayoutDashboard, LogOut, Zap, Search, X, Wallet } from "lucide-react";
+import { ShoppingBag, UserCircle, LayoutDashboard, LogOut, Zap, Search, X, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useCart } from "@/stores/cart";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { SearchBar } from "@/components/SearchBar";
+import { initials } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export function StoreHeader() {
   const count = useCart((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, profile } = useAuth();
   const navigate = useNavigate();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
@@ -59,14 +62,32 @@ export function StoreHeader() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="rounded-lg">
-                  <UserIcon className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="rounded-lg px-1.5 sm:px-2.5">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={profile?.avatar_url ?? undefined} alt="" />
+                    <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+                      {initials(profile?.full_name, user.email)}
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="ml-2 hidden max-w-[120px] truncate sm:inline">
-                    {user.email}
+                    {profile?.full_name || user.email}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <p className="truncate text-sm font-medium text-foreground">{profile?.full_name || "Your account"}</p>
+                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                  {profile?.customer_code && (
+                    <p className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground">
+                      {profile.customer_code}
+                    </p>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate({ to: "/profile" })}>
+                  <UserCircle className="mr-2 h-4 w-4" /> My profile
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ to: "/orders" })}>
                   My orders
                 </DropdownMenuItem>

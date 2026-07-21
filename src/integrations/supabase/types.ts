@@ -110,6 +110,7 @@ export type Database = {
           out_for_delivery_at: string | null
           delivered_at: string | null
           cancelled_at: string | null
+          admin_notes: string | null
         }
         Insert: {
           coupon_code?: string | null
@@ -145,6 +146,7 @@ export type Database = {
           out_for_delivery_at?: string | null
           delivered_at?: string | null
           cancelled_at?: string | null
+          admin_notes?: string | null
         }
         Update: {
           coupon_code?: string | null
@@ -180,6 +182,7 @@ export type Database = {
           out_for_delivery_at?: string | null
           delivered_at?: string | null
           cancelled_at?: string | null
+          admin_notes?: string | null
         }
         Relationships: [
           {
@@ -911,18 +914,78 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          customer_code: string
+          phone: string | null
+          avatar_url: string | null
+          last_seen_at: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          customer_code?: string
+          phone?: string | null
+          avatar_url?: string | null
+          last_seen_at?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          customer_code?: string
+          phone?: string | null
+          avatar_url?: string | null
+          last_seen_at?: string | null
+        }
+        Relationships: []
+      }
+      user_addresses: {
+        Row: {
+          id: string
+          user_id: string
+          label: string
+          full_name: string | null
+          phone: string | null
+          line1: string
+          line2: string | null
+          city: string
+          state: string
+          pincode: string
+          is_default: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          label?: string
+          full_name?: string | null
+          phone?: string | null
+          line1: string
+          line2?: string | null
+          city: string
+          state: string
+          pincode: string
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          label?: string
+          full_name?: string | null
+          phone?: string | null
+          line1?: string
+          line2?: string | null
+          city?: string
+          state?: string
+          pincode?: string
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1111,6 +1174,62 @@ export type Database = {
           email: string | null
           full_name: string | null
         }[]
+      }
+      touch_last_seen: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      admin_list_customers: {
+        Args: {
+          p_search?: string | null
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          id: string
+          customer_code: string
+          email: string | null
+          full_name: string | null
+          phone: string | null
+          avatar_url: string | null
+          created_at: string
+          last_seen_at: string | null
+          is_admin: boolean
+          order_count: number
+          total_spent_cents: number
+          wallet_balance_cents: number
+          total_count: number
+        }[]
+      }
+      admin_get_customer: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: {
+          id: string
+          customer_code: string
+          email: string | null
+          full_name: string | null
+          phone: string | null
+          avatar_url: string | null
+          created_at: string
+          last_seen_at: string | null
+          is_admin: boolean
+          order_count: number
+          total_spent_cents: number
+          wallet_balance_cents: number
+        }[]
+      }
+      admin_set_admin_role: {
+        Args: {
+          p_user_id: string
+          p_make_admin: boolean
+        }
+        Returns: Json
+      }
+      admin_dashboard_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
     }
     Enums: {
