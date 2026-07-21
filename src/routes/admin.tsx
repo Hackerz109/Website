@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet, Users } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +45,7 @@ function AdminLayout() {
 
   const nav = [
     { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+    { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/products", label: "Products", icon: Package },
     { to: "/admin/taxonomy", label: "Categories & Brands", icon: Tags },
     { to: "/admin/coupons", label: "Coupons", icon: Ticket },

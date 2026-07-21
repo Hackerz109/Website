@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Store, Truck } from "lucide-react";
+import { Store, Truck, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,7 +94,13 @@ function AdminOrders() {
           <div key={o.id} className="rounded-xl border p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-mono text-xs">#{o.id.slice(0, 8)}</p>
+                <Link
+                  to="/admin/orders/$id"
+                  params={{ id: o.id }}
+                  className="inline-flex items-center gap-1 font-mono text-xs font-medium text-primary hover:underline"
+                >
+                  #{o.id.slice(0, 8)} <ArrowUpRight className="h-3 w-3" />
+                </Link>
                 <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
                 <p className="mt-1 text-sm">{o.customer_name ?? "—"}</p>
                 <p className="text-xs text-muted-foreground">{o.customer_email}</p>
@@ -152,7 +158,13 @@ function AdminOrders() {
             {(data ?? []).map((o) => (
               <TableRow key={o.id}>
                 <TableCell>
-                  <p className="font-mono text-xs">#{o.id.slice(0, 8)}</p>
+                  <Link
+                    to="/admin/orders/$id"
+                    params={{ id: o.id }}
+                    className="inline-flex items-center gap-1 font-mono text-xs font-medium text-primary hover:underline"
+                  >
+                    #{o.id.slice(0, 8)} <ArrowUpRight className="h-3 w-3" />
+                  </Link>
                   <p className="text-xs text-muted-foreground">
                     {new Date(o.created_at).toLocaleString()}
                   </p>

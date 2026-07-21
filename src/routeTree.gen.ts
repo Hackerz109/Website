@@ -48,6 +48,10 @@ import { Route as ApiVerifyRazorpayPaymentRouteImport } from './routes/api.verif
 import { Route as ApiRefundRazorpayPaymentRouteImport } from './routes/api.refund-razorpay-payment'
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api.razorpay-webhook'
 import { Route as ApiCreateRazorpayOrderRouteImport } from './routes/api.create-razorpay-order'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminUsersIdRouteImport } from './routes/admin.users.$id'
+import { Route as AdminOrdersIdRouteImport } from './routes/admin.orders.$id'
 
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
@@ -204,6 +208,26 @@ const ApiCreateRazorpayOrderRoute = ApiCreateRazorpayOrderRouteImport.update({
   path: '/api/create-razorpay-order',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersIdRoute = AdminUsersIdRouteImport.update({
+  id: '/users/$id',
+  path: '/users/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOrdersIdRoute = AdminOrdersIdRouteImport.update({
+  id: '/orders/$id',
+  path: '/orders/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -237,6 +261,10 @@ export interface FileRoutesByFullPath {
   '/api/refund-razorpay-payment': typeof ApiRefundRazorpayPaymentRoute
   '/api/verify-razorpay-payment': typeof ApiVerifyRazorpayPaymentRoute
   '/api/whatsapp-webhook': typeof ApiWhatsappWebhookRoute
+  '/profile': typeof ProfileRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/users/$id': typeof AdminUsersIdRoute
+  '/admin/orders/$id': typeof AdminOrdersIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -269,6 +297,10 @@ export interface FileRoutesByTo {
   '/api/refund-razorpay-payment': typeof ApiRefundRazorpayPaymentRoute
   '/api/verify-razorpay-payment': typeof ApiVerifyRazorpayPaymentRoute
   '/api/whatsapp-webhook': typeof ApiWhatsappWebhookRoute
+  '/profile': typeof ProfileRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/users/$id': typeof AdminUsersIdRoute
+  '/admin/orders/$id': typeof AdminOrdersIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -303,6 +335,10 @@ export interface FileRoutesById {
   '/api/refund-razorpay-payment': typeof ApiRefundRazorpayPaymentRoute
   '/api/verify-razorpay-payment': typeof ApiVerifyRazorpayPaymentRoute
   '/api/whatsapp-webhook': typeof ApiWhatsappWebhookRoute
+  '/profile': typeof ProfileRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/users/$id': typeof AdminUsersIdRoute
+  '/admin/orders/$id': typeof AdminOrdersIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -338,6 +374,10 @@ export interface FileRouteTypes {
     | '/api/refund-razorpay-payment'
     | '/api/verify-razorpay-payment'
     | '/api/whatsapp-webhook'
+    | '/profile'
+    | '/admin/users'
+    | '/admin/users/$id'
+    | '/admin/orders/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -370,6 +410,10 @@ export interface FileRouteTypes {
     | '/api/refund-razorpay-payment'
     | '/api/verify-razorpay-payment'
     | '/api/whatsapp-webhook'
+    | '/profile'
+    | '/admin/users'
+    | '/admin/users/$id'
+    | '/admin/orders/$id'
   id:
     | '__root__'
     | '/'
@@ -403,6 +447,10 @@ export interface FileRouteTypes {
     | '/api/refund-razorpay-payment'
     | '/api/verify-razorpay-payment'
     | '/api/whatsapp-webhook'
+    | '/profile'
+    | '/admin/users'
+    | '/admin/users/$id'
+    | '/admin/orders/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -429,6 +477,7 @@ export interface RootRouteChildren {
   ApiRefundRazorpayPaymentRoute: typeof ApiRefundRazorpayPaymentRoute
   ApiVerifyRazorpayPaymentRoute: typeof ApiVerifyRazorpayPaymentRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
+  ProfileRoute: typeof ProfileRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -650,6 +699,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users/$id': {
+      id: '/admin/users/$id'
+      path: '/users/$id'
+      fullPath: '/admin/users/$id'
+      preLoaderRoute: typeof AdminUsersIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/orders/$id': {
+      id: '/admin/orders/$id'
+      path: '/orders/$id'
+      fullPath: '/admin/orders/$id'
+      preLoaderRoute: typeof AdminOrdersIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
@@ -657,9 +734,12 @@ interface AdminRouteChildren {
   AdminCouponsRoute: typeof AdminCouponsRoute
   AdminDeliveryRoute: typeof AdminDeliveryRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminOrdersIdRoute: typeof AdminOrdersIdRoute
   AdminProductsRoute: typeof AdminProductsRoute
   AdminReturnsRoute: typeof AdminReturnsRoute
   AdminTaxonomyRoute: typeof AdminTaxonomyRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminUsersIdRoute: typeof AdminUsersIdRoute
   AdminWalletRoute: typeof AdminWalletRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -668,9 +748,12 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCouponsRoute: AdminCouponsRoute,
   AdminDeliveryRoute: AdminDeliveryRoute,
   AdminOrdersRoute: AdminOrdersRoute,
+  AdminOrdersIdRoute: AdminOrdersIdRoute,
   AdminProductsRoute: AdminProductsRoute,
   AdminReturnsRoute: AdminReturnsRoute,
   AdminTaxonomyRoute: AdminTaxonomyRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminUsersIdRoute: AdminUsersIdRoute,
   AdminWalletRoute: AdminWalletRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -701,6 +784,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRefundRazorpayPaymentRoute: ApiRefundRazorpayPaymentRoute,
   ApiVerifyRazorpayPaymentRoute: ApiVerifyRazorpayPaymentRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
+  ProfileRoute: ProfileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

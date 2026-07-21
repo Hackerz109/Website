@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Search, Wallet } from "lucide-react";
+import { Search, Wallet, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -103,7 +103,16 @@ function CustomerWallet({ customer, onBack }: { customer: CustomerHit; onBack: (
       <Button variant="ghost" size="sm" onClick={onBack}>← Back to search</Button>
 
       <div className="rounded-xl border p-5">
-        <p className="text-sm text-muted-foreground">{customer.full_name || customer.email}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">{customer.full_name || customer.email}</p>
+          <Link
+            to="/admin/users/$id"
+            params={{ id: customer.id }}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            Full profile <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
         <div className="mt-1 flex items-center gap-2">
           <Wallet className="h-5 w-5 text-primary" />
           <span className="text-2xl font-semibold">{formatMoney(balance)}</span>
