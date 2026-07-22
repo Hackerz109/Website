@@ -17,12 +17,16 @@ import {
   RotateCcw,
   User as UserIcon,
   Save,
+  Navigation,
+  Share2,
+  Copy,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { OrderTimeline } from "@/components/OrderTimeline";
+import { LeafletMap } from "@/components/LeafletMap";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
 import { ALL_ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/orderStatus";
@@ -33,6 +37,7 @@ type Order = Database["public"]["Tables"]["orders"]["Row"];
 type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
 type OrderStatus = Database["public"]["Enums"]["order_status"];
 type PaymentStatus = Database["public"]["Enums"]["payment_status"];
+type StoreLocation = Database["public"]["Tables"]["store_locations"]["Row"];
 
 export const Route = createFileRoute("/admin/orders/$id")({ component: AdminOrderDetailPage });
 
@@ -81,6 +86,15 @@ function AdminOrderDetailPage() {
     },
   });
 
+  const { data: storeLocations } = useQuery({
+    queryKey: ["admin-store-locations"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("store_locations").select("*").order("is_primary", { ascending: false });
+      if (error) throw error;
+      return data as StoreLocation[];
+    },
+  });
+
   async function setStatus(status: OrderStatus) {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
@@ -125,6 +139,46 @@ function AdminOrderDetailPage() {
 
   const addr = (order.shipping_address ?? {}) as Record<string, string>;
   const items = order.order_items ?? [];
+  const shopLocation = storeLocations?.find((s) => s.is_primary) ?? storeLocations?.[0];
+  const hasDeliveryPin = order.fulfillment_type === "delivery" && order.delivery_lat != null && order.delivery_lng != null;
+
+  function directionsUrl() {
+    if (!hasDeliveryPin) return "";
+    const destination = `${order.delivery_lat},${order.delivery_lng}`;
+    const origin = shopLocation ? `${shopLocation.lat},${shopLocation.lng}` : undefined;
+    const params = new URLSearchParams({ api: "1", destination, travelmode: "driving" });
+    if (origin) params.set("origin", origin);
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  function hasShareApi(): boolean {
+    // Cast through `any` deliberately: lib.dom.d.ts declares Navigator.share
+    // as always present, so a plain `navigator.share` truthiness/`in` check
+    // gets "optimized away" by TypeScript's narrowing (and, worse, collapses
+    // the fallback branch below to `never`). This is a real runtime-only
+    // capability check, not something the type system should decide.
+    return typeof navigator !== "undefined" && typeof (navigator as any).share === "function";
+  }
+
+  async function shareLocation() {
+    if (!hasDeliveryPin) return;
+    const mapsUrl = `https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`;
+    const shareText = `Delivery location for order #${order.id.slice(0, 8)}${order.customer_name ? ` (${order.customer_name})` : ""}: ${mapsUrl}`;
+    if (hasShareApi()) {
+      try {
+        await navigator.share({ title: "Delivery location", text: shareText, url: mapsUrl });
+      } catch {
+        // Cancelled or unsupported mid-flow — fall through silently, nothing to recover.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareText);
+      toast.success("Location link copied — paste it in WhatsApp or wherever you need it.");
+    } catch {
+      toast.error("Couldn't copy the link — long-press to copy it manually.");
+    }
+  }
 
   return (
     <div>
@@ -210,6 +264,31 @@ function AdminOrderDetailPage() {
                 </div>
                 {order.delivery_distance_km != null && (
                   <p className="mt-1.5 text-xs">{order.delivery_distance_km} km from store</p>
+                )}
+                {hasDeliveryPin && (
+                  <div className="mt-3 space-y-2">
+                    <LeafletMap
+                      center={{ lat: order.delivery_lat!, lng: order.delivery_lng! }}
+                      zoom={14}
+                      fitToContent
+                      markers={[
+                        ...(shopLocation ? [{ id: "shop", lat: shopLocation.lat, lng: shopLocation.lng, color: "#16a34a", label: shopLocation.name }] : []),
+                        { id: "delivery", lat: order.delivery_lat!, lng: order.delivery_lng!, color: "#2454e5", label: "Delivery location" },
+                      ]}
+                      height={200}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button asChild size="sm" variant="outline">
+                        <a href={directionsUrl()} target="_blank" rel="noopener noreferrer">
+                          <Navigation className="mr-1.5 h-3.5 w-3.5" /> Get directions
+                        </a>
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={shareLocation}>
+                        {hasShareApi() ? <Share2 className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+                        Share location
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

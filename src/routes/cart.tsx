@@ -26,6 +26,7 @@ import {
 } from "@/lib/delivery";
 import { fetchWalletTransactions, sumBalance, redeemWalletForOrder } from "@/lib/wallet";
 import { PhoneVerifyDialog } from "@/components/PhoneVerifyDialog";
+import { PHONE_VERIFICATION_ENABLED } from "@/lib/phoneVerification";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/cart")({ component: CartPage });
@@ -65,6 +66,7 @@ function CartPage() {
   const [stateName, setStateName] = useState("");
   const [pincode, setPincode] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
   const [addressGeocoding, setAddressGeocoding] = useState(false);
   const [addressGeocodeFailed, setAddressGeocodeFailed] = useState(false);
@@ -169,11 +171,18 @@ function CartPage() {
       toast("Couldn't get your location — enter your address below instead.", { icon: "📍" });
       return;
     }
-    setCoords(loc);
+    setCoords({ lat: loc.lat, lng: loc.lng });
+    setLocationAccuracy(loc.accuracy);
     setDeliveryBlocked(false);
     setAddressGeocodeFailed(false);
     const address = await reverseGeocode(loc.lat, loc.lng);
     if (address) setAddressLine1(address);
+    // Anything much wider than a house-sized fix is worth flagging — the
+    // pin is still draggable, so this is just steering the shopper to
+    // double-check rather than blocking anything.
+    if (loc.accuracy > 100) {
+      toast(`Your location may be off by about ${Math.round(loc.accuracy)}m — drag the pin on the map to fine-tune it.`, { icon: "📍" });
+    }
   }
 
   const typedAddress = [addressLine1, city, stateName, pincode].filter((s) => s.trim()).join(", ");
@@ -181,7 +190,7 @@ function CartPage() {
   async function locateTypedAddress(opts: { silent: boolean }) {
     if (!typedAddress) return;
     setAddressGeocoding(true);
-    const result = await forwardGeocode(typedAddress);
+    const result = await forwardGeocode(typedAddress, shopLocation ? { lat: shopLocation.lat, lng: shopLocation.lng } : undefined);
     setAddressGeocoding(false);
     if (!result) {
       setAddressGeocodeFailed(true);
@@ -191,6 +200,7 @@ function CartPage() {
       return;
     }
     setAddressGeocodeFailed(false);
+    setLocationAccuracy(null);
     setCoords({ lat: result.lat, lng: result.lng });
     setDeliveryBlocked(false);
   }
@@ -231,7 +241,7 @@ function CartPage() {
       return;
     }
     if (items.length === 0) return;
-    if (!profile?.phone_verified) {
+    if (PHONE_VERIFICATION_ENABLED && !profile?.phone_verified) {
       toast("Please verify your phone number before placing an order", { icon: "📱" });
       setPhoneDialogOpen(true);
       return;
@@ -458,14 +468,20 @@ function CartPage() {
                     </Button>
                     <LeafletMap
                       center={mapCenter}
-                      circles={
-                        deliveryInfo?.zones.map((z) => ({ id: z.id, lat: z.lat, lng: z.lng, radiusKm: z.radius_km, label: z.name })) ?? []
-                      }
+                      circles={[
+                        ...(deliveryInfo?.zones.map((z) => ({ id: z.id, lat: z.lat, lng: z.lng, radiusKm: z.radius_km, label: z.name })) ?? []),
+                        // Visualizes GPS uncertainty so it's obvious the pin is an
+                        // estimate, not exact — clears itself once the shopper
+                        // manually places/drags the pin (see onDragEnd/onMapClick).
+                        ...(coords && locationAccuracy && locationAccuracy > 30
+                          ? [{ id: "accuracy", lat: coords.lat, lng: coords.lng, radiusKm: locationAccuracy / 1000, color: "#94a3b8", label: `~${Math.round(locationAccuracy)}m accuracy` }]
+                          : []),
+                      ]}
                       markers={[
                         ...(shopLocation ? [{ id: "shop", lat: shopLocation.lat, lng: shopLocation.lng, color: "#16a34a", label: shopLocation.name }] : []),
-                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => setCoords({ lat, lng }) }] : []),
+                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { setCoords({ lat, lng }); setLocationAccuracy(null); } }] : []),
                       ]}
-                      onMapClick={(lat, lng) => { setCoords({ lat, lng }); setDeliveryBlocked(false); }}
+                      onMapClick={(lat, lng) => { setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); }}
                       height={220}
                     />
                     <p className="text-xs text-muted-foreground">
@@ -639,7 +655,7 @@ function CartPage() {
                   <Textarea id="cnn" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
                 </div>
               </div>
-              {user && !profile?.phone_verified && (
+              {PHONE_VERIFICATION_ENABLED && user && !profile?.phone_verified && (
                 <button
                   type="button"
                   onClick={() => setPhoneDialogOpen(true)}
@@ -660,12 +676,14 @@ function CartPage() {
         )}
       </div>
       <StoreFooter />
-      <PhoneVerifyDialog
-        open={phoneDialogOpen}
-        onOpenChange={setPhoneDialogOpen}
-        defaultPhone={phone || profile?.phone}
-        onVerified={refreshProfile}
-      />
+      {PHONE_VERIFICATION_ENABLED && (
+        <PhoneVerifyDialog
+          open={phoneDialogOpen}
+          onOpenChange={setPhoneDialogOpen}
+          defaultPhone={phone || profile?.phone}
+          onVerified={refreshProfile}
+        />
+      )}
     </div>
   );
 }

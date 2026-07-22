@@ -29,6 +29,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PhoneVerifyDialog } from "@/components/PhoneVerifyDialog";
+import { PHONE_VERIFICATION_ENABLED } from "@/lib/phoneVerification";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
@@ -254,7 +255,7 @@ function ProfileDetailsForm({ profile, onSaved }: { profile: Profile; onSaved: (
       <div>
         <Label htmlFor="pf-phone" className="flex items-center justify-between">
           <span>Mobile number</span>
-          {profile.phone && (
+          {PHONE_VERIFICATION_ENABLED && profile.phone && (
             profile.phone_verified ? (
               <Badge variant="secondary" className="text-[10px]">Verified</Badge>
             ) : (
@@ -270,16 +271,18 @@ function ProfileDetailsForm({ profile, onSaved }: { profile: Profile; onSaved: (
           onChange={(e) => setPhone(e.target.value)}
           placeholder="10-digit mobile number"
         />
-        {phone && phone !== profile.phone && (
+        {PHONE_VERIFICATION_ENABLED && phone && phone !== profile.phone && (
           <p className="mt-1 text-[11px] text-muted-foreground">Save this number first, then verify it.</p>
         )}
       </div>
-      <PhoneVerifyDialog
-        open={phoneDialogOpen}
-        onOpenChange={setPhoneDialogOpen}
-        defaultPhone={profile.phone}
-        onVerified={onSaved}
-      />
+      {PHONE_VERIFICATION_ENABLED && (
+        <PhoneVerifyDialog
+          open={phoneDialogOpen}
+          onOpenChange={setPhoneDialogOpen}
+          defaultPhone={profile.phone}
+          onVerified={onSaved}
+        />
+      )}
       <div>
         <Label>Email</Label>
         <Input value={profile.email ?? ""} disabled className="bg-secondary/40 text-muted-foreground" />
