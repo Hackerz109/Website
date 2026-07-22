@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Plus, Pencil, Trash2, Star, Upload, Loader2 } from "lucide-react";
@@ -41,7 +41,12 @@ type Product = Database["public"]["Tables"]["products"]["Row"];
 type Variant = Database["public"]["Tables"]["product_variants"]["Row"];
 type ProductImage = Database["public"]["Tables"]["product_images"]["Row"];
 
-export const Route = createFileRoute("/admin/products")({ component: AdminProducts });
+export const Route = createFileRoute("/admin/products")({
+  component: AdminProducts,
+  validateSearch: (search: Record<string, unknown>) => ({
+    edit: typeof search.edit === "string" ? search.edit : undefined,
+  }),
+});
 
 const empty = {
   name: "",
@@ -108,6 +113,17 @@ function AdminProducts() {
       return data;
     },
   });
+
+  const { edit: editId } = Route.useSearch();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!editId || !products) return;
+    const match = products.find((p) => p.id === editId);
+    if (match) openEdit(match);
+    navigate({ to: "/admin/products", search: {}, replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, products]);
 
   function priceDisplay(p: Product & { product_variants?: { price_cents: number; stock: number }[] }) {
     const variants = p.product_variants ?? [];

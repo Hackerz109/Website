@@ -101,6 +101,7 @@ function AdminSearchPage() {
                   <Link
                     key={p.id}
                     to="/admin/products"
+                    search={{ edit: p.id }}
                     className="flex items-center justify-between px-4 py-3 hover:bg-accent"
                   >
                     <div>
@@ -121,6 +122,7 @@ function AdminSearchPage() {
                   <Link
                     key={c.id}
                     to="/admin/coupons"
+                    search={{ edit: c.id }}
                     className="flex items-center justify-between px-4 py-3 hover:bg-accent"
                   >
                     <div>

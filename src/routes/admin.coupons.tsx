@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
@@ -29,7 +29,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
 import type { Database } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/admin/coupons")({ component: AdminCoupons });
+export const Route = createFileRoute("/admin/coupons")({
+  component: AdminCoupons,
+  validateSearch: (search: Record<string, unknown>) => ({
+    edit: typeof search.edit === "string" ? search.edit : undefined,
+  }),
+});
 
 type Coupon = Database["public"]["Tables"]["coupons"]["Row"];
 type DiscountType = Database["public"]["Enums"]["coupon_discount_type"];
@@ -146,6 +151,17 @@ function AdminCoupons() {
   useEffect(() => {
     load();
   }, []);
+
+  const { edit: editId } = Route.useSearch();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!editId || coupons.length === 0) return;
+    const match = coupons.find((c) => c.id === editId);
+    if (match) openEdit(match);
+    navigate({ to: "/admin/coupons", search: {}, replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, coupons]);
 
   function openCreate() {
     setEditing(null);
