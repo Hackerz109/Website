@@ -114,19 +114,34 @@ export function getBrowserLocation(): Promise<LatLngAccuracy | null> {
   });
 }
 
+export interface ReverseGeocodeResult {
+  /** House/flat + street when OSM has them; falls back to whatever fine-grained
+   * locality tag is available so the field is rarely left completely empty.
+   * Still meant to be edited by the shopper, not treated as final. */
+  line1: string;
+  city: string;
+  state: string;
+  pincode: string;
+  /** Single-line rendering of the whole address, for callers that just want one string. */
+  display_name: string;
+}
+
 /** Best-effort reverse geocode via OpenStreetMap Nominatim (free, no API
- * key). Purely a convenience to prefill the address field — the field
- * always stays editable, so failures here are silent. For high-volume
- * production traffic, proxy this through your own server with a proper
- * User-Agent and caching per Nominatim's usage policy.
+ * key). Purely a convenience to prefill the address fields — they always
+ * stay editable, so failures here are silent. For high-volume production
+ * traffic, proxy this through your own server with a proper User-Agent and
+ * caching per Nominatim's usage policy.
  *
- * Builds the address from structured components (house/road/locality/city/
- * state/postcode) rather than returning Nominatim's raw `display_name`,
- * which tends to be a long, oddly-ordered string that often buries or omits
- * the locality. Falls back to `display_name` if components are missing.
- * `accept-language=en` keeps the result in English regardless of the area's
- * default locale/script. */
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+ * Returns the address as structured components (house/road/locality/city/
+ * state/postcode) rather than one blob, so the caller can fill address line
+ * 1, city, state and pincode as separate fields instead of cramming
+ * everything into a single line. Checks a broad set of OSM locality tags
+ * (neighbourhood/suburb/quarter/residential/hamlet/city_block) since which
+ * one is populated varies a lot by how thoroughly the area has been mapped —
+ * small towns are far more likely to have only one of these than all of
+ * them. `accept-language=en` keeps the result in English regardless of the
+ * area's default locale/script. */
+export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18&accept-language=en`,
@@ -134,46 +149,36 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
     if (!res.ok) return null;
     const data = await res.json();
     const a = data?.address;
-    if (a) {
-      const houseAndRoad = [a.house_number, a.road].filter(Boolean).join(" ");
-      const locality = a.suburb || a.neighbourhood || a.residential;
-      const cityLike = a.village || a.town || a.city_district || a.city;
-      const parts = [houseAndRoad, locality, cityLike, a.state, a.postcode].filter(
-        (p) => typeof p === "string" && p.trim().length > 0,
-      );
-      if (parts.length > 0) return parts.join(", ");
-    }
-    return data?.display_name ?? null;
+    if (!a) return null;
+
+    const houseAndRoad = [a.house_number, a.road || a.pedestrian || a.footway || a.cycleway]
+      .filter(Boolean)
+      .join(" ");
+    const locality: string | undefined =
+      a.neighbourhood || a.suburb || a.quarter || a.residential || a.city_block || a.hamlet;
+    const cityLike: string | undefined =
+      a.town || a.village || a.municipality || a.city_district || a.city || a.county;
+
+    const line1 = [houseAndRoad, locality && locality !== cityLike ? locality : null]
+      .filter((p): p is string => !!p && p.trim().length > 0)
+      .join(", ");
+
+    return {
+      line1,
+      city: cityLike ?? "",
+      state: a.state ?? "",
+      pincode: a.postcode ?? "",
+      display_name: data?.display_name ?? [line1, cityLike, a.state, a.postcode].filter(Boolean).join(", "),
+    };
   } catch {
     return null;
   }
 }
 
-export interface ForwardGeocodeResult {
-  lat: number;
-  lng: number;
-  display_name: string;
-}
-
-/** Best-effort forward geocode via OpenStreetMap Nominatim (free, no API
- * key) — resolves a manually typed address to coordinates so delivery
- * eligibility/charges can be computed without the shopper touching the
- * map. Returns null on no match or network failure; callers should treat
- * that as "couldn't pin this address" rather than an error. Same
- * production caveat as reverseGeocode: proxy + cache server-side for high
- * volume, per Nominatim's usage policy.
- *
- * `countrycodes=in` mirrors the India assumption normalizePhone() already
- * makes elsewhere in this file. When `near` (typically the shop location)
- * is provided, results are soft-biased toward a ~55km box around it via
- * `viewbox`+`bounded=0` — without this, a short/common address (e.g. just
- * a street name) can resolve to a same-named street in a completely
- * different city, which is the main way this lookup ends up "accurate
- * geocode, wrong place". `bounded=0` only nudges ranking, it never excludes
- * a genuinely distant match. */
-export async function forwardGeocode(query: string, near?: LatLng): Promise<ForwardGeocodeResult | null> {
-  const q = query.trim();
-  if (!q) return null;
+async function nominatimSearch(
+  q: string,
+  near?: LatLng,
+): Promise<{ lat: number; lng: number; display_name: string } | null> {
   try {
     const params = new URLSearchParams({
       format: "json",
@@ -197,6 +202,113 @@ export async function forwardGeocode(query: string, near?: LatLng): Promise<Forw
   } catch {
     return null;
   }
+}
+
+/** Keeps only the last `n` words of `s` (splitting on commas or whitespace).
+ * Used to peel the house-number/street prefix off a typed address while
+ * keeping whatever locality/town name comes after it. */
+function lastWords(s: string, n: number): string {
+  const tokens = s
+    .split(/[,\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) return "";
+  return tokens.slice(Math.max(0, tokens.length - n)).join(" ");
+}
+
+/** Builds a ladder of progressively looser search strings, most specific
+ * first. OpenStreetMap's coverage of house numbers and small streets/colonies
+ * in India is patchy outside big-city cores, and Nominatim fails the *whole*
+ * query when one part of it can't be resolved — so a long, specific query
+ * (house number + street + colony) is often *less* likely to match than a
+ * short one, even though the underlying town is perfectly well mapped. Each
+ * step below drops a bit more of the specific part so we still land the pin
+ * somewhere useful instead of failing outright. */
+function buildFallbackQueries(line1: string, city: string, state: string, pincode: string): string[] {
+  const tail = [city, state, pincode].filter((p) => p.trim().length > 0);
+  const attempts: string[] = [];
+  const add = (parts: (string | undefined)[]) => {
+    const q = parts
+      .filter((p): p is string => !!p && p.trim().length > 0)
+      .join(", ")
+      .trim();
+    if (q && !attempts.includes(q)) attempts.push(q);
+  };
+
+  // 1) Exactly what was typed — best case, keeps full precision.
+  add([line1, ...tail]);
+
+  // 2-4) Keep only the last few words of address line 1 (usually the
+  // locality/area name, e.g. "...Katra Chowk, Katra") and drop the
+  // house-number/street portion in front of it.
+  add([lastWords(line1, 3), ...tail]);
+  add([lastWords(line1, 2), ...tail]);
+  add([lastWords(line1, 1), ...tail]);
+
+  // 5-6) Whatever's in the dedicated city/state/pincode fields, ignoring
+  // address line 1 entirely — covers a line 1 that's purely a plot/house
+  // reference with no place name in it at all.
+  add(tail);
+  add([city, state]);
+
+  // 7) Postal code alone — postcode-area boundaries are often mapped even
+  // in towns where individual streets are not.
+  add([pincode]);
+
+  // 8) Last resort: just the state, so the map centers somewhere sensible
+  // and the shopper can drop a precise pin rather than hitting a dead end.
+  add([state]);
+
+  return attempts;
+}
+
+export interface ForwardGeocodeQuery {
+  line1?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+}
+
+export interface ForwardGeocodeResult {
+  lat: number;
+  lng: number;
+  display_name: string;
+  /** False when we had to fall back to a looser query than exactly what was
+   * typed — usually because OpenStreetMap has no record of that specific
+   * house/street. Still a useful starting point, but callers should treat
+   * the pin as approximate and prompt the shopper to fine-tune it. */
+  exact: boolean;
+}
+
+/** Best-effort forward geocode via OpenStreetMap Nominatim (free, no API
+ * key) — resolves a manually typed address to coordinates so delivery
+ * eligibility/charges can be computed without the shopper touching the map.
+ * Returns null only once every fallback tier in buildFallbackQueries has
+ * been tried and failed; callers should treat that as "couldn't pin this
+ * address at all" rather than an error. Same production caveat as
+ * reverseGeocode: proxy + cache server-side for high volume, per Nominatim's
+ * usage policy.
+ *
+ * `countrycodes=in` mirrors the India assumption normalizePhone() already
+ * makes elsewhere in this file. When `near` (typically the shop location) is
+ * provided, results are soft-biased toward a ~55km box around it via
+ * `viewbox`+`bounded=0` — without this, a short/common address (e.g. just a
+ * street name) can resolve to a same-named street in a completely different
+ * city, which is the main way this lookup ends up "accurate geocode, wrong
+ * place". `bounded=0` only nudges ranking, it never excludes a genuinely
+ * distant match. */
+export async function forwardGeocode(query: ForwardGeocodeQuery, near?: LatLng): Promise<ForwardGeocodeResult | null> {
+  const line1 = (query.line1 ?? "").trim();
+  const city = (query.city ?? "").trim();
+  const state = (query.state ?? "").trim();
+  const pincode = (query.pincode ?? "").trim();
+  const attempts = buildFallbackQueries(line1, city, state, pincode);
+
+  for (let i = 0; i < attempts.length; i++) {
+    const hit = await nominatimSearch(attempts[i], near);
+    if (hit) return { ...hit, exact: i === 0 };
+  }
+  return null;
 }
 
 export async function getDeliveryInfo(): Promise<DeliveryInfo | null> {
