@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
@@ -66,6 +66,11 @@ function CartPage() {
   const [stateName, setStateName] = useState("");
   const [pincode, setPincode] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // Tracks *why* coords is set: "typed" means it came from auto-geocoding the
+  // address fields (so it's safe to keep re-geocoding as the shopper keeps
+  // typing), "manual" means the shopper explicitly placed it (locate-me,
+  // dragging the pin, or tapping the map) and typing should no longer move it.
+  const coordsSourceRef = useRef<"typed" | "manual" | null>(null);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
   const [addressGeocoding, setAddressGeocoding] = useState(false);
@@ -172,6 +177,7 @@ function CartPage() {
       toast("Couldn't get your location — enter your address below instead.", { icon: "📍" });
       return;
     }
+    coordsSourceRef.current = "manual";
     setCoords({ lat: loc.lat, lng: loc.lng });
     setLocationAccuracy(loc.accuracy);
     setDeliveryBlocked(false);
@@ -222,21 +228,23 @@ function CartPage() {
     // had to fall back, so we can be honest with the shopper about it.
     setAddressApprox(!result.exact);
     setLocationAccuracy(null);
+    coordsSourceRef.current = "typed";
     setCoords({ lat: result.lat, lng: result.lng });
     setDeliveryBlocked(false);
   }
 
-  // Auto-detect coordinates the first time someone finishes typing an
-  // address by hand (never touching the map/location button). Only runs
-  // while we don't have coordinates yet, so it never overwrites a pin the
-  // shopper has already placed or fine-tuned on the map.
+  // Auto-detect coordinates as someone types/edits their address by hand.
+  // Keeps re-fetching on every debounced change so the pin stays in sync
+  // while they keep typing, but backs off once the shopper has manually
+  // placed the pin themselves (locate-me, drag, or map tap) so it never
+  // overwrites a fix they've already fine-tuned.
   useEffect(() => {
     setAddressGeocodeFailed(false);
-    if (fulfillment !== "delivery" || coords || !typedAddress || typedAddress.length < 8) return;
+    if (fulfillment !== "delivery" || coordsSourceRef.current === "manual" || !typedAddress || typedAddress.length < 8) return;
     const t = setTimeout(() => locateTypedAddress({ silent: true }), 900);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typedAddress, fulfillment, coords]);
+  }, [typedAddress, fulfillment]);
 
   const fulfillmentCharge =
     fulfillment === "pickup" ? deliveryInfo?.pickup_charge_cents ?? 0 : quote?.charge_cents ?? 0;
@@ -500,9 +508,9 @@ function CartPage() {
                       ]}
                       markers={[
                         ...(shopLocation ? [{ id: "shop", lat: shopLocation.lat, lng: shopLocation.lng, color: "#16a34a", label: shopLocation.name }] : []),
-                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); } }] : []),
+                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); } }] : []),
                       ]}
-                      onMapClick={(lat, lng) => { setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); }}
+                      onMapClick={(lat, lng) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); }}
                       height={220}
                     />
                     <p className="text-xs text-muted-foreground">
