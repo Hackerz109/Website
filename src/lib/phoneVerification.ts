@@ -1,5 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 
+/** Phone verification sends its OTP over WhatsApp using the business's
+ * WhatsApp Business number (see whatsapp.server.ts), which needs to be
+ * verified with Meta before OTPs can actually be delivered. Until that's
+ * done, every send/verify call here just fails for the customer. Flip this
+ * back to `true` once the WhatsApp Business number is verified — everything
+ * else (the dialog, the DB columns, the API routes) is left in place. */
+export const PHONE_VERIFICATION_ENABLED = false;
+
 export interface OtpResult {
   ok: boolean;
   message?: string;

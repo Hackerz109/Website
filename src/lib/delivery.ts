@@ -57,20 +57,60 @@ export interface DeliveryChargeResult extends EligibilityResult {
   instructions?: string | null;
 }
 
+export type LatLngAccuracy = LatLng & { accuracy: number };
+
 /** Resolves with the browser's current position, or null if permission was
  * denied / unavailable / unsupported. Never rejects — callers should treat
- * null as "fall back to manual address entry", not as an error. */
-export function getBrowserLocation(): Promise<LatLng | null> {
+ * null as "fall back to manual address entry", not as an error.
+ *
+ * A single getCurrentPosition() call is often coarse — on laptops/desktops
+ * it's frequently Wi-Fi/IP based and can be off by hundreds of meters to
+ * kilometers, and even on phones the first GPS fix is usually rougher than
+ * the ones that follow a second or two later. So instead of taking the
+ * first reading, this watches for up to ~8s and keeps the most accurate
+ * fix seen, returning early once accuracy is already good (<=30m). The
+ * returned `accuracy` (meters) lets callers show the uncertainty to the
+ * user (e.g. a radius circle) rather than silently trusting a bad fix. */
+export function getBrowserLocation(): Promise<LatLngAccuracy | null> {
   return new Promise((resolve) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       resolve(null);
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+
+    const MAX_WAIT_MS = 8000;
+    const GOOD_ENOUGH_ACCURACY_M = 30;
+    let best: LatLngAccuracy | null = null;
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      try {
+        navigator.geolocation.clearWatch(watchId);
+      } catch {
+        // no-op — watch may not have been established yet
+      }
+      resolve(best);
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const reading: LatLngAccuracy = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        if (!best || reading.accuracy < best.accuracy) best = reading;
+        if (reading.accuracy <= GOOD_ENOUGH_ACCURACY_M) finish();
+      },
+      () => finish(),
+      // maximumAge: 0 forces a fresh fix instead of a possibly stale cached
+      // one — a stale fix is a common source of "my location is wrong".
+      { enableHighAccuracy: true, timeout: MAX_WAIT_MS, maximumAge: 0 },
     );
+
+    setTimeout(finish, MAX_WAIT_MS);
   });
 }
 
@@ -78,14 +118,31 @@ export function getBrowserLocation(): Promise<LatLng | null> {
  * key). Purely a convenience to prefill the address field — the field
  * always stays editable, so failures here are silent. For high-volume
  * production traffic, proxy this through your own server with a proper
- * User-Agent and caching per Nominatim's usage policy. */
+ * User-Agent and caching per Nominatim's usage policy.
+ *
+ * Builds the address from structured components (house/road/locality/city/
+ * state/postcode) rather than returning Nominatim's raw `display_name`,
+ * which tends to be a long, oddly-ordered string that often buries or omits
+ * the locality. Falls back to `display_name` if components are missing.
+ * `accept-language=en` keeps the result in English regardless of the area's
+ * default locale/script. */
 export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18&accept-language=en`,
     );
     if (!res.ok) return null;
     const data = await res.json();
+    const a = data?.address;
+    if (a) {
+      const houseAndRoad = [a.house_number, a.road].filter(Boolean).join(" ");
+      const locality = a.suburb || a.neighbourhood || a.residential;
+      const cityLike = a.village || a.town || a.city_district || a.city;
+      const parts = [houseAndRoad, locality, cityLike, a.state, a.postcode].filter(
+        (p) => typeof p === "string" && p.trim().length > 0,
+      );
+      if (parts.length > 0) return parts.join(", ");
+    }
     return data?.display_name ?? null;
   } catch {
     return null;
@@ -104,14 +161,34 @@ export interface ForwardGeocodeResult {
  * map. Returns null on no match or network failure; callers should treat
  * that as "couldn't pin this address" rather than an error. Same
  * production caveat as reverseGeocode: proxy + cache server-side for high
- * volume, per Nominatim's usage policy. */
-export async function forwardGeocode(query: string): Promise<ForwardGeocodeResult | null> {
+ * volume, per Nominatim's usage policy.
+ *
+ * `countrycodes=in` mirrors the India assumption normalizePhone() already
+ * makes elsewhere in this file. When `near` (typically the shop location)
+ * is provided, results are soft-biased toward a ~55km box around it via
+ * `viewbox`+`bounded=0` — without this, a short/common address (e.g. just
+ * a street name) can resolve to a same-named street in a completely
+ * different city, which is the main way this lookup ends up "accurate
+ * geocode, wrong place". `bounded=0` only nudges ranking, it never excludes
+ * a genuinely distant match. */
+export async function forwardGeocode(query: string, near?: LatLng): Promise<ForwardGeocodeResult | null> {
   const q = query.trim();
   if (!q) return null;
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=${encodeURIComponent(q)}`,
-    );
+    const params = new URLSearchParams({
+      format: "json",
+      limit: "1",
+      addressdetails: "0",
+      "accept-language": "en",
+      countrycodes: "in",
+      q,
+    });
+    if (near) {
+      const box = 0.5; // degrees, ~55km — generous since it's a soft bias, not a hard filter
+      params.set("viewbox", `${near.lng - box},${near.lat + box},${near.lng + box},${near.lat - box}`);
+      params.set("bounded", "0");
+    }
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
     if (!res.ok) return null;
     const data = await res.json();
     const first = Array.isArray(data) ? data[0] : null;
