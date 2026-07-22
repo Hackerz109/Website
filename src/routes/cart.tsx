@@ -104,16 +104,17 @@ function CartPage() {
   useEffect(() => {
     if (fulfillment !== "delivery" || !coords) {
       setQuote(null);
+      setDeliveryBlocked(false);
       return;
     }
     setCheckingQuote(true);
     calculateDeliveryCharge(coords.lat, coords.lng, subtotal)
       .then((res) => {
         setQuote(res);
-        if (!res.eligible) {
-          setDeliveryBlocked(true);
-          setFulfillment("pickup");
-        }
+        // Just flag it — don't force the shopper onto pickup or lock them out
+        // of the Home Delivery tab. They might want to try a different
+        // address, or decide to switch to pickup themselves.
+        setDeliveryBlocked(!res.eligible);
       })
       .finally(() => setCheckingQuote(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -311,9 +312,8 @@ function CartPage() {
       finalQuote = await calculateDeliveryCharge(coords.lat, coords.lng, subtotal);
       if (!finalQuote.eligible) {
         setPlacing(false);
-        toast.error("This address is no longer within our delivery area — please choose Store Pickup.");
-        setFulfillment("pickup");
         setDeliveryBlocked(true);
+        toast.error("This address is no longer within our delivery area — try another address or switch to Store Pickup.");
         return;
       }
       finalCharge = finalQuote.charge_cents ?? 0;
@@ -464,10 +464,9 @@ function CartPage() {
                   <button
                     type="button"
                     onClick={() => setFulfillment("delivery")}
-                    disabled={deliveryBlocked}
                     className={`flex items-center justify-center gap-2 rounded-lg border p-3 text-sm font-medium transition-colors ${
                       fulfillment === "delivery" ? "border-primary bg-primary/5 text-primary" : "text-muted-foreground"
-                    } ${deliveryBlocked ? "cursor-not-allowed opacity-40" : ""}`}
+                    }`}
                   >
                     <Truck className="h-4 w-4" /> Home Delivery
                   </button>
@@ -482,10 +481,9 @@ function CartPage() {
                   </button>
                 </div>
 
-                {deliveryBlocked && (
+                {deliveryBlocked && fulfillment === "delivery" && (
                   <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                    Home delivery isn't available at this address, so we've switched you to Store Pickup.
-                    {quote?.distance_km != null && ` You're about ${quote.distance_km} km from our delivery area.`}
+                    We don't deliver to this address{quote?.distance_km != null ? ` — you're about ${quote.distance_km} km away` : ""}. Try a different address, fine-tune the pin, or switch to Store Pickup instead.
                   </p>
                 )}
 
