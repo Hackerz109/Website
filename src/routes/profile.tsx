@@ -28,6 +28,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { PhoneVerifyDialog } from "@/components/PhoneVerifyDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
@@ -230,6 +231,7 @@ function ProfileDetailsForm({ profile, onSaved }: { profile: Profile; onSaved: (
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
 
   async function save() {
     setSaving(true);
@@ -250,14 +252,34 @@ function ProfileDetailsForm({ profile, onSaved }: { profile: Profile; onSaved: (
         <Input id="pf-name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" />
       </div>
       <div>
-        <Label htmlFor="pf-phone">Mobile number</Label>
+        <Label htmlFor="pf-phone" className="flex items-center justify-between">
+          <span>Mobile number</span>
+          {profile.phone && (
+            profile.phone_verified ? (
+              <Badge variant="secondary" className="text-[10px]">Verified</Badge>
+            ) : (
+              <button type="button" className="text-xs font-medium text-primary underline" onClick={() => setPhoneDialogOpen(true)}>
+                Verify
+              </button>
+            )
+          )}
+        </Label>
         <Input
           id="pf-phone"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="10-digit mobile number"
         />
+        {phone && phone !== profile.phone && (
+          <p className="mt-1 text-[11px] text-muted-foreground">Save this number first, then verify it.</p>
+        )}
       </div>
+      <PhoneVerifyDialog
+        open={phoneDialogOpen}
+        onOpenChange={setPhoneDialogOpen}
+        defaultPhone={profile.phone}
+        onVerified={onSaved}
+      />
       <div>
         <Label>Email</Label>
         <Input value={profile.email ?? ""} disabled className="bg-secondary/40 text-muted-foreground" />

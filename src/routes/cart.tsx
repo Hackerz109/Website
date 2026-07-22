@@ -18,12 +18,14 @@ import { validateCoupon, fetchOffersForCart, describeCoupon, type CouponValidati
 import {
   getBrowserLocation,
   reverseGeocode,
+  forwardGeocode,
   getDeliveryInfo,
   calculateDeliveryCharge,
   type DeliveryInfo,
   type DeliveryChargeResult,
 } from "@/lib/delivery";
 import { fetchWalletTransactions, sumBalance, redeemWalletForOrder } from "@/lib/wallet";
+import { PhoneVerifyDialog } from "@/components/PhoneVerifyDialog";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/cart")({ component: CartPage });
@@ -39,8 +41,9 @@ function CartPage() {
   const setQty = useCart((s) => s.setQty);
   const remove = useCart((s) => s.remove);
   const clear = useCart((s) => s.clear);
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -63,6 +66,8 @@ function CartPage() {
   const [pincode, setPincode] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [addressGeocoding, setAddressGeocoding] = useState(false);
+  const [addressGeocodeFailed, setAddressGeocodeFailed] = useState(false);
   const [quote, setQuote] = useState<DeliveryChargeResult | null>(null);
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [deliveryBlocked, setDeliveryBlocked] = useState(false);
@@ -166,9 +171,41 @@ function CartPage() {
     }
     setCoords(loc);
     setDeliveryBlocked(false);
+    setAddressGeocodeFailed(false);
     const address = await reverseGeocode(loc.lat, loc.lng);
     if (address) setAddressLine1(address);
   }
+
+  const typedAddress = [addressLine1, city, stateName, pincode].filter((s) => s.trim()).join(", ");
+
+  async function locateTypedAddress(opts: { silent: boolean }) {
+    if (!typedAddress) return;
+    setAddressGeocoding(true);
+    const result = await forwardGeocode(typedAddress);
+    setAddressGeocoding(false);
+    if (!result) {
+      setAddressGeocodeFailed(true);
+      if (!opts.silent) {
+        toast.error("Couldn't find that address — try adding your city/pincode, or drop a pin on the map instead.");
+      }
+      return;
+    }
+    setAddressGeocodeFailed(false);
+    setCoords({ lat: result.lat, lng: result.lng });
+    setDeliveryBlocked(false);
+  }
+
+  // Auto-detect coordinates the first time someone finishes typing an
+  // address by hand (never touching the map/location button). Only runs
+  // while we don't have coordinates yet, so it never overwrites a pin the
+  // shopper has already placed or fine-tuned on the map.
+  useEffect(() => {
+    setAddressGeocodeFailed(false);
+    if (fulfillment !== "delivery" || coords || !typedAddress || typedAddress.length < 8) return;
+    const t = setTimeout(() => locateTypedAddress({ silent: true }), 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typedAddress, fulfillment, coords]);
 
   const fulfillmentCharge =
     fulfillment === "pickup" ? deliveryInfo?.pickup_charge_cents ?? 0 : quote?.charge_cents ?? 0;
@@ -194,6 +231,11 @@ function CartPage() {
       return;
     }
     if (items.length === 0) return;
+    if (!profile?.phone_verified) {
+      toast("Please verify your phone number before placing an order", { icon: "📱" });
+      setPhoneDialogOpen(true);
+      return;
+    }
     if (!name.trim()) {
       toast.error("Please add your name");
       return;
@@ -443,6 +485,20 @@ function CartPage() {
                       <Input placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
                     </div>
 
+                    {addressGeocoding && (
+                      <p className="text-xs text-muted-foreground">Locating your address…</p>
+                    )}
+                    {!addressGeocoding && !coords && addressGeocodeFailed && (
+                      <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                        <span>Couldn't pin that address automatically — add more detail, or set it on the map above.</span>
+                        <Button type="button" size="sm" variant="outline" className="h-7 flex-shrink-0 text-xs" onClick={() => locateTypedAddress({ silent: false })}>
+                          Retry
+                        </Button>
+                      </div>
+                    )}
+                    {!addressGeocoding && !coords && !addressGeocodeFailed && typedAddress.length > 0 && typedAddress.length < 8 && (
+                      <p className="text-xs text-muted-foreground">Keep typing your full address so we can locate it.</p>
+                    )}
                     {checkingQuote && <p className="text-xs text-muted-foreground">Checking delivery availability…</p>}
                     {quote?.eligible && (
                       <div className="rounded-lg bg-green-500/10 px-3 py-2 text-xs text-green-700">
@@ -583,6 +639,16 @@ function CartPage() {
                   <Textarea id="cnn" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
                 </div>
               </div>
+              {user && !profile?.phone_verified && (
+                <button
+                  type="button"
+                  onClick={() => setPhoneDialogOpen(true)}
+                  className="flex w-full items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2 text-left text-xs text-amber-700"
+                >
+                  <span>Verify your phone number before ordering</span>
+                  <span className="font-semibold underline">Verify now</span>
+                </button>
+              )}
               <Button className="w-full" onClick={placeOrder} disabled={placing || !canDeliver}>
                 {placing ? "Placing order…" : amountDueNow === 0 && walletAmountCents > 0 ? "Place order — paid by wallet" : "Place order & pay"}
               </Button>
@@ -594,6 +660,12 @@ function CartPage() {
         )}
       </div>
       <StoreFooter />
+      <PhoneVerifyDialog
+        open={phoneDialogOpen}
+        onOpenChange={setPhoneDialogOpen}
+        defaultPhone={phone || profile?.phone}
+        onVerified={refreshProfile}
+      />
     </div>
   );
 }
