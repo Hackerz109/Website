@@ -101,7 +101,7 @@ export function AdminSearchBar({ className = "" }: { className?: string }) {
                       key={p.id}
                       title={p.name}
                       subtitle={`${formatMoney(p.price_cents, p.currency)} · ${p.stock} in stock${p.active ? "" : " · hidden"}`}
-                      onClick={() => { navigate({ to: "/admin/products" }); setOpen(false); setQuery(""); }}
+                      onClick={() => { navigate({ to: "/admin/products", search: { edit: p.id } }); setOpen(false); setQuery(""); }}
                     />
                   ))}
                 </ResultGroup>
@@ -113,7 +113,7 @@ export function AdminSearchBar({ className = "" }: { className?: string }) {
                       key={c.id}
                       title={c.code}
                       subtitle={c.description ?? (c.active ? "Active" : "Inactive")}
-                      onClick={() => { navigate({ to: "/admin/coupons" }); setOpen(false); setQuery(""); }}
+                      onClick={() => { navigate({ to: "/admin/coupons", search: { edit: c.id } }); setOpen(false); setQuery(""); }}
                     />
                   ))}
                 </ResultGroup>
