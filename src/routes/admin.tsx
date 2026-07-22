@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet, Users } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet, Users, Search } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { Button } from "@/components/ui/button";
+import { AdminSearchBar } from "@/components/AdminSearchBar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ function AdminLayout() {
 
   const nav = [
     { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+    { to: "/admin/search", label: "Search", icon: Search },
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/products", label: "Products", icon: Package },
     { to: "/admin/taxonomy", label: "Categories & Brands", icon: Tags },
@@ -61,8 +63,9 @@ function AdminLayout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center gap-2">
             <LayoutDashboard className="h-5 w-5" />
-            <span className="font-semibold">Admin</span>
+            <span className="font-semibold hidden sm:inline">Admin</span>
           </div>
+          <AdminSearchBar className="mx-3 hidden max-w-md flex-1 sm:block" />
           <div className="flex items-center gap-1 sm:gap-2">
             <Button asChild variant="ghost" size="sm">
               <Link to="/">

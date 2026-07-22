@@ -918,6 +918,11 @@ export type Database = {
           phone: string | null
           avatar_url: string | null
           last_seen_at: string | null
+          phone_verified: boolean
+          phone_otp_hash: string | null
+          phone_otp_expires_at: string | null
+          phone_otp_attempts: number
+          phone_otp_last_sent_at: string | null
         }
         Insert: {
           created_at?: string
@@ -928,6 +933,11 @@ export type Database = {
           phone?: string | null
           avatar_url?: string | null
           last_seen_at?: string | null
+          phone_verified?: boolean
+          phone_otp_hash?: string | null
+          phone_otp_expires_at?: string | null
+          phone_otp_attempts?: number
+          phone_otp_last_sent_at?: string | null
         }
         Update: {
           created_at?: string
@@ -938,6 +948,11 @@ export type Database = {
           phone?: string | null
           avatar_url?: string | null
           last_seen_at?: string | null
+          phone_verified?: boolean
+          phone_otp_hash?: string | null
+          phone_otp_expires_at?: string | null
+          phone_otp_attempts?: number
+          phone_otp_last_sent_at?: string | null
         }
         Relationships: []
       }
@@ -1229,6 +1244,12 @@ export type Database = {
       }
       admin_dashboard_stats: {
         Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      admin_global_search: {
+        Args: {
+          p_query: string
+        }
         Returns: Json
       }
     }

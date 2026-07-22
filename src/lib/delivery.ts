@@ -92,6 +92,36 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
   }
 }
 
+export interface ForwardGeocodeResult {
+  lat: number;
+  lng: number;
+  display_name: string;
+}
+
+/** Best-effort forward geocode via OpenStreetMap Nominatim (free, no API
+ * key) — resolves a manually typed address to coordinates so delivery
+ * eligibility/charges can be computed without the shopper touching the
+ * map. Returns null on no match or network failure; callers should treat
+ * that as "couldn't pin this address" rather than an error. Same
+ * production caveat as reverseGeocode: proxy + cache server-side for high
+ * volume, per Nominatim's usage policy. */
+export async function forwardGeocode(query: string): Promise<ForwardGeocodeResult | null> {
+  const q = query.trim();
+  if (!q) return null;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=${encodeURIComponent(q)}`,
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    if (!first?.lat || !first?.lon) return null;
+    return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display_name: first.display_name ?? q };
+  } catch {
+    return null;
+  }
+}
+
 export async function getDeliveryInfo(): Promise<DeliveryInfo | null> {
   const { data, error } = await supabase.rpc("get_delivery_info");
   if (error || !data) return null;
