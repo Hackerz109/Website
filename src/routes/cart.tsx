@@ -70,6 +70,7 @@ function CartPage() {
   const [locating, setLocating] = useState(false);
   const [addressGeocoding, setAddressGeocoding] = useState(false);
   const [addressGeocodeFailed, setAddressGeocodeFailed] = useState(false);
+  const [addressApprox, setAddressApprox] = useState(false);
   const [quote, setQuote] = useState<DeliveryChargeResult | null>(null);
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [deliveryBlocked, setDeliveryBlocked] = useState(false);
@@ -175,8 +176,18 @@ function CartPage() {
     setLocationAccuracy(loc.accuracy);
     setDeliveryBlocked(false);
     setAddressGeocodeFailed(false);
-    const address = await reverseGeocode(loc.lat, loc.lng);
-    if (address) setAddressLine1(address);
+    setAddressApprox(false);
+    // Fill every field the reverse geocode could resolve — previously this
+    // only ever touched address line 1, so City/State/Pincode stayed blank
+    // (and looked "unfetched") even though Nominatim often does have that
+    // level of detail, just not the exact house/street.
+    const result = await reverseGeocode(loc.lat, loc.lng);
+    if (result) {
+      if (result.line1) setAddressLine1(result.line1);
+      if (result.city) setCity(result.city);
+      if (result.state) setStateName(result.state);
+      if (result.pincode) setPincode(result.pincode);
+    }
     // Anything much wider than a house-sized fix is worth flagging — the
     // pin is still draggable, so this is just steering the shopper to
     // double-check rather than blocking anything.
@@ -190,16 +201,26 @@ function CartPage() {
   async function locateTypedAddress(opts: { silent: boolean }) {
     if (!typedAddress) return;
     setAddressGeocoding(true);
-    const result = await forwardGeocode(typedAddress, shopLocation ? { lat: shopLocation.lat, lng: shopLocation.lng } : undefined);
+    const result = await forwardGeocode(
+      { line1: addressLine1, city, state: stateName, pincode },
+      shopLocation ? { lat: shopLocation.lat, lng: shopLocation.lng } : undefined,
+    );
     setAddressGeocoding(false);
     if (!result) {
       setAddressGeocodeFailed(true);
+      setAddressApprox(false);
       if (!opts.silent) {
-        toast.error("Couldn't find that address — try adding your city/pincode, or drop a pin on the map instead.");
+        toast.error("Couldn't locate that address automatically — please set it on the map instead.");
       }
       return;
     }
     setAddressGeocodeFailed(false);
+    // forwardGeocode falls back to looser and looser matches (dropping the
+    // house number/street, then the locality, etc.) rather than failing
+    // outright, since OSM often just doesn't have that level of detail for
+    // small towns. `exact` tells us whether it matched everything typed or
+    // had to fall back, so we can be honest with the shopper about it.
+    setAddressApprox(!result.exact);
     setLocationAccuracy(null);
     setCoords({ lat: result.lat, lng: result.lng });
     setDeliveryBlocked(false);
@@ -479,9 +500,9 @@ function CartPage() {
                       ]}
                       markers={[
                         ...(shopLocation ? [{ id: "shop", lat: shopLocation.lat, lng: shopLocation.lng, color: "#16a34a", label: shopLocation.name }] : []),
-                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { setCoords({ lat, lng }); setLocationAccuracy(null); } }] : []),
+                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); } }] : []),
                       ]}
-                      onMapClick={(lat, lng) => { setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); }}
+                      onMapClick={(lat, lng) => { setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); }}
                       height={220}
                     />
                     <p className="text-xs text-muted-foreground">
@@ -506,7 +527,7 @@ function CartPage() {
                     )}
                     {!addressGeocoding && !coords && addressGeocodeFailed && (
                       <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                        <span>Couldn't pin that address automatically — add more detail, or set it on the map above.</span>
+                        <span>Couldn't locate that address automatically — please set it by tapping the map above.</span>
                         <Button type="button" size="sm" variant="outline" className="h-7 flex-shrink-0 text-xs" onClick={() => locateTypedAddress({ silent: false })}>
                           Retry
                         </Button>
@@ -514,6 +535,11 @@ function CartPage() {
                     )}
                     {!addressGeocoding && !coords && !addressGeocodeFailed && typedAddress.length > 0 && typedAddress.length < 8 && (
                       <p className="text-xs text-muted-foreground">Keep typing your full address so we can locate it.</p>
+                    )}
+                    {!addressGeocoding && coords && addressApprox && (
+                      <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                        We placed the pin near your area, not your exact address — drag it on the map above to fine-tune it.
+                      </p>
                     )}
                     {checkingQuote && <p className="text-xs text-muted-foreground">Checking delivery availability…</p>}
                     {quote?.eligible && (
