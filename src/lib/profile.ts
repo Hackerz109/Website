@@ -66,6 +66,8 @@ export interface AddressInput {
   city: string;
   state: string;
   pincode: string;
+  lat?: number | null;
+  lng?: number | null;
   is_default: boolean;
 }
 
