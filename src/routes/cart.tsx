@@ -22,6 +22,7 @@ import {
   getBrowserLocation,
   reverseGeocode,
   forwardGeocode,
+  lookupPincode,
   getDeliveryInfo,
   calculateDeliveryCharge,
   type DeliveryInfo,
@@ -82,6 +83,12 @@ function CartPage() {
   const [quote, setQuote] = useState<DeliveryChargeResult | null>(null);
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [deliveryBlocked, setDeliveryBlocked] = useState(false);
+  // Remembers the last city/state values we filled in *for* the shopper
+  // (from a pincode lookup) so that if they edit City or State by hand
+  // afterward, a later pincode-effect re-run doesn't stomp their edit back
+  // to whatever the pincode says — it only autofills a field while it still
+  // holds exactly what we last put there (or is empty).
+  const pincodeAutofilledRef = useRef<{ city: string; state: string }>({ city: "", state: "" });
 
   // ---- Wallet -------------------------------------------------------------
   const [walletBalance, setWalletBalance] = useState(0);
@@ -256,6 +263,30 @@ function CartPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typedAddress, fulfillment]);
+
+  // Autofill City/State the moment the shopper finishes typing a 6-digit
+  // pincode — a shopper who leads with the pincode (rather than typing City/
+  // State first) previously got nothing back until they'd filled in enough
+  // of the rest of the address for the Nominatim address-search to kick in.
+  // This uses India Post's own pincode→post-office data instead, which is
+  // authoritative for exactly this lookup. Only fills a field that's either
+  // blank or still holds what a *previous* pincode lookup put there, so it
+  // never overwrites something the shopper typed themselves.
+  useEffect(() => {
+    if (fulfillment !== "delivery" || !hasCompletePincode) return;
+    let cancelled = false;
+    lookupPincode(pincode).then((result) => {
+      if (cancelled || !result) return;
+      const prev = pincodeAutofilledRef.current;
+      if (result.city && (city.trim() === "" || city === prev.city)) setCity(result.city);
+      if (result.state && (stateName.trim() === "" || stateName === prev.state)) setStateName(result.state);
+      pincodeAutofilledRef.current = { city: result.city || prev.city, state: result.state || prev.state };
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pincode, hasCompletePincode, fulfillment]);
 
   const fulfillmentCharge =
     fulfillment === "pickup" ? deliveryInfo?.pickup_charge_cents ?? 0 : quote?.charge_cents ?? 0;
