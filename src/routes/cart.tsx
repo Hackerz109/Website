@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { INDIAN_STATES } from "@/lib/indianStates";
+import { INDIAN_CITIES } from "@/lib/indianCities";
 import { LeafletMap } from "@/components/LeafletMap";
 import { useCart, formatMoney } from "@/stores/cart";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,6 +207,13 @@ function CartPage() {
   }
 
   const typedAddress = [addressLine1, city, stateName, pincode].filter((s) => s.trim()).join(", ");
+  // A complete 6-digit Indian PIN code is precise enough to geocode on its
+  // own — city/address-line text being short (or blank, since city is
+  // optional) shouldn't hold that up. Previously the length-8 check below
+  // silently blocked this: a bare pincode is only 6 characters, so typing
+  // just "247001" and nothing else never triggered a lookup at all.
+  const hasCompletePincode = /^\d{6}$/.test(pincode.trim());
+  const readyToGeocode = hasCompletePincode || typedAddress.length >= 8;
 
   async function locateTypedAddress(opts: { silent: boolean }) {
     if (!typedAddress) return;
@@ -243,7 +251,7 @@ function CartPage() {
   // overwrites a fix they've already fine-tuned.
   useEffect(() => {
     setAddressGeocodeFailed(false);
-    if (fulfillment !== "delivery" || coordsSourceRef.current === "manual" || !typedAddress || typedAddress.length < 8) return;
+    if (fulfillment !== "delivery" || coordsSourceRef.current === "manual" || !typedAddress || !readyToGeocode) return;
     const t = setTimeout(() => locateTypedAddress({ silent: true }), 900);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -522,19 +530,23 @@ function CartPage() {
                       <Textarea id="addr1" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} rows={2} placeholder="House/flat no, street" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
-                      <Select value={stateName} onValueChange={setStateName}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="State" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {INDIAN_STATES.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        value={city}
+                        onChange={setCity}
+                        options={INDIAN_CITIES}
+                        allowCustomValue
+                        placeholder="City (optional)"
+                        searchPlaceholder="Search city…"
+                        emptyText="Not in our shortlist — type to use it anyway."
+                      />
+                      <Combobox
+                        value={stateName}
+                        onChange={setStateName}
+                        options={INDIAN_STATES}
+                        placeholder="State"
+                        searchPlaceholder="Search state…"
+                        emptyText="No matching state."
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Input placeholder="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} />
@@ -552,8 +564,8 @@ function CartPage() {
                         </Button>
                       </div>
                     )}
-                    {!addressGeocoding && !coords && !addressGeocodeFailed && typedAddress.length > 0 && typedAddress.length < 8 && (
-                      <p className="text-xs text-muted-foreground">Keep typing your full address so we can locate it.</p>
+                    {!addressGeocoding && !coords && !addressGeocodeFailed && typedAddress.length > 0 && !readyToGeocode && (
+                      <p className="text-xs text-muted-foreground">Keep typing your full address, or just enter your 6-digit pincode, so we can locate it.</p>
                     )}
                     {!addressGeocoding && coords && addressApprox && (
                       <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
