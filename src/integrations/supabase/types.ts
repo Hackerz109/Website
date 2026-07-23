@@ -968,6 +968,8 @@ export type Database = {
           city: string
           state: string
           pincode: string
+          lat: number | null
+          lng: number | null
           is_default: boolean
           created_at: string
           updated_at: string
@@ -983,6 +985,8 @@ export type Database = {
           city: string
           state: string
           pincode: string
+          lat?: number | null
+          lng?: number | null
           is_default?: boolean
           created_at?: string
           updated_at?: string
@@ -998,6 +1002,8 @@ export type Database = {
           city?: string
           state?: string
           pincode?: string
+          lat?: number | null
+          lng?: number | null
           is_default?: boolean
           created_at?: string
           updated_at?: string
