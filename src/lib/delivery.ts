@@ -245,18 +245,29 @@ function buildFallbackQueries(line1: string, city: string, state: string, pincod
   add([lastWords(line1, 2), ...tail]);
   add([lastWords(line1, 1), ...tail]);
 
-  // 5-6) Whatever's in the dedicated city/state/pincode fields, ignoring
+  // 5) Pincode + state together, ignoring city/locality entirely. Indian
+  // PIN codes map to a specific, unambiguous post-office area, so pairing
+  // one with a (dropdown-selected, so always well-formed) state name is a
+  // strong, hard-to-misresolve fallback — much safer than dropping straight
+  // to city/state alone, which can match a same-named place in the wrong
+  // part of the country.
+  add([pincode, state]);
+
+  // 6-7) Whatever's in the dedicated city/state/pincode fields, ignoring
   // address line 1 entirely — covers a line 1 that's purely a plot/house
   // reference with no place name in it at all.
   add(tail);
   add([city, state]);
 
-  // 7) Postal code alone — postcode-area boundaries are often mapped even
+  // 8) Postal code alone — postcode-area boundaries are often mapped even
   // in towns where individual streets are not.
   add([pincode]);
 
-  // 8) Last resort: just the state, so the map centers somewhere sensible
+  // 9) Last resort: just the state, so the map centers somewhere sensible
   // and the shopper can drop a precise pin rather than hitting a dead end.
+  // (`state` now always comes from a fixed dropdown of real state names —
+  // see indianStates.ts — so it can no longer mismatch on a typo like
+  // "uttarpradesh" the way a free-text field could.)
   add([state]);
 
   return attempts;
