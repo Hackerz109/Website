@@ -175,6 +175,51 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
   }
 }
 
+export interface PincodeLookupResult {
+  city: string;
+  state: string;
+}
+
+/** Looks up city + state for a 6-digit Indian PIN code via India Post's own
+ * pincode API (free, no key, official post-office data) — kept separate
+ * from forwardGeocode/Nominatim because it's a much more reliable source
+ * for "what city/state is this pincode in" specifically: it's a direct
+ * postcode → post-office lookup rather than a fuzzy address search, so it
+ * doesn't depend on OSM having that area mapped at all. Used to autofill
+ * the City/State fields the moment a shopper finishes typing their pincode,
+ * before they've necessarily typed anything else. Returns null on any
+ * network hiccup or an unrecognized pincode — callers should treat that as
+ * "couldn't autofill", not an error, since the fields stay editable either
+ * way. */
+export async function lookupPincode(pincode: string): Promise<PincodeLookupResult | null> {
+  const clean = pincode.trim();
+  if (!/^\d{6}$/.test(clean)) return null;
+  try {
+    const res = await fetch(`https://api.postalpincode.in/pincode/${clean}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entry = Array.isArray(data) ? data[0] : null;
+    if (entry?.Status !== "Success" || !Array.isArray(entry.PostOffice) || entry.PostOffice.length === 0) return null;
+    const po = entry.PostOffice[0];
+    const state: string = po?.State ?? "";
+    // A couple of state names India Post's data still uses that differ from
+    // the current official names in our dropdown list (indianStates.ts) —
+    // normalize so the autofilled value actually matches an option instead
+    // of silently failing to select anything in the <Combobox>.
+    const STATE_ALIASES: Record<string, string> = {
+      Orissa: "Odisha",
+      Pondicherry: "Puducherry",
+      Uttaranchal: "Uttarakhand",
+    };
+    return {
+      city: po?.District ?? "",
+      state: STATE_ALIASES[state] ?? state,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function nominatimSearch(
   q: string,
   near?: LatLng,
