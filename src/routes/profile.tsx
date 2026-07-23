@@ -29,12 +29,17 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PhoneVerifyDialog } from "@/components/PhoneVerifyDialog";
+import { PhoneInput } from "@/components/PhoneInput";
+import { LeafletMap } from "@/components/LeafletMap";
 import { PHONE_VERIFICATION_ENABLED } from "@/lib/phoneVerification";
+import { isValidPhone } from "@/lib/phone";
+import { getBrowserLocation, reverseGeocode, forwardGeocode } from "@/lib/delivery";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
 import { initials } from "@/lib/utils";
 import { fetchWalletTransactions, sumBalance } from "@/lib/wallet";
+import { LocateFixed, MapPin } from "lucide-react";
 import {
   fetchMyAddresses,
   createAddress,
@@ -469,6 +474,8 @@ function AddressesSection({ userId }: { userId: string }) {
   );
 }
 
+const ADDRESS_MAP_FALLBACK_CENTER = { lat: 20.5937, lng: 78.9629 }; // India, roughly
+
 function AddressFormDialog({
   userId,
   existing,
@@ -487,24 +494,72 @@ function AddressFormDialog({
     city: existing?.city ?? "",
     state: existing?.state ?? "",
     pincode: existing?.pincode ?? "",
+    lat: existing?.lat ?? null,
+    lng: existing?.lng ?? null,
     is_default: existing?.is_default ?? false,
   });
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  // "manual" once the shopper has placed the pin themselves (locate-me, drag,
+  // or tap) — after that we stop silently re-geocoding over their fix as they
+  // keep editing the text fields.
+  const pinSourceRef = useRef<"typed" | "manual" | null>(existing?.lat != null ? "manual" : null);
 
   function set<K extends keyof AddressInput>(key: K, value: AddressInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  const typedAddress = [form.line1, form.city, form.state, form.pincode].filter((s) => s.trim()).join(", ");
+
+  // Keep the pin in sync as the shopper types their address, same behavior
+  // as the checkout page — until they've manually placed it themselves.
+  useEffect(() => {
+    if (pinSourceRef.current === "manual" || !typedAddress || typedAddress.length < 8) return;
+    const t = setTimeout(async () => {
+      setGeocoding(true);
+      const result = await forwardGeocode({ line1: form.line1, city: form.city, state: form.state, pincode: form.pincode });
+      setGeocoding(false);
+      if (result) {
+        pinSourceRef.current = "typed";
+        set("lat", result.lat);
+        set("lng", result.lng);
+      }
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typedAddress]);
+
+  async function useMyLocation() {
+    setLocating(true);
+    const loc = await getBrowserLocation();
+    setLocating(false);
+    if (!loc) {
+      toast("Couldn't get your location — set the pin on the map instead.", { icon: "📍" });
+      return;
+    }
+    pinSourceRef.current = "manual";
+    set("lat", loc.lat);
+    set("lng", loc.lng);
+    const result = await reverseGeocode(loc.lat, loc.lng);
+    if (result) {
+      if (result.line1) set("line1", result.line1);
+      if (result.city) set("city", result.city);
+      if (result.state) set("state", result.state);
+      if (result.pincode) set("pincode", result.pincode);
+    }
+  }
+
   async function submit() {
     if (
       !form.full_name.trim() ||
-      !form.phone.trim() ||
+      !isValidPhone(form.phone) ||
       !form.line1.trim() ||
       !form.city.trim() ||
       !form.state.trim() ||
       !form.pincode.trim()
     ) {
-      return toast.error("Please fill in all required fields");
+      return toast.error(!isValidPhone(form.phone) ? "Enter a valid 10-digit mobile number" : "Please fill in all required fields");
     }
     setSaving(true);
     const result = existing ? await updateAddress(existing.id, form) : await createAddress(userId, form);
@@ -513,6 +568,8 @@ function AddressFormDialog({
     toast.success(existing ? "Address updated" : "Address added");
     onDone();
   }
+
+  const mapCenter = form.lat != null && form.lng != null ? { lat: form.lat, lng: form.lng } : ADDRESS_MAP_FALLBACK_CENTER;
 
   return (
     <>
@@ -524,15 +581,13 @@ function AddressFormDialog({
           <Label htmlFor="addr-label">Label</Label>
           <Input id="addr-label" value={form.label} onChange={(e) => set("label", e.target.value)} placeholder="Home, Work…" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="addr-name">Full name</Label>
-            <Input id="addr-name" value={form.full_name} onChange={(e) => set("full_name", e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="addr-phone">Phone</Label>
-            <Input id="addr-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
-          </div>
+        <div>
+          <Label htmlFor="addr-name">Full name</Label>
+          <Input id="addr-name" value={form.full_name} onChange={(e) => set("full_name", e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="addr-phone">Phone number</Label>
+          <PhoneInput id="addr-phone" value={form.phone} onChange={(v) => set("phone", v)} />
         </div>
         <div>
           <Label htmlFor="addr-line1">Address line 1</Label>
@@ -556,6 +611,49 @@ function AddressFormDialog({
             <Input id="addr-pin" value={form.pincode} onChange={(e) => set("pincode", e.target.value)} />
           </div>
         </div>
+
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <Label className="mb-0">Map location</Label>
+            <Button type="button" variant="outline" size="sm" onClick={useMyLocation} disabled={locating}>
+              <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
+              {locating ? "Locating…" : "Use my current location"}
+            </Button>
+          </div>
+          <LeafletMap
+            center={mapCenter}
+            markers={
+              form.lat != null && form.lng != null
+                ? [
+                    {
+                      id: "pin",
+                      lat: form.lat,
+                      lng: form.lng,
+                      color: "#2454e5",
+                      label: "This address",
+                      draggable: true,
+                      onDragEnd: (lat, lng) => {
+                        pinSourceRef.current = "manual";
+                        set("lat", lat);
+                        set("lng", lng);
+                      },
+                    },
+                  ]
+                : []
+            }
+            onMapClick={(lat, lng) => {
+              pinSourceRef.current = "manual";
+              set("lat", lat);
+              set("lng", lng);
+            }}
+            height={180}
+          />
+          <p className="text-xs text-muted-foreground">
+            <MapPin className="mr-1 inline h-3 w-3" />
+            {geocoding ? "Locating your address…" : "Tap the map (or drag the pin) to fine-tune this address's saved location."}
+          </p>
+        </div>
+
         <div className="flex items-center gap-2 pt-1">
           <Checkbox id="addr-default" checked={form.is_default} onCheckedChange={(v) => set("is_default", !!v)} />
           <Label htmlFor="addr-default" className="font-normal">

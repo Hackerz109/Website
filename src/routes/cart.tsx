@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet } from "lucide-react";
+import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet, Home, Building2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
@@ -30,7 +30,10 @@ import {
 } from "@/lib/delivery";
 import { fetchWalletTransactions, sumBalance, redeemWalletForOrder } from "@/lib/wallet";
 import { PhoneVerifyDialog } from "@/components/PhoneVerifyDialog";
+import { PhoneInput } from "@/components/PhoneInput";
 import { PHONE_VERIFICATION_ENABLED } from "@/lib/phoneVerification";
+import { isValidPhone } from "@/lib/phone";
+import { fetchMyAddresses, type UserAddress } from "@/lib/profile";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/cart")({ component: CartPage });
@@ -89,6 +92,20 @@ function CartPage() {
   // to whatever the pincode says — it only autofills a field while it still
   // holds exactly what we last put there (or is empty).
   const pincodeAutofilledRef = useRef<{ city: string; state: string }>({ city: "", state: "" });
+
+  // ---- Saved addresses ----------------------------------------------------
+  const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setSavedAddresses([]);
+      return;
+    }
+    fetchMyAddresses(user.id)
+      .then(setSavedAddresses)
+      .catch(() => setSavedAddresses([]));
+  }, [user]);
 
   // ---- Wallet -------------------------------------------------------------
   const [walletBalance, setWalletBalance] = useState(0);
@@ -213,6 +230,55 @@ function CartPage() {
     }
   }
 
+  function applySavedAddress(addr: UserAddress) {
+    setSelectedAddressId(addr.id);
+    if (addr.full_name) setName(addr.full_name);
+    if (addr.phone) setPhone(addr.phone);
+    setAddressLine1(addr.line1);
+    setAddressLine2(addr.line2 ?? "");
+    setCity(addr.city);
+    setStateName(addr.state);
+    setPincode(addr.pincode);
+    setAddressGeocodeFailed(false);
+    setAddressApprox(false);
+    if (addr.lat != null && addr.lng != null) {
+      // We already know exactly where this address is — no need to
+      // re-geocode the text, and this stops the auto-geocode effect below
+      // from overwriting it with a lower-confidence guess.
+      coordsSourceRef.current = "manual";
+      setLocationAccuracy(null);
+      setCoords({ lat: addr.lat, lng: addr.lng });
+      setDeliveryBlocked(false);
+    } else {
+      // Older saved address with no pin yet — fall back to geocoding the
+      // text like a freshly-typed address would.
+      coordsSourceRef.current = null;
+      setCoords(null);
+    }
+  }
+
+  function useNewAddress() {
+    setSelectedAddressId(null);
+    coordsSourceRef.current = null;
+    setAddressLine1("");
+    setAddressLine2("");
+    setCity("");
+    setStateName("");
+    setPincode("");
+    setCoords(null);
+    setAddressGeocodeFailed(false);
+    setAddressApprox(false);
+  }
+
+  // Once saved addresses load, default to the shopper's default address (or
+  // their only one) so checkout starts pre-filled instead of blank.
+  useEffect(() => {
+    if (selectedAddressId || savedAddresses.length === 0 || fulfillment !== "delivery") return;
+    const def = savedAddresses.find((a) => a.is_default) ?? savedAddresses[0];
+    applySavedAddress(def);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedAddresses, fulfillment]);
+
   const typedAddress = [addressLine1, city, stateName, pincode].filter((s) => s.trim()).join(", ");
   // A complete 6-digit Indian PIN code is precise enough to geocode on its
   // own — city/address-line text being short (or blank, since city is
@@ -319,6 +385,10 @@ function CartPage() {
     }
     if (!name.trim()) {
       toast.error("Please add your name");
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      toast.error("Please enter a valid 10-digit mobile number");
       return;
     }
     if (fulfillment === "delivery" && (!addressLine1.trim() || !coords || !quote?.eligible)) {
@@ -530,6 +600,44 @@ function CartPage() {
 
                 {fulfillment === "delivery" ? (
                   <div className="space-y-3">
+                    {user && savedAddresses.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Saved addresses</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {savedAddresses.map((a) => (
+                            <button
+                              key={a.id}
+                              type="button"
+                              onClick={() => applySavedAddress(a)}
+                              className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors max-w-[220px] ${
+                                selectedAddressId === a.id ? "border-primary bg-primary/5" : "hover:bg-secondary/50"
+                              }`}
+                            >
+                              {a.label.toLowerCase() === "work" ? (
+                                <Building2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                              ) : (
+                                <Home className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                              )}
+                              <span>
+                                <span className="block font-medium">{a.label}</span>
+                                <span className="line-clamp-2 text-muted-foreground">
+                                  {a.line1}, {a.city}
+                                </span>
+                              </span>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={useNewAddress}
+                            className={`flex items-center gap-1.5 rounded-lg border border-dashed px-3 py-2 text-xs transition-colors ${
+                              selectedAddressId === null ? "border-primary bg-primary/5" : "hover:bg-secondary/50"
+                            }`}
+                          >
+                            <PencilLine className="h-3.5 w-3.5" /> Use a new address
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <Button type="button" variant="outline" size="sm" onClick={useMyLocation} disabled={locating}>
                       <LocateFixed className="mr-2 h-3.5 w-3.5" />
                       {locating ? "Locating…" : "Use my current location"}
@@ -579,9 +687,10 @@ function CartPage() {
                         emptyText="No matching state."
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input placeholder="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} />
-                      <Input placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    <Input placeholder="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} />
+                    <div>
+                      <Label htmlFor="cart-phone">Phone number</Label>
+                      <PhoneInput id="cart-phone" value={phone} onChange={setPhone} />
                     </div>
 
                     {addressGeocoding && (
@@ -629,7 +738,10 @@ function CartPage() {
                     {!!deliveryInfo?.pickup_charge_cents && (
                       <p className="text-muted-foreground">Pickup charge: {formatMoney(deliveryInfo.pickup_charge_cents)}</p>
                     )}
-                    <Input placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2" />
+                    <div className="mt-2">
+                      <Label htmlFor="pickup-phone">Phone number</Label>
+                      <PhoneInput id="pickup-phone" value={phone} onChange={setPhone} />
+                    </div>
                   </div>
                 )}
               </div>
