@@ -220,10 +220,29 @@ export async function lookupPincode(pincode: string): Promise<PincodeLookupResul
   }
 }
 
-async function nominatimSearch(
-  q: string,
+export interface StructuredGeocodeFields {
+  street?: string;
+  city?: string;
+  state?: string;
+  postalcode?: string;
+}
+
+/** Nominatim's *structured* search — street/city/state/postalcode are sent
+ * as separate fields instead of concatenated into one free-text string.
+ * This matters specifically for postalcode: in a blended string like
+ * "Meerut, Uttar Pradesh, 250001", Nominatim's free-text matching can latch
+ * onto the well-known city name and return its centroid, effectively
+ * ignoring the pincode digits — which is exactly why filling in City/State
+ * from a pincode lookup was making the pin *less* precise, not more.
+ * Structured fields don't have that problem: postalcode is matched against
+ * its own indexed field, so it still pins the specific postal area even
+ * with city/state also present. */
+async function nominatimSearchStructured(
+  fields: StructuredGeocodeFields,
   near?: LatLng,
 ): Promise<{ lat: number; lng: number; display_name: string } | null> {
+  const hasAnyField = Object.values(fields).some((v) => v && v.trim().length > 0);
+  if (!hasAnyField) return null;
   try {
     const params = new URLSearchParams({
       format: "json",
@@ -231,8 +250,12 @@ async function nominatimSearch(
       addressdetails: "0",
       "accept-language": "en",
       countrycodes: "in",
-      q,
+      country: "India",
     });
+    if (fields.street?.trim()) params.set("street", fields.street.trim());
+    if (fields.city?.trim()) params.set("city", fields.city.trim());
+    if (fields.state?.trim()) params.set("state", fields.state.trim());
+    if (fields.postalcode?.trim()) params.set("postalcode", fields.postalcode.trim());
     if (near) {
       const box = 0.5; // degrees, ~55km — generous since it's a soft bias, not a hard filter
       params.set("viewbox", `${near.lng - box},${near.lat + box},${near.lng + box},${near.lat - box}`);
@@ -243,7 +266,7 @@ async function nominatimSearch(
     const data = await res.json();
     const first = Array.isArray(data) ? data[0] : null;
     if (!first?.lat || !first?.lon) return null;
-    return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display_name: first.display_name ?? q };
+    return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display_name: first.display_name ?? "" };
   } catch {
     return null;
   }
@@ -261,59 +284,66 @@ function lastWords(s: string, n: number): string {
   return tokens.slice(Math.max(0, tokens.length - n)).join(" ");
 }
 
-/** Builds a ladder of progressively looser search strings, most specific
+/** Builds a ladder of progressively looser search attempts, most specific
  * first. OpenStreetMap's coverage of house numbers and small streets/colonies
- * in India is patchy outside big-city cores, and Nominatim fails the *whole*
- * query when one part of it can't be resolved — so a long, specific query
- * (house number + street + colony) is often *less* likely to match than a
- * short one, even though the underlying town is perfectly well mapped. Each
- * step below drops a bit more of the specific part so we still land the pin
- * somewhere useful instead of failing outright. */
-function buildFallbackQueries(line1: string, city: string, state: string, pincode: string): string[] {
-  const tail = [city, state, pincode].filter((p) => p.trim().length > 0);
-  const attempts: string[] = [];
-  const add = (parts: (string | undefined)[]) => {
-    const q = parts
-      .filter((p): p is string => !!p && p.trim().length > 0)
-      .join(", ")
-      .trim();
-    if (q && !attempts.includes(q)) attempts.push(q);
+ * in India is patchy outside big-city cores, so a long, specific address
+ * (house number + street + colony) can fail to match even though the
+ * underlying town is perfectly well mapped. Each step below drops a bit more
+ * of the specific part so we still land the pin somewhere useful instead of
+ * failing outright.
+ *
+ * Each attempt is a set of *structured* fields (see nominatimSearchStructured)
+ * rather than one blended string — critical for postalcode specifically: a
+ * dedicated `{ postalcode, state }` attempt still matches the exact postal
+ * area, whereas folding the same postcode into a "city, state, pincode" text
+ * blob lets free-text matching latch onto the city name and return its
+ * centroid instead. */
+function buildFallbackQueries(line1: string, city: string, state: string, pincode: string): StructuredGeocodeFields[] {
+  const attempts: StructuredGeocodeFields[] = [];
+  const add = (fields: StructuredGeocodeFields) => {
+    const cleaned: StructuredGeocodeFields = {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (v && v.trim().length > 0) cleaned[k as keyof StructuredGeocodeFields] = v.trim();
+    }
+    if (Object.keys(cleaned).length === 0) return;
+    const key = JSON.stringify(cleaned);
+    if (!attempts.some((a) => JSON.stringify(a) === key)) attempts.push(cleaned);
   };
 
-  // 1) Exactly what was typed — best case, keeps full precision.
-  add([line1, ...tail]);
+  // 1) Exactly what was typed — best case, keeps full precision. Street
+  // carries the house-number/locality text; city/state/postalcode are their
+  // own fields so postalcode still gets matched precisely even here.
+  add({ street: line1, city, state, postalcode: pincode });
 
   // 2-4) Keep only the last few words of address line 1 (usually the
   // locality/area name, e.g. "...Katra Chowk, Katra") and drop the
   // house-number/street portion in front of it.
-  add([lastWords(line1, 3), ...tail]);
-  add([lastWords(line1, 2), ...tail]);
-  add([lastWords(line1, 1), ...tail]);
+  add({ street: lastWords(line1, 3), city, state, postalcode: pincode });
+  add({ street: lastWords(line1, 2), city, state, postalcode: pincode });
+  add({ street: lastWords(line1, 1), city, state, postalcode: pincode });
 
-  // 5) Pincode + state together, ignoring city/locality entirely. Indian
-  // PIN codes map to a specific, unambiguous post-office area, so pairing
-  // one with a (dropdown-selected, so always well-formed) state name is a
-  // strong, hard-to-misresolve fallback — much safer than dropping straight
-  // to city/state alone, which can match a same-named place in the wrong
-  // part of the country.
-  add([pincode, state]);
+  // 5) Pincode + state, no street/city at all. This is the one that matters
+  // most for a shopper who's led with just their pincode: it can't get
+  // diluted by a city name the way a blended-text search could, so it lands
+  // on the actual postal area rather than the city centroid.
+  add({ postalcode: pincode, state });
 
   // 6-7) Whatever's in the dedicated city/state/pincode fields, ignoring
   // address line 1 entirely — covers a line 1 that's purely a plot/house
   // reference with no place name in it at all.
-  add(tail);
-  add([city, state]);
+  add({ city, state, postalcode: pincode });
+  add({ city, state });
 
   // 8) Postal code alone — postcode-area boundaries are often mapped even
   // in towns where individual streets are not.
-  add([pincode]);
+  add({ postalcode: pincode });
 
   // 9) Last resort: just the state, so the map centers somewhere sensible
   // and the shopper can drop a precise pin rather than hitting a dead end.
   // (`state` now always comes from a fixed dropdown of real state names —
   // see indianStates.ts — so it can no longer mismatch on a typo like
   // "uttarpradesh" the way a free-text field could.)
-  add([state]);
+  add({ state });
 
   return attempts;
 }
@@ -361,8 +391,14 @@ export async function forwardGeocode(query: ForwardGeocodeQuery, near?: LatLng):
   const attempts = buildFallbackQueries(line1, city, state, pincode);
 
   for (let i = 0; i < attempts.length; i++) {
-    const hit = await nominatimSearch(attempts[i], near);
-    if (hit) return { ...hit, exact: i === 0 };
+    const hit = await nominatimSearchStructured(attempts[i], near);
+    if (hit) {
+      return {
+        ...hit,
+        display_name: hit.display_name || [line1, city, state, pincode].filter(Boolean).join(", "),
+        exact: i === 0,
+      };
+    }
   }
   return null;
 }
