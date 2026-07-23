@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { INDIAN_STATES } from "@/lib/indianStates";
 import { LeafletMap } from "@/components/LeafletMap";
 import { useCart, formatMoney } from "@/stores/cart";
 import { supabase } from "@/integrations/supabase/client";
@@ -521,7 +523,18 @@ function CartPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
-                      <Input placeholder="State" value={stateName} onChange={(e) => setStateName(e.target.value)} />
+                      <Select value={stateName} onValueChange={setStateName}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="State" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {INDIAN_STATES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Input placeholder="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} />
