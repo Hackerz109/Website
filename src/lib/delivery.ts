@@ -385,26 +385,9 @@ export interface ForwardGeocodeResult {
  * distant match. */
 export async function forwardGeocode(query: ForwardGeocodeQuery, near?: LatLng): Promise<ForwardGeocodeResult | null> {
   const line1 = (query.line1 ?? "").trim();
-  let city = (query.city ?? "").trim();
-  let state = (query.state ?? "").trim();
+  const city = (query.city ?? "").trim();
+  const state = (query.state ?? "").trim();
   const pincode = (query.pincode ?? "").trim();
-
-  // OpenStreetMap's postcode coverage for India is sparse, so a Nominatim
-  // search with only `postalcode` set (e.g. a shopper who's typed nothing
-  // but their 6-digit pincode) is unreliable and can land the pin nowhere
-  // near the real place. Whenever we have a complete pincode but are still
-  // missing city/state, resolve those first via India Post's own
-  // pincode→post-office data (authoritative, not fuzzy matching) so every
-  // geocode attempt below has a real city/state anchor instead of relying
-  // on postcode matching alone.
-  if (/^\d{6}$/.test(pincode) && (!city || !state)) {
-    const postal = await lookupPincode(pincode);
-    if (postal) {
-      if (!city && postal.city) city = postal.city;
-      if (!state && postal.state) state = postal.state;
-    }
-  }
-
   const attempts = buildFallbackQueries(line1, city, state, pincode);
 
   for (let i = 0; i < attempts.length; i++) {
