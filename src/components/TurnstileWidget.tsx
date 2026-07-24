@@ -31,7 +31,15 @@ const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
  * of the rate-limiting/lockout logic keeps working even before captcha is
  * configured.
  */
-export function TurnstileWidget({ onVerify, onExpire }: { onVerify: (token: string) => void; onExpire?: () => void }) {
+export function TurnstileWidget({
+  onVerify,
+  onExpire,
+  resetKey,
+}: {
+  onVerify: (token: string) => void;
+  onExpire?: () => void;
+  resetKey?: string | number;
+}) {
   const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
   const containerId = useId();
   const widgetId = useRef<string | null>(null);
@@ -73,7 +81,7 @@ export function TurnstileWidget({ onVerify, onExpire }: { onVerify: (token: stri
       if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteKey, containerId]);
+  }, [siteKey, containerId, resetKey]);
 
   if (!siteKey) return null;
 
