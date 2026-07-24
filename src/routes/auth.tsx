@@ -70,6 +70,7 @@ function AuthPage() {
   const [loginStatus, setLoginStatus] = useState<RateLimitStatus | null>(null);
   const [signupStatus, setSignupStatus] = useState<RateLimitStatus | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -118,13 +119,31 @@ function AuthPage() {
       return;
     }
 
+    // Verify the Turnstile token ourselves — Supabase's own "Enable Captcha
+    // protection" toggle would require a token on every single sign-in
+    // attempt, not just ones flagged by our own failure-count logic, so we
+    // keep that toggle off and check it server-side here instead.
+    if (captchaToken) {
+      const verifyRes = await fetch("/api/verify-captcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: captchaToken }),
+      }).catch(() => null);
+      const verified = verifyRes?.ok ? (await verifyRes.json()).success : false;
+      if (!verified) {
+        toast.error("Verification failed — please try again.");
+        setCaptchaToken(null);
+        setCaptchaResetKey((k) => k + 1);
+        return;
+      }
+    }
+
     setLoading(true);
     window.localStorage.setItem(REMEMBER_ME_KEY, String(rememberMe));
 
     const { error } = await supabase.auth.signInWithPassword({
       email: trimmedEmail,
       password,
-      options: captchaToken ? { captchaToken } : undefined,
     });
     setLoading(false);
 
@@ -132,6 +151,7 @@ function AuthPage() {
       const updated = await reportOutcome("login", trimmedEmail, device, "attempt");
       setLoginStatus(updated);
       setCaptchaToken(null);
+      setCaptchaResetKey((k) => k + 1);
       if (updated?.locked) {
         toast.error(`Too many failed attempts. Try again in ${formatUnlockTime(updated.lockedUntil!)}.`);
       } else {
@@ -258,7 +278,7 @@ function AuthPage() {
                   <p className="mb-1 text-xs text-muted-foreground">
                     A few failed attempts were made on this account — please verify you're human.
                   </p>
-                  <TurnstileWidget onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
+                  <TurnstileWidget onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} resetKey={captchaResetKey} />
                 </div>
               )}
 
