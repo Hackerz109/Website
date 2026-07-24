@@ -27,23 +27,22 @@ export function StoreFooter() {
                 <Zap className="h-4 w-4 fill-current" />
               </span>
               <span className="font-display text-lg font-bold tracking-tight text-foreground">
-                My Shop
+                Sanjay Electricals
               </span>
             </div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              We're a modern electrical supply store built around quality products, honest
-              pricing, and a team that's genuinely happy to help — before your purchase and
-              long after it.
+              At Sanjay Electricals, we believe trust is earned through consistency, quality, and genuine care. That's why we focus on offering reliable products from trusted brands, transparent pricing, and friendly support at every step. 
+              Our goal is simple: to make every purchase easy, every recommendation honest, and every customer confident that they've chosen a store they can rely on again and again.
             </p>
             <div className="mt-5 space-y-2 text-sm text-muted-foreground">
               <a href="tel:+10000000000" className="flex items-center gap-2 hover:text-foreground">
-                <Phone className="h-3.5 w-3.5" /> +1 (000) 000-0000
+                <Phone className="h-3.5 w-3.5" /> +91 9580269784
               </a>
               <a href="mailto:support@myshop.example" className="flex items-center gap-2 hover:text-foreground">
-                <Mail className="h-3.5 w-3.5" /> support@myshop.example
+                <Mail className="h-3.5 w-3.5" /> support@sanjayelectricals.shop
               </a>
               <p className="flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5" /> 123 Market Street, Your City
+                <MapPin className="h-3.5 w-3.5" /> Old Katra, Prayagraj
               </p>
             </div>
           </div>
