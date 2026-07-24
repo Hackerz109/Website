@@ -33,13 +33,14 @@ function AboutPage() {
           About My Shop
         </span>
         <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-foreground md:text-5xl">
-          Everyday electrical essentials, chosen with care.
+          Sanjay Electricals: That builds trust.
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          My Shop started with a simple idea: buying switches, wiring, fans, and fittings
-          shouldn't feel like a gamble. We bring together dependable brands, honest pricing,
-          and a support team that actually knows the products — so you can order with
-          confidence, whether you're wiring a new home or fixing a single socket.
+          At Sanjay Electricals, we believe that great businesses are built on trust, not just transactions. Every customer who walks through our doors or visits us online deserves honest advice, quality products, fair prices, and dependable service.
+
+Your satisfaction is our highest priority. Whether you're buying a single switch or planning a complete electrical project, we're committed to helping you find the right solution with confidence. We carefully select products from trusted brands and stand behind what we sell because we value long-term relationships over short-term sales.
+
+Our goal isn't just to serve customers—it's to earn your trust, one purchase at a time. Thank you for choosing Sanjay Electricals. We look forward to being your reliable partner for all your electrical needs.
         </p>
       </section>
 
