@@ -666,26 +666,12 @@ function CartPage() {
                     </p>
                     <div>
                       <Label htmlFor="addr1">Address line 1</Label>
-                      <Textarea
-                        id="addr1"
-                        value={addressLine1}
-                        onChange={(e) => {
-                          // Editing the address by hand means the shopper wants us
-                          // to (re)locate it — even if they'd previously tapped/
-                          // dragged the pin, which otherwise "locks" it. Without
-                          // this, one map tap permanently freezes the pin and
-                          // further address edits are silently ignored.
-                          coordsSourceRef.current = null;
-                          setAddressLine1(e.target.value);
-                        }}
-                        rows={2}
-                        placeholder="House/flat no, street"
-                      />
+                      <Textarea id="addr1" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} rows={2} placeholder="House/flat no, street" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Combobox
                         value={city}
-                        onChange={(v) => { coordsSourceRef.current = null; setCity(v); }}
+                        onChange={setCity}
                         options={INDIAN_CITIES}
                         allowCustomValue
                         placeholder="City (optional)"
@@ -694,18 +680,14 @@ function CartPage() {
                       />
                       <Combobox
                         value={stateName}
-                        onChange={(v) => { coordsSourceRef.current = null; setStateName(v); }}
+                        onChange={setStateName}
                         options={INDIAN_STATES}
                         placeholder="State"
                         searchPlaceholder="Search state…"
                         emptyText="No matching state."
                       />
                     </div>
-                    <Input
-                      placeholder="Pincode"
-                      value={pincode}
-                      onChange={(e) => { coordsSourceRef.current = null; setPincode(e.target.value); }}
-                    />
+                    <Input placeholder="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} />
                     <div>
                       <Label htmlFor="cart-phone">Phone number</Label>
                       <PhoneInput id="cart-phone" value={phone} onChange={setPhone} />
