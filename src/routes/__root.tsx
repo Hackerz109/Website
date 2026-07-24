@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "../components/ui/sonner";
+import { useIdleLogout } from "../hooks/useIdleLogout";
+import { useRememberMeGuard } from "../hooks/useRememberMeGuard";
 
 function NotFoundComponent() {
   return (
@@ -144,6 +146,9 @@ function RootComponent() {
 }
 
 function AppShell() {
+  useRememberMeGuard();
+  useIdleLogout(); // auto sign-out after 30 min of inactivity
+
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {
