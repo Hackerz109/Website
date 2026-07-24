@@ -49,7 +49,7 @@ function TermsPage() {
       <div>
         <h2 id="who-we-are">Who we are, and who this is for</h2>
         <p>
-          My Shop is owned and operated by <strong>[Registered business/proprietor name]</strong> ("My
+          My Shop is owned and operated by <strong>Mr. Sanjay Jaiswal </strong> ("My
           Shop," "we," "us"). Everything we list is our own stock, not a third-party marketplace listing —
           so when something needs fixing, you're dealing with the people who actually sold it to you.
         </p>
@@ -184,10 +184,10 @@ function TermsPage() {
         </p>
         <ul>
           <li>
-            <strong>Grievance Officer:</strong> [Grievance Officer name]
+            <strong>Grievance Officer:</strong> [Mr. Ayush Jaiswal]
           </li>
           <li>
-            <strong>Email:</strong> support@myshop.example
+            <strong>Email:</strong> support@sanjayelectricals.shop
           </li>
         </ul>
         <p>We'll acknowledge your complaint within 48 hours and aim to resolve it within one month.</p>
