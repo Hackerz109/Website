@@ -53,10 +53,15 @@ already gated behind auth + a per-account cooldown, which is the main risk.
 - **CAPTCHA after repeated failures** — after login's email identifier gets
   within 2 attempts of locking, a Cloudflare Turnstile widget appears
   (`TurnstileWidget.tsx`). Renders only once `VITE_TURNSTILE_SITE_KEY` is
-  set; only actually verified once you enable captcha protection in
-  Supabase Dashboard → Authentication → Attack Protection with the matching
-  secret. The lockout above works even without this configured — captcha is
-  an extra layer, not a replacement.
+  set. **Do NOT enable Supabase's own "Enable Captcha protection" toggle**
+  (Authentication → Attack Protection) — that toggle demands a token on
+  every single auth call unconditionally, which breaks normal first-attempt
+  sign-in with a "captcha token not found" error, since our widget only
+  appears after repeated failures. Instead, `src/routes/api.verify-captcha.ts`
+  verifies the token ourselves against Cloudflare directly, gated by our own
+  failure-count logic — so the toggle in Supabase should stay off, and you
+  only need `TURNSTILE_SECRET_KEY` (server-side env var, no `VITE_` prefix)
+  set wherever you deploy.
 - **Password hashing** — handled server-side by Supabase Auth (bcrypt);
   nothing to add.
 - **Session management** — handled by `@supabase/supabase-js` (short-lived
@@ -77,8 +82,10 @@ already gated behind auth + a per-account cooldown, which is the main risk.
    applying it. I hand-added a `rate_limits` type entry so this compiles in
    the meantime — your normal codegen will replace it with the real one.
 3. (Optional, for CAPTCHA) Create a Cloudflare Turnstile site, set
-   `VITE_TURNSTILE_SITE_KEY`, and enable captcha protection with the
-   matching secret in the Supabase dashboard.
+   `VITE_TURNSTILE_SITE_KEY` (site key, public) AND `TURNSTILE_SECRET_KEY`
+   (secret key, server-side only — no `VITE_` prefix). Leave Supabase's own
+   "Enable Captcha protection" toggle OFF — see the captcha note above for
+   why.
 4. Make sure `/reset-password` is an allowed redirect URL in Supabase
    Dashboard → Authentication → URL Configuration.
 5. If you deploy behind your own reverse proxy (not Vercel/Netlify/
