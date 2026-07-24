@@ -5,10 +5,13 @@ import { StoreFooter } from "@/components/StoreFooter";
 export function PolicyPage({
   title,
   subtitle,
+  lastUpdated,
   children,
 }: {
   title: string;
   subtitle?: string;
+  /** e.g. "24 July 2026" — shown as a small badge under the subtitle. Omit to hide it. */
+  lastUpdated?: string;
   children: ReactNode;
 }) {
   return (
@@ -17,7 +20,13 @@ export function PolicyPage({
       <div className="mx-auto max-w-3xl px-6 py-14 md:py-20">
         <h1 className="text-3xl font-extrabold tracking-tight text-foreground md:text-4xl">{title}</h1>
         {subtitle && <p className="mt-3 text-base text-muted-foreground">{subtitle}</p>}
-        <div className="policy-content mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-2 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_li]:marker:text-primary">
+        {lastUpdated && (
+          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Last updated {lastUpdated}
+          </p>
+        )}
+        <div className="policy-content mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-2 [&_h2]:scroll-mt-24 [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_li]:marker:text-primary">
           {children}
         </div>
       </div>
