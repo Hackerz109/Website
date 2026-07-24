@@ -33,7 +33,7 @@ function AboutPage() {
           About My Shop
         </span>
         <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-foreground md:text-5xl">
-          Sanjay Electricals: That builds trust.
+          Sanjay Electricals: Shop that builds trust.
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
           At Sanjay Electricals, we believe that great businesses are built on trust, not just transactions. Every customer who walks through our doors or visits us online deserves honest advice, quality products, fair prices, and dependable service.
