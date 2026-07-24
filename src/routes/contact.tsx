@@ -12,11 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 export const Route = createFileRoute("/contact")({ component: ContactPage });
 
 const contactDetails = [
-  { icon: Phone, label: "Phone", value: "+1 (000) 000-0000", href: "tel:+10000000000" },
-  { icon: MessageCircle, label: "WhatsApp", value: "+1 (000) 000-0000", href: "https://wa.me/10000000000" },
-  { icon: Mail, label: "Email", value: "support@myshop.example", href: "mailto:support@myshop.example" },
-  { icon: MapPin, label: "Store address", value: "123 Market Street, Your City", href: undefined },
-  { icon: Clock, label: "Business hours", value: "Mon–Sat, 9:00 AM – 7:00 PM", href: undefined },
+  { icon: Phone, label: "Phone", value: "+91 9580269784", href: "tel:+919580269784" },
+  { icon: MessageCircle, label: "WhatsApp", value: "+91 9580269784", href: "https://wa.me/9580269784" },
+  { icon: Mail, label: "Email", value: "support@sanjayelectricals.shop", href: "mailto:support@sanjayelectricals.shop" },
+  { icon: MapPin, label: "Store address", value: "Old katra, Prayagraj", href: undefined },
+  { icon: Clock, label: "Business hours", value: "Mon–Sun, 9:30 AM – 8:00 PM", href: undefined },
 ];
 
 function ContactPage() {
