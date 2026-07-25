@@ -32,7 +32,7 @@ const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 // REQUIRED by Nominatim's usage policy: identify the app and give a real
 // contact (site URL or email) so they can reach out before blocking instead
 // of just blocking. Replace before deploying.
-const NOMINATIM_USER_AGENT = "YourStoreName/1.0 (+https://yourstore.example; contact@yourstore.example)";
+const NOMINATIM_USER_AGENT = "myshop/1.0 (+https://sanjayelectricals.shop; support@sanjayelectricals.shop)";
 
 // ---- Nominatim usage-policy rate limit (max 1 request/second) --------
 // A simple promise chain so concurrent calls queue up instead of firing at
