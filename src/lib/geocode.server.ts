@@ -89,10 +89,15 @@ function cacheSet(key: string, value: unknown) {
 
 async function nominatimFetch(url: string): Promise<Response | null> {
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       headers: { "User-Agent": USER_AGENT, "Accept-Language": "en" },
     });
-  } catch {
+    if (!res.ok) {
+      console.error(`[geocode] Nominatim returned ${res.status} ${res.statusText} for ${url}`);
+    }
+    return res;
+  } catch (err) {
+    console.error(`[geocode] Nominatim fetch threw for ${url}:`, err);
     return null;
   }
 }
@@ -138,7 +143,8 @@ export async function reverseGeocodeServer(lat: number, lng: number): Promise<Re
     };
     cacheSet(key, result);
     return result;
-  } catch {
+  } catch (err) {
+    console.error(`[geocode] failed to parse Nominatim reverse response:`, err);
     return null;
   }
 }
@@ -163,7 +169,10 @@ export async function lookupPincodeServer(pincode: string): Promise<PincodeLooku
     const res = await fetch(`https://api.postalpincode.in/pincode/${clean}`, {
       headers: { "User-Agent": USER_AGENT },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[geocode] postalpincode.in returned ${res.status} ${res.statusText} for ${clean}`);
+      return null;
+    }
     const data = await res.json();
     const entry = Array.isArray(data) ? data[0] : null;
     if (entry?.Status !== "Success" || !Array.isArray(entry.PostOffice) || entry.PostOffice.length === 0) {
@@ -175,7 +184,8 @@ export async function lookupPincodeServer(pincode: string): Promise<PincodeLooku
     const result: PincodeLookupResult = { city: po?.District ?? "", state: STATE_ALIASES[state] ?? state };
     cacheSet(key, result);
     return result;
-  } catch {
+  } catch (err) {
+    console.error(`[geocode] postalpincode.in fetch threw for ${clean}:`, err);
     return null;
   }
 }
@@ -229,7 +239,8 @@ async function nominatimSearchStructured(
     const result = { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display_name: first.display_name ?? "" };
     cacheSet(key, result);
     return result;
-  } catch {
+  } catch (err) {
+    console.error(`[geocode] failed to parse Nominatim search response:`, err);
     return null;
   }
 }
