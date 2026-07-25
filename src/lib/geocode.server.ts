@@ -303,10 +303,25 @@ function lastWords(s: string, n: number): string {
   return tokens.slice(Math.max(0, tokens.length - n)).join(" ");
 }
 
-/** Ladder of progressively looser search attempts — unchanged from the
- * original: try the full address, then drop words off the street line,
- * then fall back to postcode/city/state alone, since OSM often just
- * doesn't have house-number-level detail for smaller towns. */
+/** Ladder of progressively looser search attempts.
+ *
+ * Pincode and City/State are deliberately never combined in the same
+ * query. A 6-digit PIN code is India Post's own authoritative area for an
+ * address; City/State text — whether typed by the shopper or autofilled
+ * from the pincode via lookupPincodeServer — is looser and, especially for
+ * smaller towns, often spelled or bucketed differently in OSM's data than
+ * in India Post's. Mixing the two in one structured query let a City/State
+ * mismatch either drag an otherwise spot-on pincode match onto the wrong
+ * locality, or veto it outright and fall through to a much coarser tier.
+ *
+ * So this now runs two fully independent tracks:
+ *  1. Pincode-led — street text narrowed within that PIN code, then the
+ *     PIN code's own centroid alone. Tried first, since the PIN code is
+ *     the more reliable signal.
+ *  2. City/State-led — only reached if every pincode tier above missed
+ *     entirely (e.g. a PIN code OSM has no record of) or no pincode was
+ *     given at all.
+ */
 function buildFallbackQueries(line1: string, city: string, state: string, pincode: string): StructuredGeocodeFields[] {
   const attempts: StructuredGeocodeFields[] = [];
   const add = (fields: StructuredGeocodeFields) => {
@@ -319,14 +334,21 @@ function buildFallbackQueries(line1: string, city: string, state: string, pincod
     if (!attempts.some((a) => JSON.stringify(a) === key)) attempts.push(cleaned);
   };
 
-  add({ street: line1, city, state, postalcode: pincode });
-  add({ street: lastWords(line1, 3), city, state, postalcode: pincode });
-  add({ street: lastWords(line1, 2), city, state, postalcode: pincode });
-  add({ street: lastWords(line1, 1), city, state, postalcode: pincode });
-  add({ postalcode: pincode, state });
-  add({ city, state, postalcode: pincode });
+  // Track 1: pincode alone, never combined with city/state.
+  if (pincode) {
+    add({ street: line1, postalcode: pincode });
+    add({ street: lastWords(line1, 3), postalcode: pincode });
+    add({ street: lastWords(line1, 2), postalcode: pincode });
+    add({ street: lastWords(line1, 1), postalcode: pincode });
+    add({ postalcode: pincode });
+  }
+
+  // Track 2: city/state alone, never combined with pincode.
+  add({ street: line1, city, state });
+  add({ street: lastWords(line1, 3), city, state });
+  add({ street: lastWords(line1, 2), city, state });
+  add({ street: lastWords(line1, 1), city, state });
   add({ city, state });
-  add({ postalcode: pincode });
   add({ state });
 
   return attempts;
@@ -353,7 +375,13 @@ export async function forwardGeocodeServer(query: ForwardGeocodeQuery, near?: La
         lat: hit.lat,
         lng: hit.lng,
         display_name: hit.display_name || [line1, city, state, pincode].filter(Boolean).join(", "),
-        exact: i === 0,
+        // "Exact" means the winning attempt still had the shopper's street/
+        // house text in it (either track's first few tiers) — not just a
+        // pincode centroid or a city/state region on their own. Keying this
+        // off the attempt's own fields (rather than "was this tier 0")
+        // matters now that pincode and city/state are two separate tracks,
+        // each with their own street-level tier at the front.
+        exact: !!attempts[i].street,
       };
     }
   }
