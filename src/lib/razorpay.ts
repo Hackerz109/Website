@@ -62,12 +62,12 @@ export async function payForOrder(order: PayableOrder): Promise<PayResult> {
       amount: createData.amount,
       currency: createData.currency,
       order_id: createData.razorpayOrderId,
-      name: "My Shop",
+      name: "Sanjay Electricals",
       prefill: {
         name: order.customer_name ?? undefined,
         email: order.customer_email ?? undefined,
       },
-      theme: { color: "#2454e5" },
+      theme: { color: "#0A2647" },
       handler: async (response: unknown) => {
         const r = response as {
           razorpay_order_id: string;
