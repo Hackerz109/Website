@@ -1,31 +1,38 @@
 /**
- * Address lookups (reverse geocode / forward geocode / pincode lookup) go
- * through LocationIQ instead of raw OpenStreetMap Nominatim.
+ * Address lookups (reverse geocode / forward geocode / pincode lookup) —
+ * server-side only (never call these from the browser directly).
  *
- * Why the switch: free, unauthenticated Nominatim (nominatim.openstreetmap.org)
- * is meant for light, occasional use and is well known to silently rate-limit
- * or block traffic from shared/cloud hosting IP ranges — exactly what a
- * server-rendered app's outbound requests look like to it, regardless of
- * User-Agent. That's almost certainly why address lookup kept failing even
- * after moving the calls server-side.
+ * Provider: OpenStreetMap Nominatim, used directly — no third-party API key,
+ * no signup, no paid tier. The previous version of this file routed through
+ * LocationIQ (a paid-key middleman in front of the same OSM data) to dodge
+ * Nominatim's IP-based rate limiting on shared/cloud hosts. That dependency
+ * has been removed as requested. The trade-off: Nominatim's public instance
+ * enforces a strict *1 request/second, no concurrency* policy and asks for a
+ * genuinely identifying User-Agent — see throttle() and APP_USER_AGENT below.
+ * If lookups start silently failing under real traffic (shared-IP throttling
+ * is the classic symptom), that's the tell you've outgrown the free public
+ * instance and need either a self-hosted Nominatim or a paid provider again —
+ * this file is the only place that would need to change.
  *
- * LocationIQ is built on the same OpenStreetMap data (so results/coverage
- * are effectively the same for India) and returns the same response shape
- * as Nominatim, but is meant for exactly this kind of production use: it
- * has a real free tier (5,000 requests/day, no credit card) tied to an API
- * key instead of an IP, so it doesn't have the shared-IP blocking problem.
+ * Pincode -> city/state lookups use India Post's own public pincode API
+ * instead, which also needs no key and is authoritative for Indian PIN
+ * codes (better hit rate there than asking Nominatim for postal codes).
  *
- * Setup required: sign up at https://locationiq.com (free), grab the
- * "Access Token" from the dashboard, and set it as LOCATIONIQ_API_KEY in
- * this deployment's environment variables. Without it, every lookup below
- * fails fast with a clear log line instead of a confusing silent no-op.
- *
- * The client-facing function names/shapes are unchanged, so cart.tsx /
- * profile.tsx / delivery.ts needed no changes.
+ * The client-facing function names/shapes are unchanged from before, so
+ * nothing calling these (delivery.ts, cart.tsx, profile.tsx, api.geocode.ts)
+ * needed to change.
  */
 
-const LOCATIONIQ_KEY = process.env.LOCATIONIQ_API_KEY;
-const LOCATIONIQ_BASE = "https://us1.locationiq.com/v1";
+// Nominatim's usage policy requires a real, identifying User-Agent (an app
+// name plus a way to reach you — a URL or email). Set NOMINATIM_CONTACT in
+// this deployment's env vars to your actual site URL or a support email
+// before going to production; the placeholder below is fine for local/dev
+// use but OSM may start blocking a generic/placeholder identity over time.
+const CONTACT = process.env.NOMINATIM_CONTACT?.trim() || "contact-not-configured.example.com";
+const APP_USER_AGENT = `MyShopStorefront/1.0 (${CONTACT})`;
+
+const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
+const POSTALPINCODE_BASE = "https://api.postalpincode.in/pincode";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -59,10 +66,10 @@ export interface ForwardGeocodeResult {
 // ---- tiny best-effort cache -------------------------------------------
 // Module-scope, so it survives for the life of one warm server
 // instance/isolate (resets on cold start — that's fine, it's a politeness
-// optimization, not a correctness requirement, and also cuts down on
-// LocationIQ request volume against the daily free-tier cap). Mainly
-// exists to stop a shopper re-typing/adjusting the same address from
-// re-hitting the API for every debounce tick.
+// optimization, not a correctness requirement). Mainly exists to stop a
+// shopper re-triggering a lookup for the same address/pincode/point over
+// and over, which matters more now that Nominatim is rate-limited to 1
+// request/second for everyone sharing this server.
 const CACHE_TTL_MS = 5 * 60_000;
 const MAX_CACHE_ENTRIES = 500;
 const cache = new Map<string, { expires: number; value: unknown }>();
@@ -85,33 +92,64 @@ function cacheSet(key: string, value: unknown) {
   cache.set(key, { expires: Date.now() + CACHE_TTL_MS, value });
 }
 
-async function locationIqFetch(path: string, params: URLSearchParams): Promise<Response | null> {
-  if (!LOCATIONIQ_KEY) {
-    console.error("[geocode] LOCATIONIQ_API_KEY is not set — refusing all lookups. Sign up free at https://locationiq.com and set it in this deployment's env vars.");
-    return null;
-  }
-  params.set("key", LOCATIONIQ_KEY);
-  const url = `${LOCATIONIQ_BASE}${path}?${params.toString()}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      // Don't log the URL here — it contains the API key.
-      console.error(`[geocode] LocationIQ returned ${res.status} ${res.statusText} for ${path}`);
-    }
-    return res;
-  } catch (err) {
-    console.error(`[geocode] LocationIQ fetch threw for ${path}:`, err);
-    return null;
-  }
+// ---- Nominatim rate-limit throttle -------------------------------------
+// Nominatim's public instance requires requests to be serialized at no
+// more than 1/second — no bursts, no concurrency. This chains every call
+// onto a single promise queue and waits out the gap between requests, so
+// concurrent shoppers hitting checkout at once still go out one at a time
+// instead of hammering the endpoint in parallel (which is what gets a
+// shared server IP silently blocked).
+const MIN_INTERVAL_MS = 1100;
+let lastRequestAt = 0;
+let throttleChain: Promise<void> = Promise.resolve();
+
+function throttle<T>(fn: () => Promise<T>): Promise<T> {
+  const run = throttleChain.then(async () => {
+    const wait = Math.max(0, lastRequestAt + MIN_INTERVAL_MS - Date.now());
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastRequestAt = Date.now();
+    return fn();
+  });
+  // Keep the chain alive even if this call fails, so one bad lookup
+  // doesn't wedge every lookup after it.
+  throttleChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
 }
 
-/** Reverse geocode via LocationIQ (Nominatim-compatible response shape). */
+async function nominatimFetch(path: string, params: URLSearchParams): Promise<Response | null> {
+  return throttle(async () => {
+    const url = `${NOMINATIM_BASE}${path}?${params.toString()}`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": APP_USER_AGENT,
+          "Accept-Language": "en",
+        },
+      });
+      if (!res.ok) {
+        console.error(`[geocode] Nominatim returned ${res.status} ${res.statusText} for ${path}`);
+      }
+      return res;
+    } catch (err) {
+      console.error(`[geocode] Nominatim fetch threw for ${path}:`, err);
+      return null;
+    }
+  });
+}
+
+/** Reverse geocode via Nominatim. Only ever called for a pin the shopper
+ * explicitly placed (GPS "use my location", map tap, or drag) — never as a
+ * side effect of typing an address. Best-effort: fields always stay
+ * editable, so failures here just resolve null rather than throwing. */
 export async function reverseGeocodeServer(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
   const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
   const cached = cacheGet<ReverseGeocodeResult | null>(key);
   if (cached !== undefined) return cached;
 
-  const res = await locationIqFetch(
+  const res = await nominatimFetch(
     "/reverse",
     new URLSearchParams({ format: "json", lat: String(lat), lon: String(lng), addressdetails: "1", zoom: "18", "accept-language": "en" }),
   );
@@ -147,7 +185,7 @@ export async function reverseGeocodeServer(lat: number, lng: number): Promise<Re
     cacheSet(key, result);
     return result;
   } catch (err) {
-    console.error(`[geocode] failed to parse LocationIQ reverse response:`, err);
+    console.error(`[geocode] failed to parse Nominatim reverse response:`, err);
     return null;
   }
 }
@@ -165,7 +203,7 @@ interface StructuredGeocodeFields {
   postalcode?: string;
 }
 
-async function locationIqSearchStructured(
+async function nominatimSearchStructured(
   fields: StructuredGeocodeFields,
   near?: LatLng,
 ): Promise<{ lat: number; lng: number; display_name: string; city: string; state: string } | null> {
@@ -194,7 +232,9 @@ async function locationIqSearchStructured(
   const cached = cacheGet<{ lat: number; lng: number; display_name: string; city: string; state: string } | null>(key);
   if (cached !== undefined) return cached;
 
-  const res = await locationIqFetch("/search/structured", params);
+  // Nominatim's structured query is the plain /search endpoint with
+  // street/city/state/postalcode fields instead of a free-text `q=`.
+  const res = await nominatimFetch("/search", params);
   if (!res || !res.ok) return null;
 
   try {
@@ -215,15 +255,15 @@ async function locationIqSearchStructured(
     cacheSet(key, result);
     return result;
   } catch (err) {
-    console.error(`[geocode] failed to parse LocationIQ search response:`, err);
+    console.error(`[geocode] failed to parse Nominatim search response:`, err);
     return null;
   }
 }
 
-/** Looks up city + state for a 6-digit Indian PIN code, via the same
- * LocationIQ structured search used for full-address lookups (postalcode
- * field only) — one provider for all address lookups instead of depending
- * on a second, independent free service. */
+/** Looks up city + state for a 6-digit Indian PIN code via India Post's own
+ * pincode API (api.postalpincode.in) — authoritative for exactly this
+ * lookup, needs no key, and is a separate provider from Nominatim so it
+ * doesn't compete for Nominatim's 1-req/sec budget. */
 export async function lookupPincodeServer(pincode: string): Promise<PincodeLookupResult | null> {
   const clean = pincode.trim();
   if (!/^\d{6}$/.test(clean)) return null;
@@ -232,14 +272,26 @@ export async function lookupPincodeServer(pincode: string): Promise<PincodeLooku
   const cached = cacheGet<PincodeLookupResult | null>(key);
   if (cached !== undefined) return cached;
 
-  const hit = await locationIqSearchStructured({ postalcode: clean });
-  if (!hit || (!hit.city && !hit.state)) {
-    cacheSet(key, null);
+  try {
+    const res = await fetch(`${POSTALPINCODE_BASE}/${clean}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    const office = first?.Status === "Success" ? first.PostOffice?.[0] : null;
+    if (!office || (!office.District && !office.State)) {
+      cacheSet(key, null);
+      return null;
+    }
+    const result: PincodeLookupResult = {
+      city: office.District ?? "",
+      state: STATE_ALIASES[office.State] ?? office.State ?? "",
+    };
+    cacheSet(key, result);
+    return result;
+  } catch (err) {
+    console.error(`[geocode] India Post pincode lookup threw:`, err);
     return null;
   }
-  const result: PincodeLookupResult = { city: hit.city, state: STATE_ALIASES[hit.state] ?? hit.state };
-  cacheSet(key, result);
-  return result;
 }
 
 function lastWords(s: string, n: number): string {
@@ -252,8 +304,9 @@ function lastWords(s: string, n: number): string {
 }
 
 /** Ladder of progressively looser search attempts — unchanged from the
- * original Nominatim version; see delivery.ts's history for the full
- * reasoning on each tier. */
+ * original: try the full address, then drop words off the street line,
+ * then fall back to postcode/city/state alone, since OSM often just
+ * doesn't have house-number-level detail for smaller towns. */
 function buildFallbackQueries(line1: string, city: string, state: string, pincode: string): StructuredGeocodeFields[] {
   const attempts: StructuredGeocodeFields[] = [];
   const add = (fields: StructuredGeocodeFields) => {
@@ -279,6 +332,13 @@ function buildFallbackQueries(line1: string, city: string, state: string, pincod
   return attempts;
 }
 
+/** Forward geocode: resolves a typed address to coordinates purely so we
+ * can check delivery-zone eligibility/charges in the background — this is
+ * never used to move a visible map pin or overwrite anything the shopper
+ * typed. Falls back through progressively looser matches before giving up;
+ * null means every fallback tier failed (e.g. an address Nominatim has no
+ * record of at all), in which case the caller should invite the shopper to
+ * drop a pin on the map themselves instead. */
 export async function forwardGeocodeServer(query: ForwardGeocodeQuery, near?: LatLng): Promise<ForwardGeocodeResult | null> {
   const line1 = (query.line1 ?? "").trim();
   const city = (query.city ?? "").trim();
@@ -287,7 +347,7 @@ export async function forwardGeocodeServer(query: ForwardGeocodeQuery, near?: La
   const attempts = buildFallbackQueries(line1, city, state, pincode);
 
   for (let i = 0; i < attempts.length; i++) {
-    const hit = await locationIqSearchStructured(attempts[i], near);
+    const hit = await nominatimSearchStructured(attempts[i], near);
     if (hit) {
       return {
         lat: hit.lat,
