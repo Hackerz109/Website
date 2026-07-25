@@ -24,11 +24,11 @@ function TermsPage() {
   return (
     <PolicyPage
       title="Terms & Conditions"
-      subtitle="The plain-language basics of shopping with My Shop — worth an actual read, we promise."
+      subtitle="The plain-language basics of shopping with Sanjay Electricals — worth an actual read, we promise."
       lastUpdated="24 July 2026"
     >
       <p>
-        My Shop is an online store for electrical essentials — switches, wiring, fans, fittings, and more —
+        Sanjay Electricals is an online store for electrical essentials — switches, wiring, fans, fittings, and more —
         from brands people already trust. These Terms explain how things work when you browse, create an
         account, or place an order with us. By using our website or placing an order, you're agreeing to
         them, so we've kept the language plain on purpose.
@@ -49,8 +49,8 @@ function TermsPage() {
       <div>
         <h2 id="who-we-are">Who we are, and who this is for</h2>
         <p>
-          My Shop is owned and operated by <strong>Mr. Sanjay Jaiswal </strong> ("My
-          Shop," "we," "us"). Everything we list is our own stock, not a third-party marketplace listing —
+          Sanjay Electricals is owned and operated by <strong>Mr. Sanjay Jaiswal </strong> ("Sanjay
+          Electricals," "we," "us"). Everything we list is our own stock, not a third-party marketplace listing —
           so when something needs fixing, you're dealing with the people who actually sold it to you.
         </p>
         <p>
@@ -98,7 +98,7 @@ function TermsPage() {
         <p>
           Refunds and any goodwill credit we issue land in your Store Wallet, visible anytime from your
           account. You can apply wallet balance toward any order, in full or in part, alongside another
-          payment method for the rest. It's credit for use on My Shop, not cash — it can't be withdrawn or
+          payment method for the rest. It's credit for use on Sanjay Electricals, not cash — it can't be withdrawn or
           transferred to a bank account or another person, and currently it doesn't expire.
         </p>
       </div>
@@ -158,7 +158,7 @@ function TermsPage() {
       <div>
         <h2 id="ownership">Content on this site</h2>
         <p>
-          Product descriptions, photography, page design, and the My Shop name and logo belong to us or our
+          Product descriptions, photography, page design, and the Sanjay Electricals name and logo belong to us or our
           licensors, including the brands whose products we sell. Browse, screenshot for personal reference,
           and share links freely — just don't republish, resell, or pass off our content as your own without
           asking us first.
@@ -204,7 +204,7 @@ function TermsPage() {
       <div>
         <h2 id="changes">Changes to these Terms</h2>
         <p>
-          As My Shop grows, these Terms might need to grow with it. We'll update this page when that
+          As Sanjay Electricals grows, these Terms might need to grow with it. We'll update this page when that
           happens and refresh the date at the top, so you can always see what's changed. Continuing to use
           the site after an update means you're accepting the current version.
         </p>

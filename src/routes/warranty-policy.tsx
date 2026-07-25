@@ -11,7 +11,7 @@ function WarrantyPolicyPage() {
       lastUpdated="24 July 2026"
     >
       <p>
-        We want every purchase to feel safe. That's why each product page on My Shop clearly shows its
+        We want every purchase to feel safe. That's why each product page on Sanjay Electricals clearly shows its
         warranty status, so you always know exactly what's covered before you buy — no surprises later.
       </p>
 
@@ -41,7 +41,7 @@ function WarrantyPolicyPage() {
             <strong>Manufacturer Warranty</strong> — provided directly by the brand that makes the product.
           </li>
           <li>
-            <strong>Seller Warranty</strong> — provided by My Shop as the seller.
+            <strong>Seller Warranty</strong> — provided by Sanjay Electricals as the seller.
           </li>
           <li>
             <strong>Extended Warranty</strong> — additional coverage beyond the standard term, where
@@ -61,7 +61,7 @@ function WarrantyPolicyPage() {
             <strong>Authorized Service Center</strong> — service through the brand's official centers.
           </li>
           <li>
-            <strong>Bring to Store</strong> — bring the item to any My Shop location.
+            <strong>Bring to Store</strong> — bring the item to any Sanjay Electricals location.
           </li>
           <li>
             <strong>Carry-in Service</strong> — drop the item off at a designated service point.

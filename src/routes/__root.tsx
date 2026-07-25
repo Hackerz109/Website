@@ -80,25 +80,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "My Shop — Quality electrical products, backed by real support" },
+      { title: "Sanjay Electricals — Shop that builds trust" },
       {
         name: "description",
         content:
           "Shop switches, wiring, fans, and fittings with clear warranty details, secure checkout, and a support team that's genuinely happy to help.",
       },
-      { name: "author", content: "My Shop" },
-      { property: "og:title", content: "My Shop — Quality electrical products, backed by real support" },
+      { name: "author", content: "Sanjay Electricals" },
+      { property: "og:title", content: "Sanjay Electricals — Shop that builds trust" },
       {
         property: "og:description",
         content: "Clear warranty details, secure checkout, and support you can count on.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "https://sanjayelectricals.shop/logo-full.png" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "theme-color", content: "#2454E5" },
+      { name: "theme-color", content: "#0A2647" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { name: "apple-mobile-web-app-title", content: "Shop Admin" },
+      { name: "apple-mobile-web-app-title", content: "SE Admin" },
     ],
     links: [
       {

@@ -30,7 +30,7 @@ function AboutPage() {
       <section className="mx-auto max-w-4xl px-6 py-14 md:py-20">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft">
           <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-          About My Shop
+          About Sanjay Electricals
         </span>
         <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-foreground md:text-5xl">
           Sanjay Electricals: Shop that builds trust.

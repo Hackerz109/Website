@@ -137,7 +137,7 @@ function PrivacyPolicyPage() {
         </ul>
         <p>
           We may also share information if the law requires it, or to protect the rights, property, or
-          safety of My Shop, our customers, or the public.
+          safety of Sanjay Electricals, our customers, or the public.
         </p>
       </div>
 
@@ -194,7 +194,7 @@ function PrivacyPolicyPage() {
       <div>
         <h2 id="children">Children's privacy</h2>
         <p>
-          My Shop is meant for adults making purchases for their home or business. We don't knowingly
+          Sanjay Electricals is meant for adults making purchases for their home or business. We don't knowingly
           collect personal information from children, and if we learn we have, we'll delete it.
         </p>
       </div>
@@ -214,7 +214,7 @@ function PrivacyPolicyPage() {
           <Link to="/contact" className="font-medium text-primary hover:underline">
             Contact Us
           </Link>{" "}
-          page, or write to support@myshop.example — for anything privacy-related, a real person responds.
+          page, or write to support@sanjayelectricals.shop — for anything privacy-related, a real person responds.
         </p>
       </div>
     </PolicyPage>
