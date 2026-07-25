@@ -364,6 +364,14 @@ export interface ForwardGeocodeResult {
    * house/street. Still a useful starting point, but callers should treat
    * the pin as approximate and prompt the shopper to fine-tune it. */
   exact: boolean;
+  /** True when the winning attempt still had `postalcode` in its query
+   * (tiers 1-6/8 in buildFallbackQueries). False means Nominatim could only
+   * match once postalcode was dropped entirely (bare city/state, or just
+   * state) — OSM's postal-code-boundary data for India is sparse, so this
+   * is the "pin could be many km off, not just a bit approximate" case and
+   * callers should warn accordingly rather than using the same soft
+   * "near your area" copy they'd use for a merely-approximate match. */
+  matchedPostcode: boolean;
 }
 
 /** Best-effort forward geocode via OpenStreetMap Nominatim (free, no API
@@ -397,6 +405,7 @@ export async function forwardGeocode(query: ForwardGeocodeQuery, near?: LatLng):
         ...hit,
         display_name: hit.display_name || [line1, city, state, pincode].filter(Boolean).join(", "),
         exact: i === 0,
+        matchedPostcode: "postalcode" in attempts[i],
       };
     }
   }
