@@ -20,7 +20,6 @@ import { payForOrder } from "@/lib/razorpay";
 import { validateCoupon, fetchOffersForCart, describeCoupon, type CouponValidationResult, type VisibleCoupon } from "@/lib/coupons";
 import {
   getBrowserLocation,
-  reverseGeocode,
   forwardGeocode,
   lookupPincode,
   getDeliveryInfo,
@@ -72,20 +71,27 @@ function CartPage() {
   const [city, setCity] = useState("");
   const [stateName, setStateName] = useState("");
   const [pincode, setPincode] = useState("");
+  // `coords` is now ONLY ever set by an explicit shopper action — "use my
+  // location", tapping the map, or dragging the pin. Typing an address never
+  // touches it, and setting it never touches the address fields either: the
+  // two are fully independent, by design. See `addressCoords` below for how
+  // we still detect delivery eligibility for shoppers who never touch the map.
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  // Tracks *why* coords is set: "typed" means it came from auto-geocoding the
-  // address fields (so it's safe to keep re-geocoding as the shopper keeps
-  // typing), "manual" means the shopper explicitly placed it (locate-me,
-  // dragging the pin, or tapping the map) and typing should no longer move it.
-  const coordsSourceRef = useRef<"typed" | "manual" | null>(null);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
-  const [addressGeocoding, setAddressGeocoding] = useState(false);
-  const [addressGeocodeFailed, setAddressGeocodeFailed] = useState(false);
-  // True whenever the last geocode couldn't match the address exactly and
-  // had to fall back to a looser match (city/state, pincode-only, etc.) —
-  // the pin is still a reasonable starting point, just worth the shopper
-  // double-checking/dragging into place.
+  // A coordinate resolved in the background from the *typed* address, purely
+  // to check "do we deliver here" and compute the charge when the shopper
+  // hasn't dropped a pin. Never shown as a map marker and never written back
+  // into the address fields — it only ever feeds `effectiveCoords` below,
+  // and is cleared the instant a manual pin (`coords`) exists, since a
+  // manually-placed pin is strictly more trustworthy than a guess.
+  const [addressCoords, setAddressCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [addressChecking, setAddressChecking] = useState(false);
+  const [addressCheckFailed, setAddressCheckFailed] = useState(false);
+  // True when the address→coordinates match wasn't exact (fell back to a
+  // looser city/pincode-level match) — used only to soften the "Deliverable"
+  // wording and nudge toward dropping a precise pin, since (unlike before)
+  // there's no visible pin on this path to put an uncertainty ring around.
   const [addressApprox, setAddressApprox] = useState(false);
   const [quote, setQuote] = useState<DeliveryChargeResult | null>(null);
   const [checkingQuote, setCheckingQuote] = useState(false);
@@ -96,6 +102,15 @@ function CartPage() {
   // to whatever the pincode says — it only autofills a field while it still
   // holds exactly what we last put there (or is empty).
   const pincodeAutofilledRef = useRef<{ city: string; state: string }>({ city: "", state: "" });
+
+  // The coordinate actually used for eligibility/charge/order storage: a
+  // manually-placed pin always wins; lacking one, we fall back to the
+  // silent background guess from the typed address.
+  const effectiveCoords = coords ?? addressCoords;
+  // "Full address" always means all four fields — map location never
+  // substitutes for this, whether or not a pin has been dropped.
+  const hasFullAddress =
+    addressLine1.trim().length > 0 && city.trim().length > 0 && stateName.trim().length > 0 && /^\d{6}$/.test(pincode.trim());
 
   // ---- Saved addresses ----------------------------------------------------
   const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
@@ -131,15 +146,17 @@ function CartPage() {
     fetchWalletTransactions(user.id).then((tx) => setWalletBalance(sumBalance(tx))).catch(() => setWalletBalance(0));
   }, [user]);
 
-  // Re-quote delivery charge whenever coordinates or subtotal change.
+  // Re-quote delivery charge whenever the effective coordinate — a manual
+  // pin, or lacking one, the background address-derived guess — or the
+  // subtotal changes.
   useEffect(() => {
-    if (fulfillment !== "delivery" || !coords) {
+    if (fulfillment !== "delivery" || !effectiveCoords) {
       setQuote(null);
       setDeliveryBlocked(false);
       return;
     }
     setCheckingQuote(true);
-    calculateDeliveryCharge(coords.lat, coords.lng, subtotal)
+    calculateDeliveryCharge(effectiveCoords.lat, effectiveCoords.lng, subtotal)
       .then((res) => {
         setQuote(res);
         // Just flag it — don't force the shopper onto pickup or lock them out
@@ -149,7 +166,7 @@ function CartPage() {
       })
       .finally(() => setCheckingQuote(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coords?.lat, coords?.lng, subtotal, fulfillment]);
+  }, [effectiveCoords?.lat, effectiveCoords?.lng, subtotal, fulfillment]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -206,26 +223,19 @@ function CartPage() {
     const loc = await getBrowserLocation();
     setLocating(false);
     if (!loc) {
-      toast("Couldn't get your location — enter your address below instead.", { icon: "📍" });
+      toast("Couldn't get your location — you can still enter your address below.", { icon: "📍" });
       return;
     }
-    coordsSourceRef.current = "manual";
     setCoords({ lat: loc.lat, lng: loc.lng });
     setLocationAccuracy(loc.accuracy);
     setDeliveryBlocked(false);
-    setAddressGeocodeFailed(false);
+    setAddressCheckFailed(false);
     setAddressApprox(false);
-    // Fill every field the reverse geocode could resolve — previously this
-    // only ever touched address line 1, so City/State/Pincode stayed blank
-    // (and looked "unfetched") even though Nominatim often does have that
-    // level of detail, just not the exact house/street.
-    const result = await reverseGeocode(loc.lat, loc.lng);
-    if (result) {
-      if (result.line1) setAddressLine1(result.line1);
-      if (result.city) setCity(result.city);
-      if (result.state) setStateName(result.state);
-      if (result.pincode) setPincode(result.pincode);
-    }
+    setAddressCoords(null);
+    // Deliberately does NOT touch the address fields — the pin and the
+    // typed address are independent. Full address is still required below,
+    // regardless of whether a pin is set.
+    toast("Location pin set — don't forget to fill in your full address below too.", { icon: "📍" });
     // Anything much wider than a house-sized fix is worth flagging — the
     // pin is still draggable, so this is just steering the shopper to
     // double-check rather than blocking anything.
@@ -243,34 +253,33 @@ function CartPage() {
     setCity(addr.city);
     setStateName(addr.state);
     setPincode(addr.pincode);
-    setAddressGeocodeFailed(false);
+    setAddressCheckFailed(false);
     setAddressApprox(false);
+    setLocationAccuracy(null);
     if (addr.lat != null && addr.lng != null) {
-      // We already know exactly where this address is — no need to
-      // re-geocode the text, and this stops the auto-geocode effect below
-      // from overwriting it with a lower-confidence guess.
-      coordsSourceRef.current = "manual";
-      setLocationAccuracy(null);
+      // This saved address already carries its own pin (set deliberately,
+      // once, back when it was saved) — use it as-is.
       setCoords({ lat: addr.lat, lng: addr.lng });
+      setAddressCoords(null);
       setDeliveryBlocked(false);
     } else {
-      // Older saved address with no pin yet — fall back to geocoding the
-      // text like a freshly-typed address would.
-      coordsSourceRef.current = null;
+      // Older saved address with no pin — leave the map untouched. The
+      // background eligibility check below picks this address up on its
+      // own since coords is null; the shopper never has to touch the map.
       setCoords(null);
     }
   }
 
   function useNewAddress() {
     setSelectedAddressId(null);
-    coordsSourceRef.current = null;
     setAddressLine1("");
     setAddressLine2("");
     setCity("");
     setStateName("");
     setPincode("");
     setCoords(null);
-    setAddressGeocodeFailed(false);
+    setAddressCoords(null);
+    setAddressCheckFailed(false);
     setAddressApprox(false);
   }
 
@@ -284,9 +293,8 @@ function CartPage() {
   }, [savedAddresses, fulfillment]);
 
   const typedAddress = [addressLine1, city, stateName, pincode].filter((s) => s.trim()).join(", ");
-  // A complete 6-digit Indian PIN code is precise enough to geocode on its
-  // own — city/address-line text being short (or blank, since city is
-  // optional) shouldn't hold that up.
+  // A complete 6-digit Indian PIN code is precise enough to check on its
+  // own — city/address-line text being short shouldn't hold that up.
   const hasCompletePincode = /^\d{6}$/.test(pincode.trim());
   // Judged from the address/locality text ALONE (not the pincode digits),
   // with a low bar — plenty of real Indian locality names ("Loni", "Katra",
@@ -298,11 +306,16 @@ function CartPage() {
   // effect below is what actually limits how often this fires, so a low
   // character bar here is safe rather than reason to keep it high.
   const typedLocalityText = [addressLine1, city, stateName].filter((s) => s.trim()).join(", ");
-  const readyToGeocode = hasCompletePincode || typedLocalityText.trim().length >= 3;
+  const readyToCheck = hasCompletePincode || typedLocalityText.trim().length >= 3;
 
-  async function locateTypedAddress(opts: { silent: boolean }) {
+  // Resolves the typed address to coordinates purely to answer "do we
+  // deliver here" in the background — this NEVER sets `coords` and never
+  // moves anything on the map. Only ever runs while the shopper hasn't
+  // dropped a pin themselves (see the effect below); the moment they do,
+  // their pin takes over completely.
+  async function checkAddressEligibility(opts: { silent: boolean }) {
     if (!typedAddress) return;
-    setAddressGeocoding(true);
+    setAddressChecking(true);
     const result = await forwardGeocode(
       // Only pass the pincode once it's a complete, valid 6-digit code —
       // a partial one ("12") can't match anything as a postal code and
@@ -310,40 +323,39 @@ function CartPage() {
       { line1: addressLine1, city, state: stateName, pincode: hasCompletePincode ? pincode : "" },
       shopLocation ? { lat: shopLocation.lat, lng: shopLocation.lng } : undefined,
     );
-    setAddressGeocoding(false);
+    setAddressChecking(false);
     if (!result) {
-      setAddressGeocodeFailed(true);
+      setAddressCheckFailed(true);
       setAddressApprox(false);
+      setAddressCoords(null);
       if (!opts.silent) {
-        toast.error("Couldn't locate that address automatically — please set it on the map instead.");
+        toast.error("Couldn't verify that address automatically — drop a pin on the map above to confirm your location.");
       }
       return;
     }
-    setAddressGeocodeFailed(false);
+    setAddressCheckFailed(false);
     // forwardGeocode falls back to looser and looser matches (dropping the
     // house number/street, then the locality, etc.) rather than failing
     // outright, since OSM often just doesn't have that level of detail for
     // small towns. `exact` tells us whether it matched everything typed or
-    // had to fall back, so we can be honest with the shopper about it.
+    // had to fall back, so we can be honest about how confident this is.
     setAddressApprox(!result.exact);
-    setLocationAccuracy(null);
-    coordsSourceRef.current = "typed";
-    setCoords({ lat: result.lat, lng: result.lng });
-    setDeliveryBlocked(false);
+    setAddressCoords({ lat: result.lat, lng: result.lng });
   }
 
-  // Auto-detect coordinates as someone types/edits their address by hand.
-  // Keeps re-fetching on every debounced change so the pin stays in sync
-  // while they keep typing, but backs off once the shopper has manually
-  // placed the pin themselves (locate-me, drag, or map tap) so it never
-  // overwrites a fix they've already fine-tuned.
+  // Re-check delivery eligibility in the background as the shopper edits
+  // their address — but only while there's no manual pin. The instant one
+  // exists (locate-me, drag, or map tap), it's strictly more trustworthy
+  // than a guess from typed text, so this backs off entirely rather than
+  // fighting it. Including `coords` in the deps also cancels any check
+  // still in flight the moment a pin gets dropped mid-debounce.
   useEffect(() => {
-    setAddressGeocodeFailed(false);
-    if (fulfillment !== "delivery" || coordsSourceRef.current === "manual" || !typedAddress || !readyToGeocode) return;
-    const t = setTimeout(() => locateTypedAddress({ silent: true }), 900);
+    setAddressCheckFailed(false);
+    if (fulfillment !== "delivery" || !!coords || !typedAddress || !readyToCheck) return;
+    const t = setTimeout(() => checkAddressEligibility({ silent: true }), 900);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typedAddress, fulfillment]);
+  }, [typedAddress, fulfillment, coords]);
 
   // Autofill City/State the moment the shopper finishes typing a 6-digit
   // pincode — a shopper who leads with the pincode (rather than typing City/
@@ -371,7 +383,7 @@ function CartPage() {
 
   const fulfillmentCharge =
     fulfillment === "pickup" ? deliveryInfo?.pickup_charge_cents ?? 0 : quote?.charge_cents ?? 0;
-  const canDeliver = fulfillment === "delivery" ? !!coords && !!quote?.eligible : true;
+  const canDeliver = fulfillment === "delivery" ? hasFullAddress && !!effectiveCoords && !!quote?.eligible : true;
   const orderTotal = Math.max(0, subtotal - discount + fulfillmentCharge);
 
   const maxWallet = Math.min(walletBalance, orderTotal);
@@ -406,8 +418,16 @@ function CartPage() {
       toast.error("Please enter a valid 10-digit mobile number");
       return;
     }
-    if (fulfillment === "delivery" && (!addressLine1.trim() || !coords || !quote?.eligible)) {
-      toast.error("Please set a valid delivery address within our delivery area");
+    if (fulfillment === "delivery" && !hasFullAddress) {
+      toast.error("Please fill in your complete address — address line, city, state, and a 6-digit pincode.");
+      return;
+    }
+    if (fulfillment === "delivery" && (!effectiveCoords || !quote?.eligible)) {
+      toast.error(
+        addressCheckFailed
+          ? "We couldn't confirm delivery for this address automatically — please drop a pin on the map to confirm your location."
+          : "Please set a valid delivery address within our delivery area.",
+      );
       return;
     }
     setPlacing(true);
@@ -434,8 +454,8 @@ function CartPage() {
     let finalCharge = 0;
     let finalQuote: DeliveryChargeResult | null = null;
     const freshInfo = await getDeliveryInfo();
-    if (fulfillment === "delivery" && coords) {
-      finalQuote = await calculateDeliveryCharge(coords.lat, coords.lng, subtotal);
+    if (fulfillment === "delivery" && effectiveCoords) {
+      finalQuote = await calculateDeliveryCharge(effectiveCoords.lat, effectiveCoords.lng, subtotal);
       if (!finalQuote.eligible) {
         setPlacing(false);
         setDeliveryBlocked(true);
@@ -468,8 +488,8 @@ function CartPage() {
         notes,
         fulfillment_type: fulfillment,
         delivery_zone_id: fulfillment === "delivery" ? finalQuote?.zone_id ?? null : null,
-        delivery_lat: fulfillment === "delivery" ? coords?.lat ?? null : null,
-        delivery_lng: fulfillment === "delivery" ? coords?.lng ?? null : null,
+        delivery_lat: fulfillment === "delivery" ? effectiveCoords?.lat ?? null : null,
+        delivery_lng: fulfillment === "delivery" ? effectiveCoords?.lng ?? null : null,
         delivery_distance_km: fulfillment === "delivery" ? finalQuote?.distance_km ?? null : null,
         delivery_instructions_snapshot: fulfillment === "delivery" ? freshInfo?.delivery_instructions ?? null : null,
         pickup_instructions_snapshot: fulfillment === "pickup" ? freshInfo?.pickup_instructions ?? null : null,
@@ -657,33 +677,30 @@ function CartPage() {
                       <LocateFixed className="mr-2 h-3.5 w-3.5" />
                       {locating ? "Locating…" : "Use my current location"}
                     </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Adding a location on the map is completely optional — it just makes it easy for us to find your exact spot before delivery. Your address below is what actually matters, whether or not you drop a pin.
+                    </p>
                     <LeafletMap
                       center={mapCenter}
                       circles={[
                         ...(deliveryInfo?.zones.map((z) => ({ id: z.id, lat: z.lat, lng: z.lng, radiusKm: z.radius_km, label: z.name })) ?? []),
                         // Visualizes GPS uncertainty so it's obvious the pin is an
                         // estimate, not exact — clears itself once the shopper
-                        // manually places/drags the pin (see onDragEnd/onMapClick).
+                        // drags the pin (see onDragEnd/onMapClick).
                         ...(coords && locationAccuracy && locationAccuracy > 30
                           ? [{ id: "accuracy", lat: coords.lat, lng: coords.lng, radiusKm: locationAccuracy / 1000, color: "#94a3b8", label: `~${Math.round(locationAccuracy)}m accuracy` }]
-                          : []),
-                        // The address text couldn't be matched exactly — show a
-                        // ring so it's visually obvious the pin is a starting
-                        // point, not the confirmed exact spot.
-                        ...(coords && addressApprox
-                          ? [{ id: "approx", lat: coords.lat, lng: coords.lng, radiusKm: 2, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
                           : []),
                       ]}
                       markers={[
                         ...(shopLocation ? [{ id: "shop", lat: shopLocation.lat, lng: shopLocation.lng, color: "#16a34a", label: shopLocation.name }] : []),
-                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); } }] : []),
+                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); setAddressCoords(null); } }] : []),
                       ]}
-                      onMapClick={(lat, lng) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); }}
+                      onMapClick={(lat, lng) => { setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); setAddressCoords(null); }}
                       height={220}
                     />
                     <p className="text-xs text-muted-foreground">
                       <MapPin className="mr-1 inline h-3 w-3" />
-                      Tap the map (or drag the pin) to fine-tune your delivery location.
+                      Tap the map (or drag the pin) to set your delivery location precisely.
                     </p>
                     <div>
                       <Label htmlFor="addr1">Address line 1</Label>
@@ -695,7 +712,7 @@ function CartPage() {
                         onChange={setCity}
                         options={INDIAN_CITIES}
                         allowCustomValue
-                        placeholder="City (optional)"
+                        placeholder="City"
                         searchPlaceholder="Search city…"
                         emptyText="Not in our shortlist — type to use it anyway."
                       />
@@ -714,24 +731,19 @@ function CartPage() {
                       <PhoneInput id="cart-phone" value={phone} onChange={setPhone} />
                     </div>
 
-                    {addressGeocoding && (
-                      <p className="text-xs text-muted-foreground">Locating your address…</p>
+                    {addressChecking && !coords && (
+                      <p className="text-xs text-muted-foreground">Checking if we deliver to this address…</p>
                     )}
-                    {!addressGeocoding && !coords && addressGeocodeFailed && (
+                    {!addressChecking && !coords && addressCheckFailed && (
                       <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                        <span>Couldn't locate that address automatically — please set it by tapping the map above.</span>
-                        <Button type="button" size="sm" variant="outline" className="h-7 flex-shrink-0 text-xs" onClick={() => locateTypedAddress({ silent: false })}>
+                        <span>Couldn't verify this address automatically — drop a pin on the map above to confirm your location.</span>
+                        <Button type="button" size="sm" variant="outline" className="h-7 flex-shrink-0 text-xs" onClick={() => checkAddressEligibility({ silent: false })}>
                           Retry
                         </Button>
                       </div>
                     )}
-                    {!addressGeocoding && !coords && !addressGeocodeFailed && typedAddress.length > 0 && !readyToGeocode && (
-                      <p className="text-xs text-muted-foreground">Keep typing your full address, or just enter your 6-digit pincode, so we can locate it.</p>
-                    )}
-                    {!addressGeocoding && coords && addressApprox && (
-                      <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                        We placed the pin near your area, not your exact address — drag it on the map above to fine-tune it.
-                      </p>
+                    {!addressChecking && !coords && !addressCheckFailed && !addressCoords && typedAddress.length > 0 && !readyToCheck && (
+                      <p className="text-xs text-muted-foreground">Keep typing your full address, or just enter your 6-digit pincode, so we can check delivery availability.</p>
                     )}
                     {checkingQuote && <p className="text-xs text-muted-foreground">Checking delivery availability…</p>}
                     {quote?.eligible && (
@@ -739,6 +751,7 @@ function CartPage() {
                         Deliverable — {quote.distance_km} km away, in the "{quote.zone_name}" zone.
                         {" "}Charge: {quote.free_delivery_applied ? "Free" : formatMoney(quote.charge_cents ?? 0)}.
                         {deliveryInfo?.delivery_eta_text && ` Est. ${deliveryInfo.delivery_eta_text}.`}
+                        {!coords && addressApprox && " This is estimated from your address — drop a pin on the map above if you'd like us to confirm your exact spot."}
                       </div>
                     )}
                     {deliveryInfo?.delivery_instructions && (

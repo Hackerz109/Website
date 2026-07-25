@@ -33,7 +33,7 @@ import { PhoneInput } from "@/components/PhoneInput";
 import { LeafletMap } from "@/components/LeafletMap";
 import { PHONE_VERIFICATION_ENABLED } from "@/lib/phoneVerification";
 import { isValidPhone } from "@/lib/phone";
-import { getBrowserLocation, reverseGeocode, forwardGeocode } from "@/lib/delivery";
+import { getBrowserLocation } from "@/lib/delivery";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
@@ -500,77 +500,25 @@ function AddressFormDialog({
   });
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [geocoding, setGeocoding] = useState(false);
-  // True whenever the last auto-geocode couldn't match the address exactly
-  // and had to fall back to a looser match — the pin is still a reasonable
-  // starting point, just worth double-checking/dragging into place.
-  const [approx, setApprox] = useState(false);
-  // "manual" once the shopper has placed the pin themselves (locate-me, drag,
-  // or tap) — after that we stop silently re-geocoding over their fix as they
-  // keep editing the text fields.
-  const pinSourceRef = useRef<"typed" | "manual" | null>(existing?.lat != null ? "manual" : null);
 
   function set<K extends keyof AddressInput>(key: K, value: AddressInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
-
-  const typedAddress = [form.line1, form.city, form.state, form.pincode].filter((s) => s.trim()).join(", ");
-  // A complete 6-digit PIN code is precise enough on its own. Otherwise,
-  // judge readiness from the address/locality text alone (excluding
-  // pincode) with a low bar — plenty of real Indian locality names are
-  // under 8 characters, and the old flat length-8 check on the combined
-  // string left those addresses stuck with a pin that never updated. The
-  // 900ms typing pause below (not character count) is what limits how
-  // often this fires, so a low bar here is safe.
-  const hasCompletePincode = /^\d{6}$/.test(form.pincode.trim());
-  const typedLocalityText = [form.line1, form.city, form.state].filter((s) => s.trim()).join(", ");
-  const readyToGeocode = hasCompletePincode || typedLocalityText.trim().length >= 3;
-
-  // Keep the pin in sync as the shopper types their address, same behavior
-  // as the checkout page — until they've manually placed it themselves.
-  useEffect(() => {
-    if (pinSourceRef.current === "manual" || !typedAddress || !readyToGeocode) return;
-    const t = setTimeout(async () => {
-      setGeocoding(true);
-      const result = await forwardGeocode({
-        line1: form.line1,
-        city: form.city,
-        state: form.state,
-        // Only send the pincode once it's complete — a partial one can't
-        // match anything as a postal code and just adds noise to the query.
-        pincode: hasCompletePincode ? form.pincode : "",
-      });
-      setGeocoding(false);
-      if (result) {
-        pinSourceRef.current = "typed";
-        set("lat", result.lat);
-        set("lng", result.lng);
-        setApprox(!result.exact);
-      }
-    }, 900);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typedAddress]);
 
   async function useMyLocation() {
     setLocating(true);
     const loc = await getBrowserLocation();
     setLocating(false);
     if (!loc) {
-      toast("Couldn't get your location — set the pin on the map instead.", { icon: "📍" });
+      toast("Couldn't get your location — you can still set the pin by tapping the map.", { icon: "📍" });
       return;
     }
-    pinSourceRef.current = "manual";
-    setApprox(false);
     set("lat", loc.lat);
     set("lng", loc.lng);
-    const result = await reverseGeocode(loc.lat, loc.lng);
-    if (result) {
-      if (result.line1) set("line1", result.line1);
-      if (result.city) set("city", result.city);
-      if (result.state) set("state", result.state);
-      if (result.pincode) set("pincode", result.pincode);
-    }
+    // Deliberately does NOT touch the address fields below — the pin and
+    // the typed address are independent. Full address is still required
+    // to save this entry, whether or not a pin is set.
+    toast("Location pin set — don't forget to fill in the address fields too.", { icon: "📍" });
   }
 
   async function submit() {
@@ -580,9 +528,15 @@ function AddressFormDialog({
       !form.line1.trim() ||
       !form.city.trim() ||
       !form.state.trim() ||
-      !form.pincode.trim()
+      !/^\d{6}$/.test(form.pincode.trim())
     ) {
-      return toast.error(!isValidPhone(form.phone) ? "Enter a valid 10-digit mobile number" : "Please fill in all required fields");
+      return toast.error(
+        !isValidPhone(form.phone)
+          ? "Enter a valid 10-digit mobile number"
+          : !/^\d{6}$/.test(form.pincode.trim()) && form.pincode.trim()
+            ? "Enter a valid 6-digit pincode"
+            : "Please fill in all required fields",
+      );
     }
     setSaving(true);
     const result = existing ? await updateAddress(existing.id, form) : await createAddress(userId, form);
@@ -637,22 +591,17 @@ function AddressFormDialog({
 
         <div className="space-y-2 pt-1">
           <div className="flex items-center justify-between">
-            <Label className="mb-0">Map location</Label>
+            <Label className="mb-0">Map location (optional)</Label>
             <Button type="button" variant="outline" size="sm" onClick={useMyLocation} disabled={locating}>
               <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
               {locating ? "Locating…" : "Use my current location"}
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Adding a location here is completely optional — it just makes it easy for us to find your exact spot before delivery. The address fields above are what's actually saved as this address.
+          </p>
           <LeafletMap
             center={mapCenter}
-            circles={
-              // The address text couldn't be matched exactly — show a ring so
-              // it's visually obvious the pin is a starting point, not the
-              // confirmed exact spot.
-              form.lat != null && form.lng != null && approx
-                ? [{ id: "approx", lat: form.lat, lng: form.lng, radiusKm: 2, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
-                : []
-            }
             markers={
               form.lat != null && form.lng != null
                 ? [
@@ -664,8 +613,6 @@ function AddressFormDialog({
                       label: "This address",
                       draggable: true,
                       onDragEnd: (lat, lng) => {
-                        pinSourceRef.current = "manual";
-                        setApprox(false);
                         set("lat", lat);
                         set("lng", lng);
                       },
@@ -674,20 +621,14 @@ function AddressFormDialog({
                 : []
             }
             onMapClick={(lat, lng) => {
-              pinSourceRef.current = "manual";
-              setApprox(false);
               set("lat", lat);
               set("lng", lng);
             }}
             height={180}
           />
-          <p className={`text-xs ${approx ? "rounded-lg bg-amber-500/10 px-3 py-2 text-amber-700" : "text-muted-foreground"}`}>
+          <p className="text-xs text-muted-foreground">
             <MapPin className="mr-1 inline h-3 w-3" />
-            {geocoding
-              ? "Locating your address…"
-              : approx
-                ? "We placed the pin near your area, not your exact address — drag it to fine-tune it."
-                : "Tap the map (or drag the pin) to fine-tune this address's saved location."}
+            Tap the map (or drag the pin) to set this address's precise location.
           </p>
         </div>
 
