@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingBag, UserCircle, LayoutDashboard, LogOut, Zap, Search, X, Wallet } from "lucide-react";
+import { ShoppingBag, UserCircle, LayoutDashboard, LogOut, Search, X, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useCart } from "@/stores/cart";
@@ -26,12 +26,10 @@ export function StoreHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
-        <Link to="/" className="flex flex-shrink-0 items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-soft">
-            <Zap className="h-4 w-4 fill-current" />
-          </span>
+        <Link to="/" className="flex flex-shrink-0 items-center gap-2">
+          <img src="/logo-mark.png" alt="Sanjay Electricals logo" className="h-9 w-9" />
           <span className="font-display text-lg font-bold tracking-tight text-foreground">
-            My Shop
+            Sanjay Electricals
           </span>
         </Link>
 
