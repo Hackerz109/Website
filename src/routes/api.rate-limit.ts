@@ -1,7 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, clearRateLimit, getClientIp, recordAttempt, RATE_LIMIT_CONFIGS } from "@/lib/rateLimit.server";
+import type { Database } from "@/integrations/supabase/types";
 
 const SCOPES = Object.keys(RATE_LIMIT_CONFIGS);
+
+// "success" clears the failed-attempt counters for an email/ip/device, so it
+// must only ever be honored for a caller who just actually authenticated —
+// otherwise anyone could POST outcome:"success" for any victim's email to
+// wipe their lockout state and brute-force it indefinitely. This mirrors the
+// getAuthenticatedUser() pattern used by the other /api/* routes.
+async function verifyRecentLogin(request: Request, claimedEmail: string | undefined): Promise<boolean> {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return false;
+
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+  const token = authHeader.replace("Bearer ", "");
+  if (!token || token.split(".").length !== 3) return false;
+
+  const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims?.sub) return false;
+
+  // If the token carries an email claim, it must match the identifier being
+  // cleared — a valid session for user A shouldn't clear user B's lockout.
+  const rawEmail = (data.claims as Record<string, unknown>).email;
+  const tokenEmail = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : null;
+  if (tokenEmail && claimedEmail && tokenEmail !== claimedEmail.trim().toLowerCase()) return false;
+
+  return true;
+}
 
 // Shared by /auth (login + signup) and /forgot-password. See
 // src/lib/rateLimit.server.ts for the actual thresholds and the
@@ -45,7 +79,15 @@ export const Route = createFileRoute("/api/rate-limit")({
         ];
 
         if (outcome === "success") {
-          await clearRateLimit(scope, identifiers);
+          // Only a request carrying proof of the login it's reporting can
+          // clear state. If that proof is missing/invalid, just return the
+          // current (unchanged) status instead of erroring — the sign-in
+          // itself already happened either way.
+          if (await verifyRecentLogin(request, email)) {
+            await clearRateLimit(scope, identifiers);
+          } else {
+            console.warn("[rate-limit] ignored unverified 'success' outcome", { scope });
+          }
           return json(await checkRateLimit(scope, identifiers));
         }
 

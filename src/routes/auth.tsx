@@ -39,11 +39,15 @@ async function reportOutcome(
   email: string,
   device: string,
   outcome: "attempt" | "success",
+  accessToken?: string,
 ): Promise<RateLimitStatus | null> {
   try {
     const res = await fetch("/api/rate-limit", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify({ scope, email, device, outcome }),
     });
     if (!res.ok) return null;
@@ -141,7 +145,7 @@ function AuthPage() {
     setLoading(true);
     window.localStorage.setItem(REMEMBER_ME_KEY, String(rememberMe));
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email: trimmedEmail,
       password,
     });
@@ -160,7 +164,7 @@ function AuthPage() {
       return;
     }
 
-    await reportOutcome("login", trimmedEmail, device, "success");
+    await reportOutcome("login", trimmedEmail, device, "success", signInData.session?.access_token);
     toast.success("Welcome back");
     navigate({ to: "/" });
   }
