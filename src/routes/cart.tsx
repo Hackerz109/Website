@@ -83,6 +83,13 @@ function CartPage() {
   const [addressGeocoding, setAddressGeocoding] = useState(false);
   const [addressGeocodeFailed, setAddressGeocodeFailed] = useState(false);
   const [addressApprox, setAddressApprox] = useState(false);
+  // True only when the last geocode had to drop the pincode entirely and
+  // matched on city/state alone — OSM's Indian postal-code coverage is
+  // sparse enough that this is common, and unlike a "normal" approximate
+  // match (which is still anchored to the right postal area) this one can
+  // land the pin many km from the real address, so it gets its own,
+  // stronger warning below instead of being lumped in with addressApprox.
+  const [addressLowConfidence, setAddressLowConfidence] = useState(false);
   const [quote, setQuote] = useState<DeliveryChargeResult | null>(null);
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [deliveryBlocked, setDeliveryBlocked] = useState(false);
@@ -211,6 +218,7 @@ function CartPage() {
     setDeliveryBlocked(false);
     setAddressGeocodeFailed(false);
     setAddressApprox(false);
+    setAddressLowConfidence(false);
     // Fill every field the reverse geocode could resolve — previously this
     // only ever touched address line 1, so City/State/Pincode stayed blank
     // (and looked "unfetched") even though Nominatim often does have that
@@ -241,6 +249,7 @@ function CartPage() {
     setPincode(addr.pincode);
     setAddressGeocodeFailed(false);
     setAddressApprox(false);
+    setAddressLowConfidence(false);
     if (addr.lat != null && addr.lng != null) {
       // We already know exactly where this address is — no need to
       // re-geocode the text, and this stops the auto-geocode effect below
@@ -268,6 +277,7 @@ function CartPage() {
     setCoords(null);
     setAddressGeocodeFailed(false);
     setAddressApprox(false);
+    setAddressLowConfidence(false);
   }
 
   // Once saved addresses load, default to the shopper's default address (or
@@ -282,23 +292,35 @@ function CartPage() {
   const typedAddress = [addressLine1, city, stateName, pincode].filter((s) => s.trim()).join(", ");
   // A complete 6-digit Indian PIN code is precise enough to geocode on its
   // own — city/address-line text being short (or blank, since city is
-  // optional) shouldn't hold that up. Previously the length-8 check below
-  // silently blocked this: a bare pincode is only 6 characters, so typing
-  // just "247001" and nothing else never triggered a lookup at all.
+  // optional) shouldn't hold that up.
   const hasCompletePincode = /^\d{6}$/.test(pincode.trim());
-  const readyToGeocode = hasCompletePincode || typedAddress.length >= 8;
+  // Judged from the address/locality text ALONE (not the pincode digits),
+  // with a low bar — plenty of real Indian locality names ("Loni", "Katra",
+  // "Sadar") are under 8 characters, and gating on total typed length meant
+  // those shoppers never got past "keep typing" no matter how much (or how
+  // little, since there wasn't more to type) they typed. Excluding pincode
+  // from this count also stops a half-typed, not-yet-valid pincode from
+  // counting toward it on its own. The 900ms typing pause in the debounce
+  // effect below is what actually limits how often this fires, so a low
+  // character bar here is safe rather than reason to keep it high.
+  const typedLocalityText = [addressLine1, city, stateName].filter((s) => s.trim()).join(", ");
+  const readyToGeocode = hasCompletePincode || typedLocalityText.trim().length >= 3;
 
   async function locateTypedAddress(opts: { silent: boolean }) {
     if (!typedAddress) return;
     setAddressGeocoding(true);
     const result = await forwardGeocode(
-      { line1: addressLine1, city, state: stateName, pincode },
+      // Only pass the pincode once it's a complete, valid 6-digit code —
+      // a partial one ("12") can't match anything as a postal code and
+      // would just add noise to the query.
+      { line1: addressLine1, city, state: stateName, pincode: hasCompletePincode ? pincode : "" },
       shopLocation ? { lat: shopLocation.lat, lng: shopLocation.lng } : undefined,
     );
     setAddressGeocoding(false);
     if (!result) {
       setAddressGeocodeFailed(true);
       setAddressApprox(false);
+      setAddressLowConfidence(false);
       if (!opts.silent) {
         toast.error("Couldn't locate that address automatically — please set it on the map instead.");
       }
@@ -311,6 +333,12 @@ function CartPage() {
     // small towns. `exact` tells us whether it matched everything typed or
     // had to fall back, so we can be honest with the shopper about it.
     setAddressApprox(!result.exact);
+    // A match that had to drop the pincode entirely and landed on city/state
+    // alone can be many km off — OSM's postal-code coverage in India is
+    // sparse, so this happens more often than you'd expect. That's a much
+    // bigger deal than a "normal" approximate match (which is still anchored
+    // to the right postal area), so it gets its own stronger warning.
+    setAddressLowConfidence(!result.exact && !result.matchedPostcode);
     setLocationAccuracy(null);
     coordsSourceRef.current = "typed";
     setCoords({ lat: result.lat, lng: result.lng });
@@ -652,12 +680,19 @@ function CartPage() {
                         ...(coords && locationAccuracy && locationAccuracy > 30
                           ? [{ id: "accuracy", lat: coords.lat, lng: coords.lng, radiusKm: locationAccuracy / 1000, color: "#94a3b8", label: `~${Math.round(locationAccuracy)}m accuracy` }]
                           : []),
+                        // A match that only found the city/state (no pincode)
+                        // can be many km off, not just "a bit approximate" —
+                        // show a much wider ring so that's visually obvious
+                        // on the map itself, not just in the text below.
+                        ...(coords && addressLowConfidence
+                          ? [{ id: "low-confidence", lat: coords.lat, lng: coords.lng, radiusKm: 5, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
+                          : []),
                       ]}
                       markers={[
                         ...(shopLocation ? [{ id: "shop", lat: shopLocation.lat, lng: shopLocation.lng, color: "#16a34a", label: shopLocation.name }] : []),
-                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); } }] : []),
+                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); setAddressLowConfidence(false); } }] : []),
                       ]}
-                      onMapClick={(lat, lng) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); }}
+                      onMapClick={(lat, lng) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); setAddressLowConfidence(false); }}
                       height={220}
                     />
                     <p className="text-xs text-muted-foreground">
@@ -707,7 +742,12 @@ function CartPage() {
                     {!addressGeocoding && !coords && !addressGeocodeFailed && typedAddress.length > 0 && !readyToGeocode && (
                       <p className="text-xs text-muted-foreground">Keep typing your full address, or just enter your 6-digit pincode, so we can locate it.</p>
                     )}
-                    {!addressGeocoding && coords && addressApprox && (
+                    {!addressGeocoding && coords && addressApprox && addressLowConfidence && (
+                      <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                        We could only match your city/state, not your specific pincode area — this pin could be several km from your real address. Please drag it to the exact spot on the map above.
+                      </p>
+                    )}
+                    {!addressGeocoding && coords && addressApprox && !addressLowConfidence && (
                       <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
                         We placed the pin near your area, not your exact address — drag it on the map above to fine-tune it.
                       </p>

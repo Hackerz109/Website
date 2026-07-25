@@ -501,6 +501,11 @@ function AddressFormDialog({
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+  // True when the last auto-geocode could only match city/state (no
+  // pincode) — OSM's postal-code coverage for India is sparse, so this
+  // happens more than you'd expect, and unlike a normal approximate match
+  // it can land many km from the real address rather than just "nearby".
+  const [lowConfidence, setLowConfidence] = useState(false);
   // "manual" once the shopper has placed the pin themselves (locate-me, drag,
   // or tap) — after that we stop silently re-geocoding over their fix as they
   // keep editing the text fields.
@@ -511,19 +516,37 @@ function AddressFormDialog({
   }
 
   const typedAddress = [form.line1, form.city, form.state, form.pincode].filter((s) => s.trim()).join(", ");
+  // A complete 6-digit PIN code is precise enough on its own. Otherwise,
+  // judge readiness from the address/locality text alone (excluding
+  // pincode) with a low bar — plenty of real Indian locality names are
+  // under 8 characters, and the old flat length-8 check on the combined
+  // string left those addresses stuck with a pin that never updated. The
+  // 900ms typing pause below (not character count) is what limits how
+  // often this fires, so a low bar here is safe.
+  const hasCompletePincode = /^\d{6}$/.test(form.pincode.trim());
+  const typedLocalityText = [form.line1, form.city, form.state].filter((s) => s.trim()).join(", ");
+  const readyToGeocode = hasCompletePincode || typedLocalityText.trim().length >= 3;
 
   // Keep the pin in sync as the shopper types their address, same behavior
   // as the checkout page — until they've manually placed it themselves.
   useEffect(() => {
-    if (pinSourceRef.current === "manual" || !typedAddress || typedAddress.length < 8) return;
+    if (pinSourceRef.current === "manual" || !typedAddress || !readyToGeocode) return;
     const t = setTimeout(async () => {
       setGeocoding(true);
-      const result = await forwardGeocode({ line1: form.line1, city: form.city, state: form.state, pincode: form.pincode });
+      const result = await forwardGeocode({
+        line1: form.line1,
+        city: form.city,
+        state: form.state,
+        // Only send the pincode once it's complete — a partial one can't
+        // match anything as a postal code and just adds noise to the query.
+        pincode: hasCompletePincode ? form.pincode : "",
+      });
       setGeocoding(false);
       if (result) {
         pinSourceRef.current = "typed";
         set("lat", result.lat);
         set("lng", result.lng);
+        setLowConfidence(!result.exact && !result.matchedPostcode);
       }
     }, 900);
     return () => clearTimeout(t);
@@ -539,6 +562,7 @@ function AddressFormDialog({
       return;
     }
     pinSourceRef.current = "manual";
+    setLowConfidence(false);
     set("lat", loc.lat);
     set("lng", loc.lng);
     const result = await reverseGeocode(loc.lat, loc.lng);
@@ -622,6 +646,14 @@ function AddressFormDialog({
           </div>
           <LeafletMap
             center={mapCenter}
+            circles={
+              // A match that only found the city/state (no pincode) can be
+              // many km off — show a wide ring so that's obvious on the map
+              // itself, not just in the text below.
+              form.lat != null && form.lng != null && lowConfidence
+                ? [{ id: "low-confidence", lat: form.lat, lng: form.lng, radiusKm: 5, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
+                : []
+            }
             markers={
               form.lat != null && form.lng != null
                 ? [
@@ -634,6 +666,7 @@ function AddressFormDialog({
                       draggable: true,
                       onDragEnd: (lat, lng) => {
                         pinSourceRef.current = "manual";
+                        setLowConfidence(false);
                         set("lat", lat);
                         set("lng", lng);
                       },
@@ -643,14 +676,19 @@ function AddressFormDialog({
             }
             onMapClick={(lat, lng) => {
               pinSourceRef.current = "manual";
+              setLowConfidence(false);
               set("lat", lat);
               set("lng", lng);
             }}
             height={180}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className={`text-xs ${lowConfidence ? "rounded-lg bg-amber-500/10 px-3 py-2 text-amber-700" : "text-muted-foreground"}`}>
             <MapPin className="mr-1 inline h-3 w-3" />
-            {geocoding ? "Locating your address…" : "Tap the map (or drag the pin) to fine-tune this address's saved location."}
+            {geocoding
+              ? "Locating your address…"
+              : lowConfidence
+                ? "We could only match your city/state, not your specific pincode area — this pin could be several km off. Please drag it to the exact spot."
+                : "Tap the map (or drag the pin) to fine-tune this address's saved location."}
           </p>
         </div>
 
