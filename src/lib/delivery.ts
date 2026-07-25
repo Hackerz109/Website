@@ -126,228 +126,9 @@ export interface ReverseGeocodeResult {
   display_name: string;
 }
 
-/** Best-effort reverse geocode via OpenStreetMap Nominatim (free, no API
- * key). Purely a convenience to prefill the address fields — they always
- * stay editable, so failures here are silent. For high-volume production
- * traffic, proxy this through your own server with a proper User-Agent and
- * caching per Nominatim's usage policy.
- *
- * Returns the address as structured components (house/road/locality/city/
- * state/postcode) rather than one blob, so the caller can fill address line
- * 1, city, state and pincode as separate fields instead of cramming
- * everything into a single line. Checks a broad set of OSM locality tags
- * (neighbourhood/suburb/quarter/residential/hamlet/city_block) since which
- * one is populated varies a lot by how thoroughly the area has been mapped —
- * small towns are far more likely to have only one of these than all of
- * them. `accept-language=en` keeps the result in English regardless of the
- * area's default locale/script. */
-export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18&accept-language=en`,
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const a = data?.address;
-    if (!a) return null;
-
-    const houseAndRoad = [a.house_number, a.road || a.pedestrian || a.footway || a.cycleway]
-      .filter(Boolean)
-      .join(" ");
-    const locality: string | undefined =
-      a.neighbourhood || a.suburb || a.quarter || a.residential || a.city_block || a.hamlet;
-    const cityLike: string | undefined =
-      a.town || a.village || a.municipality || a.city_district || a.city || a.county;
-
-    const line1 = [houseAndRoad, locality && locality !== cityLike ? locality : null]
-      .filter((p): p is string => !!p && p.trim().length > 0)
-      .join(", ");
-
-    return {
-      line1,
-      city: cityLike ?? "",
-      state: a.state ?? "",
-      pincode: a.postcode ?? "",
-      display_name: data?.display_name ?? [line1, cityLike, a.state, a.postcode].filter(Boolean).join(", "),
-    };
-  } catch {
-    return null;
-  }
-}
-
 export interface PincodeLookupResult {
   city: string;
   state: string;
-}
-
-/** Looks up city + state for a 6-digit Indian PIN code via India Post's own
- * pincode API (free, no key, official post-office data) — kept separate
- * from forwardGeocode/Nominatim because it's a much more reliable source
- * for "what city/state is this pincode in" specifically: it's a direct
- * postcode → post-office lookup rather than a fuzzy address search, so it
- * doesn't depend on OSM having that area mapped at all. Used to autofill
- * the City/State fields the moment a shopper finishes typing their pincode,
- * before they've necessarily typed anything else. Returns null on any
- * network hiccup or an unrecognized pincode — callers should treat that as
- * "couldn't autofill", not an error, since the fields stay editable either
- * way. */
-export async function lookupPincode(pincode: string): Promise<PincodeLookupResult | null> {
-  const clean = pincode.trim();
-  if (!/^\d{6}$/.test(clean)) return null;
-  try {
-    const res = await fetch(`https://api.postalpincode.in/pincode/${clean}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const entry = Array.isArray(data) ? data[0] : null;
-    if (entry?.Status !== "Success" || !Array.isArray(entry.PostOffice) || entry.PostOffice.length === 0) return null;
-    const po = entry.PostOffice[0];
-    const state: string = po?.State ?? "";
-    // A couple of state names India Post's data still uses that differ from
-    // the current official names in our dropdown list (indianStates.ts) —
-    // normalize so the autofilled value actually matches an option instead
-    // of silently failing to select anything in the <Combobox>.
-    const STATE_ALIASES: Record<string, string> = {
-      Orissa: "Odisha",
-      Pondicherry: "Puducherry",
-      Uttaranchal: "Uttarakhand",
-    };
-    return {
-      city: po?.District ?? "",
-      state: STATE_ALIASES[state] ?? state,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export interface StructuredGeocodeFields {
-  street?: string;
-  city?: string;
-  state?: string;
-  postalcode?: string;
-}
-
-/** Nominatim's *structured* search — street/city/state/postalcode are sent
- * as separate fields instead of concatenated into one free-text string.
- * This matters specifically for postalcode: in a blended string like
- * "Meerut, Uttar Pradesh, 250001", Nominatim's free-text matching can latch
- * onto the well-known city name and return its centroid, effectively
- * ignoring the pincode digits — which is exactly why filling in City/State
- * from a pincode lookup was making the pin *less* precise, not more.
- * Structured fields don't have that problem: postalcode is matched against
- * its own indexed field, so it still pins the specific postal area even
- * with city/state also present. */
-async function nominatimSearchStructured(
-  fields: StructuredGeocodeFields,
-  near?: LatLng,
-): Promise<{ lat: number; lng: number; display_name: string } | null> {
-  const hasAnyField = Object.values(fields).some((v) => v && v.trim().length > 0);
-  if (!hasAnyField) return null;
-  try {
-    const params = new URLSearchParams({
-      format: "json",
-      limit: "1",
-      addressdetails: "0",
-      "accept-language": "en",
-      countrycodes: "in",
-      country: "India",
-    });
-    if (fields.street?.trim()) params.set("street", fields.street.trim());
-    if (fields.city?.trim()) params.set("city", fields.city.trim());
-    if (fields.state?.trim()) params.set("state", fields.state.trim());
-    if (fields.postalcode?.trim()) params.set("postalcode", fields.postalcode.trim());
-    if (near) {
-      const box = 0.5; // degrees, ~55km — generous since it's a soft bias, not a hard filter
-      params.set("viewbox", `${near.lng - box},${near.lat + box},${near.lng + box},${near.lat - box}`);
-      params.set("bounded", "0");
-    }
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const first = Array.isArray(data) ? data[0] : null;
-    if (!first?.lat || !first?.lon) return null;
-    return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), display_name: first.display_name ?? "" };
-  } catch {
-    return null;
-  }
-}
-
-/** Keeps only the last `n` words of `s` (splitting on commas or whitespace).
- * Used to peel the house-number/street prefix off a typed address while
- * keeping whatever locality/town name comes after it. */
-function lastWords(s: string, n: number): string {
-  const tokens = s
-    .split(/[,\s]+/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-  if (tokens.length === 0) return "";
-  return tokens.slice(Math.max(0, tokens.length - n)).join(" ");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Builds a ladder of progressively looser search attempts, most specific
- * first. OpenStreetMap's coverage of house numbers and small streets/colonies
- * in India is patchy outside big-city cores, so a long, specific address
- * (house number + street + colony) can fail to match even though the
- * underlying town is perfectly well mapped. Each step below drops a bit more
- * of the specific part so we still land the pin somewhere useful instead of
- * failing outright.
- *
- * Each attempt is a set of *structured* fields (see nominatimSearchStructured)
- * rather than one blended string — critical for postalcode specifically: a
- * dedicated `{ postalcode, state }` attempt still matches the exact postal
- * area, whereas folding the same postcode into a "city, state, pincode" text
- * blob lets free-text matching latch onto the city name and return its
- * centroid instead. */
-function buildFallbackQueries(line1: string, city: string, state: string, pincode: string): StructuredGeocodeFields[] {
-  const attempts: StructuredGeocodeFields[] = [];
-  const add = (fields: StructuredGeocodeFields) => {
-    const cleaned: StructuredGeocodeFields = {};
-    for (const [k, v] of Object.entries(fields)) {
-      if (v && v.trim().length > 0) cleaned[k as keyof StructuredGeocodeFields] = v.trim();
-    }
-    if (Object.keys(cleaned).length === 0) return;
-    const key = JSON.stringify(cleaned);
-    if (!attempts.some((a) => JSON.stringify(a) === key)) attempts.push(cleaned);
-  };
-
-  // 1) A complete pincode, completely alone — no city/state/street mixed in.
-  // Nominatim's structured search is an AND across every field you give it,
-  // so combining postalcode with a state/city value it happens to file
-  // under a slightly different admin boundary can return zero results even
-  // though the postcode itself is perfectly well mapped. Tried first, and
-  // unconditionally — this is the single most reliable query this function
-  // can make, so there's no reason to make it wait behind anything else.
-  add({ postalcode: pincode });
-
-  // 2) Exactly what was typed, as a fallback for when postalcode alone
-  // isn't enough on its own (rare) or wasn't provided at all.
-  add({ street: line1, city, state, postalcode: pincode });
-
-  // 3-5) Keep only the last few words of address line 1 (usually the
-  // locality/area name, e.g. "...Katra Chowk, Katra") and drop the
-  // house-number/street portion in front of it.
-  add({ street: lastWords(line1, 3), city, state, postalcode: pincode });
-  add({ street: lastWords(line1, 2), city, state, postalcode: pincode });
-  add({ street: lastWords(line1, 1), city, state, postalcode: pincode });
-
-  // 6-7) Whatever's in the dedicated city/state/pincode fields, ignoring
-  // address line 1 entirely — covers a line 1 that's purely a plot/house
-  // reference with no place name in it at all.
-  add({ city, state, postalcode: pincode });
-  add({ city, state });
-
-  // 8) Last resort: just the state, so the map centers somewhere sensible
-  // and the shopper can drop a precise pin rather than hitting a dead end.
-  // (`state` now always comes from a fixed dropdown of real state names —
-  // see indianStates.ts — so it can no longer mismatch on a typo like
-  // "uttarpradesh" the way a free-text field could.)
-  add({ state });
-
-  return attempts;
 }
 
 export interface ForwardGeocodeQuery {
@@ -366,61 +147,66 @@ export interface ForwardGeocodeResult {
    * house/street. Still a useful starting point, but callers should treat
    * the pin as approximate and prompt the shopper to fine-tune it. */
   exact: boolean;
-  /** True when the winning attempt still had `postalcode` in its query
-   * (tiers 1-6/8 in buildFallbackQueries). False means Nominatim could only
-   * match once postalcode was dropped entirely (bare city/state, or just
-   * state) — OSM's postal-code-boundary data for India is sparse, so this
-   * is the "pin could be many km off, not just a bit approximate" case and
-   * callers should warn accordingly rather than using the same soft
-   * "near your area" copy they'd use for a merely-approximate match. */
-  matchedPostcode: boolean;
 }
 
-/** Best-effort forward geocode via OpenStreetMap Nominatim (free, no API
- * key) — resolves a manually typed address to coordinates so delivery
- * eligibility/charges can be computed without the shopper touching the map.
- * Returns null only once every fallback tier in buildFallbackQueries has
- * been tried and failed; callers should treat that as "couldn't pin this
- * address at all" rather than an error. Same production caveat as
- * reverseGeocode: proxy + cache server-side for high volume, per Nominatim's
- * usage policy.
- *
- * `countrycodes=in` mirrors the India assumption normalizePhone() already
- * makes elsewhere in this file. When `near` (typically the shop location) is
- * provided, results are soft-biased toward a ~55km box around it via
- * `viewbox`+`bounded=0` — without this, a short/common address (e.g. just a
- * street name) can resolve to a same-named street in a completely different
- * city, which is the main way this lookup ends up "accurate geocode, wrong
- * place". `bounded=0` only nudges ranking, it never excludes a genuinely
- * distant match. */
-export async function forwardGeocode(query: ForwardGeocodeQuery, near?: LatLng): Promise<ForwardGeocodeResult | null> {
-  const line1 = (query.line1 ?? "").trim();
-  const city = (query.city ?? "").trim();
-  const state = (query.state ?? "").trim();
-  const pincode = (query.pincode ?? "").trim();
-  const attempts = buildFallbackQueries(line1, city, state, pincode);
+// ---------------------------------------------------------------------
+// Address lookup (reverse geocode / forward geocode / PIN code lookup)
+// ---------------------------------------------------------------------
+// These used to call nominatim.openstreetmap.org and api.postalpincode.in
+// directly from the browser. That's why address lookup could look totally
+// dead no matter what was typed: Nominatim requires a real, application-
+// identifying User-Agent ("stock User-Agents as set by http libraries will
+// not do"), which a browser's fetch() is not allowed to set — every
+// request went out unidentified. Nominatim also explicitly blocks
+// autocomplete-style traffic and IPs that look like they're hammering it,
+// and on Indian mobile networks huge numbers of unrelated shoppers can
+// share one carrier-NAT IP, so one blocked IP silently broke address
+// lookup for everyone behind it, indefinitely.
+//
+// All three lookups now go through our own /api/geocode route (see
+// src/lib/geocode.server.ts), which proxies to the same free services but
+// with a proper identifying User-Agent, from our own stable server IP, with
+// caching. Same function names/shapes as before, so nothing calling these
+// needed to change.
 
-  for (let i = 0; i < attempts.length; i++) {
-    // Nominatim's usage policy caps this at 1 request/second. The common
-    // case (a complete pincode) now resolves on attempt 0 and never hits
-    // this at all — it only matters for the harder addresses that need
-    // several fallback tiers, and it's better to take a couple of extra
-    // seconds on those than to risk the whole feature getting throttled.
-    if (i > 0) await sleep(1100);
-    const hit = await nominatimSearchStructured(attempts[i], near);
-    if (hit) {
-      return {
-        ...hit,
-        display_name: hit.display_name || [line1, city, state, pincode].filter(Boolean).join(", "),
-        // "Exact" means street-level, not "first attempt" — a bare-pincode
-        // match (now tried first, for reliability) is a real match but only
-        // postal-area precision, not the specific address.
-        exact: "street" in attempts[i],
-        matchedPostcode: "postalcode" in attempts[i],
-      };
-    }
+async function postGeocode<T>(body: Record<string, unknown>): Promise<T | null> {
+  try {
+    const res = await fetch("/api/geocode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data?.result ?? null) as T | null;
+  } catch {
+    return null;
   }
-  return null;
+}
+
+/** Best-effort reverse geocode — prefills the address fields from a lat/lng.
+ * They always stay editable, so failures here are silent (resolve null). */
+export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
+  return postGeocode<ReverseGeocodeResult>({ action: "reverse", lat, lng });
+}
+
+/** Looks up city + state for a 6-digit Indian PIN code via India Post's own
+ * pincode API — used to autofill City/State the moment a shopper finishes
+ * typing their pincode, before they've necessarily typed anything else.
+ * Returns null on any failure or unrecognized pincode; fields stay editable
+ * either way. */
+export async function lookupPincode(pincode: string): Promise<PincodeLookupResult | null> {
+  if (!/^\d{6}$/.test(pincode.trim())) return null;
+  return postGeocode<PincodeLookupResult>({ action: "pincode", pincode });
+}
+
+/** Best-effort forward geocode — resolves a manually typed address to
+ * coordinates so delivery eligibility/charges can be computed without the
+ * shopper touching the map. Falls back through progressively looser
+ * matches server-side (see buildFallbackQueries in geocode.server.ts)
+ * before giving up; null means every fallback tier failed. */
+export async function forwardGeocode(query: ForwardGeocodeQuery, near?: LatLng): Promise<ForwardGeocodeResult | null> {
+  return postGeocode<ForwardGeocodeResult>({ action: "forward", ...query, near });
 }
 
 export async function getDeliveryInfo(): Promise<DeliveryInfo | null> {
