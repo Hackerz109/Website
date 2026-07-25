@@ -284,6 +284,10 @@ function lastWords(s: string, n: number): string {
   return tokens.slice(Math.max(0, tokens.length - n)).join(" ");
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** Builds a ladder of progressively looser search attempts, most specific
  * first. OpenStreetMap's coverage of house numbers and small streets/colonies
  * in India is patchy outside big-city cores, so a long, specific address
@@ -310,23 +314,25 @@ function buildFallbackQueries(line1: string, city: string, state: string, pincod
     if (!attempts.some((a) => JSON.stringify(a) === key)) attempts.push(cleaned);
   };
 
-  // 1) Exactly what was typed — best case, keeps full precision. Street
-  // carries the house-number/locality text; city/state/postalcode are their
-  // own fields so postalcode still gets matched precisely even here.
+  // 1) A complete pincode, completely alone — no city/state/street mixed in.
+  // Nominatim's structured search is an AND across every field you give it,
+  // so combining postalcode with a state/city value it happens to file
+  // under a slightly different admin boundary can return zero results even
+  // though the postcode itself is perfectly well mapped. Tried first, and
+  // unconditionally — this is the single most reliable query this function
+  // can make, so there's no reason to make it wait behind anything else.
+  add({ postalcode: pincode });
+
+  // 2) Exactly what was typed, as a fallback for when postalcode alone
+  // isn't enough on its own (rare) or wasn't provided at all.
   add({ street: line1, city, state, postalcode: pincode });
 
-  // 2-4) Keep only the last few words of address line 1 (usually the
+  // 3-5) Keep only the last few words of address line 1 (usually the
   // locality/area name, e.g. "...Katra Chowk, Katra") and drop the
   // house-number/street portion in front of it.
   add({ street: lastWords(line1, 3), city, state, postalcode: pincode });
   add({ street: lastWords(line1, 2), city, state, postalcode: pincode });
   add({ street: lastWords(line1, 1), city, state, postalcode: pincode });
-
-  // 5) Pincode + state, no street/city at all. This is the one that matters
-  // most for a shopper who's led with just their pincode: it can't get
-  // diluted by a city name the way a blended-text search could, so it lands
-  // on the actual postal area rather than the city centroid.
-  add({ postalcode: pincode, state });
 
   // 6-7) Whatever's in the dedicated city/state/pincode fields, ignoring
   // address line 1 entirely — covers a line 1 that's purely a plot/house
@@ -334,11 +340,7 @@ function buildFallbackQueries(line1: string, city: string, state: string, pincod
   add({ city, state, postalcode: pincode });
   add({ city, state });
 
-  // 8) Postal code alone — postcode-area boundaries are often mapped even
-  // in towns where individual streets are not.
-  add({ postalcode: pincode });
-
-  // 9) Last resort: just the state, so the map centers somewhere sensible
+  // 8) Last resort: just the state, so the map centers somewhere sensible
   // and the shopper can drop a precise pin rather than hitting a dead end.
   // (`state` now always comes from a fixed dropdown of real state names —
   // see indianStates.ts — so it can no longer mismatch on a typo like
@@ -399,12 +401,21 @@ export async function forwardGeocode(query: ForwardGeocodeQuery, near?: LatLng):
   const attempts = buildFallbackQueries(line1, city, state, pincode);
 
   for (let i = 0; i < attempts.length; i++) {
+    // Nominatim's usage policy caps this at 1 request/second. The common
+    // case (a complete pincode) now resolves on attempt 0 and never hits
+    // this at all — it only matters for the harder addresses that need
+    // several fallback tiers, and it's better to take a couple of extra
+    // seconds on those than to risk the whole feature getting throttled.
+    if (i > 0) await sleep(1100);
     const hit = await nominatimSearchStructured(attempts[i], near);
     if (hit) {
       return {
         ...hit,
         display_name: hit.display_name || [line1, city, state, pincode].filter(Boolean).join(", "),
-        exact: i === 0,
+        // "Exact" means street-level, not "first attempt" — a bare-pincode
+        // match (now tried first, for reliability) is a real match but only
+        // postal-area precision, not the specific address.
+        exact: "street" in attempts[i],
         matchedPostcode: "postalcode" in attempts[i],
       };
     }
