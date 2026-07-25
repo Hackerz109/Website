@@ -1,13 +1,13 @@
 {
-  "name": "My Shop Admin",
-  "short_name": "Shop Admin",
-  "description": "Manage products, warranty info, and specifications for My Shop from your phone.",
+  "name": "Sanjay Electricals Admin",
+  "short_name": "SE Admin",
+  "description": "Manage products, warranty info, and specifications for Sanjay Electricals from your phone.",
   "start_url": "/admin/products",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F9FAFB",
-  "theme_color": "#2454E5",
+  "theme_color": "#0A2647",
   "icons": [
     {
       "src": "/icons/icon-192.png",
