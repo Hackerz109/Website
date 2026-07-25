@@ -82,14 +82,11 @@ function CartPage() {
   const [locating, setLocating] = useState(false);
   const [addressGeocoding, setAddressGeocoding] = useState(false);
   const [addressGeocodeFailed, setAddressGeocodeFailed] = useState(false);
+  // True whenever the last geocode couldn't match the address exactly and
+  // had to fall back to a looser match (city/state, pincode-only, etc.) —
+  // the pin is still a reasonable starting point, just worth the shopper
+  // double-checking/dragging into place.
   const [addressApprox, setAddressApprox] = useState(false);
-  // True only when the last geocode had to drop the pincode entirely and
-  // matched on city/state alone — OSM's Indian postal-code coverage is
-  // sparse enough that this is common, and unlike a "normal" approximate
-  // match (which is still anchored to the right postal area) this one can
-  // land the pin many km from the real address, so it gets its own,
-  // stronger warning below instead of being lumped in with addressApprox.
-  const [addressLowConfidence, setAddressLowConfidence] = useState(false);
   const [quote, setQuote] = useState<DeliveryChargeResult | null>(null);
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [deliveryBlocked, setDeliveryBlocked] = useState(false);
@@ -218,7 +215,6 @@ function CartPage() {
     setDeliveryBlocked(false);
     setAddressGeocodeFailed(false);
     setAddressApprox(false);
-    setAddressLowConfidence(false);
     // Fill every field the reverse geocode could resolve — previously this
     // only ever touched address line 1, so City/State/Pincode stayed blank
     // (and looked "unfetched") even though Nominatim often does have that
@@ -249,7 +245,6 @@ function CartPage() {
     setPincode(addr.pincode);
     setAddressGeocodeFailed(false);
     setAddressApprox(false);
-    setAddressLowConfidence(false);
     if (addr.lat != null && addr.lng != null) {
       // We already know exactly where this address is — no need to
       // re-geocode the text, and this stops the auto-geocode effect below
@@ -277,7 +272,6 @@ function CartPage() {
     setCoords(null);
     setAddressGeocodeFailed(false);
     setAddressApprox(false);
-    setAddressLowConfidence(false);
   }
 
   // Once saved addresses load, default to the shopper's default address (or
@@ -320,7 +314,6 @@ function CartPage() {
     if (!result) {
       setAddressGeocodeFailed(true);
       setAddressApprox(false);
-      setAddressLowConfidence(false);
       if (!opts.silent) {
         toast.error("Couldn't locate that address automatically — please set it on the map instead.");
       }
@@ -333,12 +326,6 @@ function CartPage() {
     // small towns. `exact` tells us whether it matched everything typed or
     // had to fall back, so we can be honest with the shopper about it.
     setAddressApprox(!result.exact);
-    // A match that had to drop the pincode entirely and landed on city/state
-    // alone can be many km off — OSM's postal-code coverage in India is
-    // sparse, so this happens more often than you'd expect. That's a much
-    // bigger deal than a "normal" approximate match (which is still anchored
-    // to the right postal area), so it gets its own stronger warning.
-    setAddressLowConfidence(!result.exact && !result.matchedPostcode);
     setLocationAccuracy(null);
     coordsSourceRef.current = "typed";
     setCoords({ lat: result.lat, lng: result.lng });
@@ -680,19 +667,18 @@ function CartPage() {
                         ...(coords && locationAccuracy && locationAccuracy > 30
                           ? [{ id: "accuracy", lat: coords.lat, lng: coords.lng, radiusKm: locationAccuracy / 1000, color: "#94a3b8", label: `~${Math.round(locationAccuracy)}m accuracy` }]
                           : []),
-                        // A match that only found the city/state (no pincode)
-                        // can be many km off, not just "a bit approximate" —
-                        // show a much wider ring so that's visually obvious
-                        // on the map itself, not just in the text below.
-                        ...(coords && addressLowConfidence
-                          ? [{ id: "low-confidence", lat: coords.lat, lng: coords.lng, radiusKm: 5, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
+                        // The address text couldn't be matched exactly — show a
+                        // ring so it's visually obvious the pin is a starting
+                        // point, not the confirmed exact spot.
+                        ...(coords && addressApprox
+                          ? [{ id: "approx", lat: coords.lat, lng: coords.lng, radiusKm: 2, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
                           : []),
                       ]}
                       markers={[
                         ...(shopLocation ? [{ id: "shop", lat: shopLocation.lat, lng: shopLocation.lng, color: "#16a34a", label: shopLocation.name }] : []),
-                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); setAddressLowConfidence(false); } }] : []),
+                        ...(coords ? [{ id: "you", lat: coords.lat, lng: coords.lng, color: "#2454e5", label: "Delivery location", draggable: true, onDragEnd: (lat: number, lng: number) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setAddressApprox(false); } }] : []),
                       ]}
-                      onMapClick={(lat, lng) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); setAddressLowConfidence(false); }}
+                      onMapClick={(lat, lng) => { coordsSourceRef.current = "manual"; setCoords({ lat, lng }); setLocationAccuracy(null); setDeliveryBlocked(false); setAddressApprox(false); }}
                       height={220}
                     />
                     <p className="text-xs text-muted-foreground">
@@ -742,12 +728,7 @@ function CartPage() {
                     {!addressGeocoding && !coords && !addressGeocodeFailed && typedAddress.length > 0 && !readyToGeocode && (
                       <p className="text-xs text-muted-foreground">Keep typing your full address, or just enter your 6-digit pincode, so we can locate it.</p>
                     )}
-                    {!addressGeocoding && coords && addressApprox && addressLowConfidence && (
-                      <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                        We could only match your city/state, not your specific pincode area — this pin could be several km from your real address. Please drag it to the exact spot on the map above.
-                      </p>
-                    )}
-                    {!addressGeocoding && coords && addressApprox && !addressLowConfidence && (
+                    {!addressGeocoding && coords && addressApprox && (
                       <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
                         We placed the pin near your area, not your exact address — drag it on the map above to fine-tune it.
                       </p>

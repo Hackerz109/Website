@@ -501,11 +501,10 @@ function AddressFormDialog({
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
-  // True when the last auto-geocode could only match city/state (no
-  // pincode) — OSM's postal-code coverage for India is sparse, so this
-  // happens more than you'd expect, and unlike a normal approximate match
-  // it can land many km from the real address rather than just "nearby".
-  const [lowConfidence, setLowConfidence] = useState(false);
+  // True whenever the last auto-geocode couldn't match the address exactly
+  // and had to fall back to a looser match — the pin is still a reasonable
+  // starting point, just worth double-checking/dragging into place.
+  const [approx, setApprox] = useState(false);
   // "manual" once the shopper has placed the pin themselves (locate-me, drag,
   // or tap) — after that we stop silently re-geocoding over their fix as they
   // keep editing the text fields.
@@ -546,7 +545,7 @@ function AddressFormDialog({
         pinSourceRef.current = "typed";
         set("lat", result.lat);
         set("lng", result.lng);
-        setLowConfidence(!result.exact && !result.matchedPostcode);
+        setApprox(!result.exact);
       }
     }, 900);
     return () => clearTimeout(t);
@@ -562,7 +561,7 @@ function AddressFormDialog({
       return;
     }
     pinSourceRef.current = "manual";
-    setLowConfidence(false);
+    setApprox(false);
     set("lat", loc.lat);
     set("lng", loc.lng);
     const result = await reverseGeocode(loc.lat, loc.lng);
@@ -647,11 +646,11 @@ function AddressFormDialog({
           <LeafletMap
             center={mapCenter}
             circles={
-              // A match that only found the city/state (no pincode) can be
-              // many km off — show a wide ring so that's obvious on the map
-              // itself, not just in the text below.
-              form.lat != null && form.lng != null && lowConfidence
-                ? [{ id: "low-confidence", lat: form.lat, lng: form.lng, radiusKm: 5, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
+              // The address text couldn't be matched exactly — show a ring so
+              // it's visually obvious the pin is a starting point, not the
+              // confirmed exact spot.
+              form.lat != null && form.lng != null && approx
+                ? [{ id: "approx", lat: form.lat, lng: form.lng, radiusKm: 2, color: "#f59e0b", label: "Approximate area — confirm the exact spot" }]
                 : []
             }
             markers={
@@ -666,7 +665,7 @@ function AddressFormDialog({
                       draggable: true,
                       onDragEnd: (lat, lng) => {
                         pinSourceRef.current = "manual";
-                        setLowConfidence(false);
+                        setApprox(false);
                         set("lat", lat);
                         set("lng", lng);
                       },
@@ -676,18 +675,18 @@ function AddressFormDialog({
             }
             onMapClick={(lat, lng) => {
               pinSourceRef.current = "manual";
-              setLowConfidence(false);
+              setApprox(false);
               set("lat", lat);
               set("lng", lng);
             }}
             height={180}
           />
-          <p className={`text-xs ${lowConfidence ? "rounded-lg bg-amber-500/10 px-3 py-2 text-amber-700" : "text-muted-foreground"}`}>
+          <p className={`text-xs ${approx ? "rounded-lg bg-amber-500/10 px-3 py-2 text-amber-700" : "text-muted-foreground"}`}>
             <MapPin className="mr-1 inline h-3 w-3" />
             {geocoding
               ? "Locating your address…"
-              : lowConfidence
-                ? "We could only match your city/state, not your specific pincode area — this pin could be several km off. Please drag it to the exact spot."
+              : approx
+                ? "We placed the pin near your area, not your exact address — drag it to fine-tune it."
                 : "Tap the map (or drag the pin) to fine-tune this address's saved location."}
           </p>
         </div>
