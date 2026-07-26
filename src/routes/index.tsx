@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
@@ -33,26 +34,26 @@ function Index() {
     <div className="min-h-screen bg-background">
       <StoreHeader />
 
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden bg-obsidian">
         <div className="pointer-events-none absolute inset-0 bg-glow-mesh" />
 
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
           <div className="reveal-up">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Live inventory, every category
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-porcelain/15 bg-porcelain/5 px-3 py-1 text-xs font-medium text-porcelain/70 backdrop-blur-sm">
+              <span className="spark-dot h-1.5 w-1.5 rounded-full bg-brass" />
+              Live stock, every category
             </span>
-            <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground md:text-6xl">
-              Everything electrical,
+            <h1 className="mt-6 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-porcelain md:text-6xl">
+              Genuine electrical,
               <br />
-              <span className="text-primary">done right.</span>
+              <span className="text-brass-soft">wired for trust.</span>
             </h1>
-            <p className="mt-5 max-w-md text-base text-muted-foreground md:text-lg">
-              Switches, fans, wiring, and fittings from brands you can trust — with clear
-              stock levels, honest warranty details, and a checkout that takes minutes.
+            <p className="mt-5 max-w-md text-base text-porcelain/65 md:text-lg">
+              Switches, fans, wiring, and fittings from the brands you already trust —
+              honest stock levels, clear warranty terms, and a checkout that takes minutes.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="rounded-xl shadow-soft">
+              <Button asChild size="lg" className="rounded-xl shadow-soft-lg">
                 <a href="#products">
                   <ShoppingBag className="mr-2 h-4 w-4" /> Shop the catalog
                 </a>
@@ -65,7 +66,7 @@ function Index() {
                     key={c}
                     to="/category/$name"
                     params={{ name: c }}
-                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
+                    className="rounded-lg border border-porcelain/15 bg-porcelain/5 px-3 py-1.5 text-xs font-medium text-porcelain/75 backdrop-blur-sm transition-colors hover:border-brass/60 hover:bg-porcelain/10 hover:text-brass-soft"
                   >
                     {c}
                   </Link>
@@ -78,7 +79,11 @@ function Index() {
             <HeroPanel />
           </div>
         </div>
+
+        <div className="seam-fade-down pointer-events-none absolute inset-x-0 bottom-0 h-36" />
       </section>
+
+      <div className="hairline-copper-dim" />
 
       <CouponShowcase />
 
@@ -90,7 +95,7 @@ function Index() {
             { icon: ShieldCheck, title: "Secure, worry-free checkout", desc: "Encrypted payment and clear warranty details on every order" },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="flex items-start gap-3 rounded-2xl border border-border bg-background p-4 shadow-soft">
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-copper">
                 <Icon className="h-5 w-5" />
               </span>
               <div>
@@ -106,7 +111,7 @@ function Index() {
 
       <section id="products" className="mx-auto max-w-6xl px-6 py-16 md:py-24">
         <div className="mb-10">
-          <h2 className="text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">The collection</h2>
+          <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl">The collection</h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {products.length > 0
               ? `${products.length} product${products.length !== 1 ? "s" : ""} available`
@@ -150,9 +155,22 @@ function Index() {
   );
 }
 
-/** Signature element: a floating panel showing the shop's categories,
- *  linked by circuit-trace lines with an animated current pulse. */
+/** Signature element: a floating instrument panel showing the shop's
+ *  categories, wired together by a live schematic. Thin brass traces
+ *  carry a travelling copper spark between nodes on a loop — current,
+ *  literally flowing, standing in for what the shop actually sells. */
 function HeroPanel() {
+  // SMIL animations (animateMotion / animate) aren't covered by the CSS
+  // prefers-reduced-motion rules below, so gate them here explicitly.
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduceMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const nodes = [
     { icon: ToggleLeft, label: "Switches", x: 60, y: 46 },
     { icon: Fan, label: "Fans", x: 300, y: 30 },
@@ -160,24 +178,56 @@ function HeroPanel() {
     { icon: Plug, label: "Fittings", x: 290, y: 220 },
   ];
 
-  return (
-    <div className="relative mx-auto aspect-[4/3] w-full max-w-md rounded-3xl border border-border bg-card p-2 shadow-soft-lg">
-      <div className="relative h-full w-full overflow-hidden rounded-2xl bg-secondary/40">
-        <svg viewBox="0 0 380 280" className="absolute inset-0 h-full w-full">
-          <path d="M 95 60 H 190 V 130 H 190" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
-          <path d="M 285 55 H 190 V 130" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
-          <path d="M 90 220 H 190 V 130" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
-          <path d="M 275 230 H 190 V 130" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
-          <circle cx="190" cy="130" r="4" fill="var(--color-primary)" />
+  // Rounded bends (via quadratic curves) rather than hard right angles —
+  // reads like a smooth PCB trace instead of a sharp schematic corner.
+  const paths = [
+    { d: "M 95 60 H 172 Q 190 60 190 78 V 130", delay: "0s" },
+    { d: "M 285 55 H 208 Q 190 55 190 73 V 130", delay: "0.8s" },
+    { d: "M 90 220 H 172 Q 190 220 190 202 V 130", delay: "1.6s" },
+    { d: "M 275 230 H 208 Q 190 230 190 212 V 130", delay: "2.4s" },
+  ];
 
-          <path
-            d="M 95 60 H 190 V 130" fill="none" stroke="var(--color-primary)" strokeWidth="2"
-            pathLength="1" className="trace-pulse" style={{ animationDelay: "0s" }}
-          />
-          <path
-            d="M 90 220 H 190 V 130" fill="none" stroke="var(--color-primary)" strokeWidth="2"
-            pathLength="1" className="trace-pulse" style={{ animationDelay: "1.8s" }}
-          />
+  return (
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-md rounded-3xl bg-gradient-to-br from-brass/50 via-copper/20 to-transparent p-[1px] shadow-soft-lg">
+      <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-obsidian-deep">
+        <svg viewBox="0 0 380 280" className="absolute inset-0 h-full w-full">
+          <defs>
+            <filter id="spark-glow" x="-200%" y="-200%" width="500%" height="500%">
+              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {paths.map((p) => (
+            <path key={`base-${p.d}`} d={p.d} fill="none" stroke="var(--color-brass)" strokeOpacity="0.18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          ))}
+          <circle cx="190" cy="130" r="4" fill="var(--color-brass)" filter="url(#spark-glow)" />
+
+          {!reduceMotion && paths.map((p) => (
+            <path
+              key={`pulse-${p.d}`}
+              d={p.d} fill="none" stroke="var(--color-copper-bright)" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+              pathLength="1" className="current-pulse" style={{ animationDelay: p.delay }}
+            />
+          ))}
+
+          {!reduceMotion && paths.map((p) => (
+            <circle key={`dot-${p.d}`} r="2.6" fill="var(--color-brass-soft)" filter="url(#spark-glow)">
+              <animateMotion path={p.d} dur="3.2s" repeatCount="indefinite" begin={p.delay} />
+              <animate
+                attributeName="opacity"
+                values="0;1;1;0"
+                keyTimes="0;0.1;0.65;1"
+                dur="3.2s"
+                repeatCount="indefinite"
+                begin={p.delay}
+              />
+            </circle>
+          ))}
         </svg>
 
         {nodes.map(({ icon: Icon, label, x, y }) => (
@@ -186,10 +236,10 @@ function HeroPanel() {
             className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
             style={{ left: x, top: y }}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-soft">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-brass/30 bg-obsidian text-brass shadow-[0_0_16px_-4px_var(--color-brass)]">
               <Icon className="h-5 w-5" />
             </span>
-            <span className="rounded-full bg-foreground/90 px-2 py-0.5 text-[10px] font-medium text-background">
+            <span className="rounded-full bg-brass px-2 py-0.5 font-mono text-[10px] font-semibold text-obsidian">
               {label}
             </span>
           </div>
