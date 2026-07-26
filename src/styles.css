@@ -5,10 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition — "modern tech" theme.
- * Palette: near-white base, deep slate ink text, a single confident blue
- * signature accent, soft neutral grays, and tinted ambient shadows for a
- * clean, premium SaaS-catalog feel.
+ * Design system definition — "brass & ivory" theme.
+ * A quiet, minimal palette built around the material this shop actually
+ * sells: warm ivory neutrals, deep espresso ink, and a single confident
+ * antique-brass accent (the finish on a premium switch plate) — one
+ * accent used with intent, no gradients standing in for a brand.
  *
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
@@ -49,6 +50,8 @@
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
   --color-glow: var(--glow);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -62,81 +65,86 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 :root {
-  --radius: 0.85rem;
-  --background: oklch(0.985 0.002 247.839);
-  --foreground: oklch(0.210 0.032 264.665);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.210 0.032 264.665);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.210 0.032 264.665);
-  --primary: oklch(0.513 0.225 264.911);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.966 0.005 258.325);
-  --secondary-foreground: oklch(0.210 0.032 264.665);
-  --muted: oklch(0.966 0.005 258.325);
-  --muted-foreground: oklch(0.544 0.035 265.114);
-  --accent: oklch(0.962 0.018 272.314);
-  --accent-foreground: oklch(0.403 0.181 265.452);
-  --destructive: oklch(0.577 0.215 27.325);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.927 0.007 260.732);
-  --input: oklch(0.927 0.007 260.732);
-  --ring: oklch(0.513 0.225 264.911);
-  --glow: oklch(0.865 0.115 207.078);
-  --chart-1: oklch(0.513 0.225 264.911);
-  --chart-2: oklch(0.865 0.115 207.078);
-  --chart-3: oklch(0.403 0.181 265.452);
-  --chart-4: oklch(0.577 0.215 27.325);
-  --chart-5: oklch(0.544 0.035 265.114);
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.210 0.032 264.665);
-  --sidebar-primary: oklch(0.513 0.225 264.911);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.962 0.018 272.314);
-  --sidebar-accent-foreground: oklch(0.403 0.181 265.452);
-  --sidebar-border: oklch(0.927 0.007 260.732);
-  --sidebar-ring: oklch(0.513 0.225 264.911);
+  --radius: 0.625rem;
+  --background: oklch(0.980 0.009 84.572);
+  --foreground: oklch(0.209 0.012 67.053);
+  --card: oklch(1 0 0.001);
+  --card-foreground: oklch(0.209 0.012 67.053);
+  --popover: oklch(1 0 0.001);
+  --popover-foreground: oklch(0.209 0.012 67.053);
+  --primary: oklch(0.543 0.096 83.843);
+  --primary-foreground: oklch(1 0 0.001);
+  --primary-light: oklch(0.683 0.102 82.566);
+  --primary-dark: oklch(0.404 0.067 78.791);
+  --secondary: oklch(0.950 0.016 86.426);
+  --secondary-foreground: oklch(0.209 0.012 67.053);
+  --muted: oklch(0.950 0.016 86.426);
+  --muted-foreground: oklch(0.526 0.029 86.886);
+  --accent: oklch(0.926 0.040 89.693);
+  --accent-foreground: oklch(0.445 0.078 78.617);
+  --destructive: oklch(0.521 0.158 29.213);
+  --destructive-foreground: oklch(1 0 0.001);
+  --border: oklch(0.910 0.029 89.581);
+  --input: oklch(0.910 0.029 89.581);
+  --ring: oklch(0.543 0.096 83.843);
+  --glow: oklch(0.856 0.076 89.870);
+  --chart-1: oklch(0.543 0.096 83.843);
+  --chart-2: oklch(0.494 0.068 187.140);
+  --chart-3: oklch(0.371 0.023 82.920);
+  --chart-4: oklch(0.683 0.120 68.575);
+  --chart-5: oklch(0.610 0.026 82.067);
+  --sidebar: oklch(1 0 0.001);
+  --sidebar-foreground: oklch(0.209 0.012 67.053);
+  --sidebar-primary: oklch(0.543 0.096 83.843);
+  --sidebar-primary-foreground: oklch(1 0 0.001);
+  --sidebar-accent: oklch(0.926 0.040 89.693);
+  --sidebar-accent-foreground: oklch(0.445 0.078 78.617);
+  --sidebar-border: oklch(0.910 0.029 89.581);
+  --sidebar-ring: oklch(0.543 0.096 83.843);
 }
 
 .dark {
-  --background: oklch(0.183 0.031 263.383);
-  --foreground: oklch(0.985 0.002 247.839);
-  --card: oklch(0.226 0.039 267.864);
-  --card-foreground: oklch(0.985 0.002 247.839);
-  --popover: oklch(0.226 0.039 267.864);
-  --popover-foreground: oklch(0.985 0.002 247.839);
-  --primary: oklch(0.62 0.19 264.911);
-  --primary-foreground: oklch(0.183 0.031 263.383);
-  --secondary: oklch(0.303 0.042 265.198);
-  --secondary-foreground: oklch(0.985 0.002 247.839);
-  --muted: oklch(0.303 0.042 265.198);
-  --muted-foreground: oklch(0.711 0.035 256.788);
-  --accent: oklch(0.303 0.042 265.198);
-  --accent-foreground: oklch(0.985 0.002 247.839);
-  --destructive: oklch(0.577 0.215 27.325);
-  --destructive-foreground: oklch(0.985 0.002 247.839);
-  --border: oklch(0.303 0.042 265.198);
-  --input: oklch(0.303 0.042 265.198);
-  --ring: oklch(0.62 0.19 264.911);
-  --glow: oklch(0.5 0.1 207.078);
-  --chart-1: oklch(0.62 0.19 264.911);
-  --chart-2: oklch(0.5 0.1 207.078);
-  --chart-3: oklch(0.403 0.181 265.452);
-  --chart-4: oklch(0.577 0.215 27.325);
-  --chart-5: oklch(0.711 0.035 256.788);
-  --sidebar: oklch(0.226 0.039 267.864);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-primary: oklch(0.62 0.19 264.911);
-  --sidebar-primary-foreground: oklch(0.183 0.031 263.383);
-  --sidebar-accent: oklch(0.303 0.042 265.198);
-  --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-border: oklch(0.303 0.042 265.198);
-  --sidebar-ring: oklch(0.62 0.19 264.911);
+  --background: oklch(0.199 0.012 73.244);
+  --foreground: oklch(0.959 0.016 86.425);
+  --card: oklch(0.235 0.017 74.741);
+  --card-foreground: oklch(0.959 0.016 86.425);
+  --popover: oklch(0.235 0.017 74.741);
+  --popover-foreground: oklch(0.959 0.016 86.425);
+  --primary: oklch(0.770 0.111 85.641);
+  --primary-foreground: oklch(0.199 0.012 73.244);
+  --primary-light: oklch(0.860 0.086 87.336);
+  --primary-dark: oklch(0.627 0.109 81.968);
+  --secondary: oklch(0.277 0.022 78.865);
+  --secondary-foreground: oklch(0.959 0.016 86.425);
+  --muted: oklch(0.277 0.022 78.865);
+  --muted-foreground: oklch(0.699 0.040 86.882);
+  --accent: oklch(0.296 0.035 80.423);
+  --accent-foreground: oklch(0.860 0.086 87.336);
+  --destructive: oklch(0.585 0.168 29.597);
+  --destructive-foreground: oklch(0.959 0.016 86.425);
+  --border: oklch(0.318 0.031 82.938);
+  --input: oklch(0.318 0.031 82.938);
+  --ring: oklch(0.770 0.111 85.641);
+  --glow: oklch(0.5 0.08 87.336);
+  --chart-1: oklch(0.770 0.111 85.641);
+  --chart-2: oklch(0.5 0.06 187.140);
+  --chart-3: oklch(0.699 0.040 86.882);
+  --chart-4: oklch(0.683 0.120 68.575);
+  --chart-5: oklch(0.6 0.03 82.067);
+  --sidebar: oklch(0.235 0.017 74.741);
+  --sidebar-foreground: oklch(0.959 0.016 86.425);
+  --sidebar-primary: oklch(0.770 0.111 85.641);
+  --sidebar-primary-foreground: oklch(0.199 0.012 73.244);
+  --sidebar-accent: oklch(0.296 0.035 80.423);
+  --sidebar-accent-foreground: oklch(0.860 0.086 87.336);
+  --sidebar-border: oklch(0.318 0.031 82.938);
+  --sidebar-ring: oklch(0.770 0.111 85.641);
 }
 
 @layer base {
@@ -152,32 +160,35 @@
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 }
 
-/* ---- Modern-tech motifs ------------------------------------------------- */
+/* ---- Brass & ivory motifs ------------------------------------------------ */
 
-/* Soft, slightly tinted elevation shadows — used instead of flat black
-   card shadows for a more premium feel. */
+/* Soft, neutral elevation shadows — tinted with ink rather than the accent
+   colour, so surfaces lift quietly instead of glowing. */
 .shadow-soft {
-  box-shadow: 0 1px 2px oklch(0.21 0.032 264.665 / 0.04), 0 8px 24px -8px oklch(0.51 0.225 264.911 / 0.10);
+  box-shadow: 0 1px 2px oklch(0.209 0.012 67.053 / 0.05), 0 8px 20px -10px oklch(0.209 0.012 67.053 / 0.12);
 }
 .shadow-soft-lg {
-  box-shadow: 0 4px 12px oklch(0.21 0.032 264.665 / 0.04), 0 24px 48px -12px oklch(0.51 0.225 264.911 / 0.18);
+  box-shadow: 0 4px 10px oklch(0.209 0.012 67.053 / 0.05), 0 24px 40px -14px oklch(0.209 0.012 67.053 / 0.18);
 }
 
-/* Ambient blurred gradient glow, used behind hero content. */
+/* Ambient hero backdrop: a faint schematic grid (a nod to wiring diagrams)
+   fading toward the bottom, with a quiet warm wash — not a rainbow blur. */
 .bg-glow-mesh {
-  background:
-    radial-gradient(50% 50% at 20% 20%, oklch(0.513 0.225 264.911 / 0.14), transparent 70%),
-    radial-gradient(45% 45% at 85% 15%, oklch(0.865 0.115 207.078 / 0.16), transparent 70%),
-    radial-gradient(40% 40% at 75% 80%, oklch(0.513 0.225 264.911 / 0.08), transparent 70%);
-  filter: blur(40px);
+  background-image:
+    linear-gradient(oklch(0.910 0.029 89.581 / 0.7) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.910 0.029 89.581 / 0.7) 1px, transparent 1px),
+    radial-gradient(55% 45% at 12% 8%, oklch(0.856 0.076 89.870 / 0.4), transparent 70%);
+  background-size: 40px 40px, 40px 40px, 100% 100%;
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent 88%);
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
 }
 
 @keyframes reveal-up {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .reveal-up {
@@ -209,6 +220,104 @@
   animation-play-state: paused;
 }
 
+/* Scroll-triggered reveal — paired with the <Reveal> component, which
+   toggles .is-visible via IntersectionObserver as content enters view. */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Blinking status LED — used on the "live" indicator dot. */
+@keyframes led-blink {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 oklch(0.543 0.096 83.843 / 0.45); }
+  50% { opacity: 0.5; box-shadow: 0 0 0 4px oklch(0.543 0.096 83.843 / 0); }
+}
+.led-dot {
+  animation: led-blink 2.2s ease-in-out infinite;
+}
+
+/* A second, slow-breathing warm glow behind the hero — paired with the
+   static wash already baked into .bg-glow-mesh for a bit of ambient life. */
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+.bg-glow-mesh::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(45% 40% at 84% 14%, oklch(0.856 0.076 89.870 / 0.55), transparent 70%);
+  animation: glow-breathe 5s ease-in-out infinite;
+}
+
+/* A quiet sonar-style ring pulse around the hero's signature circuit panel. */
+@keyframes ring-pulse {
+  0% { transform: scale(0.98); opacity: 0.55; }
+  70% { transform: scale(1.05); opacity: 0; }
+  100% { opacity: 0; }
+}
+.glow-ring {
+  position: relative;
+}
+.glow-ring::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 1px solid oklch(0.543 0.096 83.843 / 0.4);
+  animation: ring-pulse 2.8s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Corner-bracket "reticle" — a measurement-style hover state for product
+   thumbnails, in place of a generic tint or scale-only hover. */
+.card-target span {
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.card-target:hover span {
+  opacity: 1;
+}
+
+/* A single soft light sweep across primary buttons on hover — restrained,
+   and only ever on the one accent-colored action per view. */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, oklch(1 0 0 / 0.4) 50%, transparent 70%);
+  transform: translateX(-130%);
+  transition: transform 0.7s ease;
+}
+.btn-shine:hover::after {
+  transform: translateX(130%);
+}
+
+/* Brushed-brass gradient — a restrained metallic sheen for the primary
+   button and other single "hero" actions. Two close, warm stops read as
+   brushed metal rather than a loud rainbow gradient. */
+.bg-brass {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+}
+
+/* Gold gradient text — used sparingly, once per page, for the single word
+   or phrase meant to carry the most weight. */
+.text-brass-gradient {
+  background: linear-gradient(100deg, var(--color-primary-dark) 0%, var(--color-primary) 50%, var(--color-primary-dark) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .brand-track {
     animation: none !important;
@@ -221,5 +330,26 @@
   .trace-pulse {
     animation: none !important;
     opacity: 0.4 !important;
+  }
+  .reveal-on-scroll {
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .led-dot {
+    animation: none !important;
+  }
+  .bg-glow-mesh::before {
+    animation: none !important;
+    opacity: 0.5 !important;
+  }
+  .glow-ring::after {
+    animation: none !important;
+    opacity: 0.3 !important;
+    transform: none !important;
+  }
+  .btn-shine::after {
+    transition: none !important;
+    display: none !important;
   }
 }
