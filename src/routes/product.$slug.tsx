@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ShoppingBag, Minus, Plus } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Minus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
@@ -38,7 +38,8 @@ function ProductPage() {
   const add = useCart((s) => s.add);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [variantId, setVariantId] = useState<string | null>(null);
-  const [imgRatio, setImgRatio] = useState<number | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -69,10 +70,24 @@ function ProductPage() {
       : [];
   const mainImage = activeImage ?? gallery[0] ?? null;
 
-  // Recompute the frame's shape whenever the active image changes
+  // Reset zoom whenever a different image is shown
   useEffect(() => {
-    setImgRatio(null);
+    setZoomed(false);
   }, [mainImage]);
+
+  // Close the lightbox on Escape, and lock background scroll while it's open
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [lightboxOpen]);
 
   // Reset local selection state whenever a different product loads
   useEffect(() => {
@@ -123,20 +138,20 @@ function ProductPage() {
         ) : !product ? (
           <div className="mt-12 text-center text-muted-foreground">Product not found.</div>
         ) : (
+          <>
           <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div>
-              <div
-                className="w-full max-h-[520px] overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft transition-[aspect-ratio] duration-200"
-                style={{ aspectRatio: imgRatio ?? 1 }}
-              >
+              <div className="flex items-center justify-center rounded-2xl border border-border bg-secondary/40 p-3 shadow-soft">
                 {mainImage ? (
                   <img
                     src={mainImage}
                     alt={product.name}
-                    onLoad={(e) => setImgRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
-                    className="h-full w-full object-contain p-2"
+                    onClick={() => setLightboxOpen(true)}
+                    className="max-h-[460px] w-auto max-w-full cursor-zoom-in rounded-xl object-contain"
                   />
-                ) : null}
+                ) : (
+                  <div className="aspect-square w-full rounded-xl bg-secondary/60" />
+                )}
               </div>
               {gallery.length > 1 && (
                 <div className="mt-3 flex gap-2 overflow-x-auto">
@@ -297,6 +312,37 @@ function ProductPage() {
               </Button>
             </div>
           </div>
+
+          {lightboxOpen && mainImage && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+              onClick={() => setLightboxOpen(false)}
+            >
+              <button
+                onClick={() => setLightboxOpen(false)}
+                className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                aria-label="Close"
+              >
+                <X className="h-6 w-6" />
+              </button>
+              <div
+                className="max-h-full max-w-full overflow-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img
+                  src={mainImage}
+                  alt={product.name}
+                  onClick={() => setZoomed((z) => !z)}
+                  className={
+                    zoomed
+                      ? "max-w-none cursor-zoom-out"
+                      : "max-h-[92vh] max-w-[92vw] cursor-zoom-in object-contain"
+                  }
+                />
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
       <StoreFooter />
