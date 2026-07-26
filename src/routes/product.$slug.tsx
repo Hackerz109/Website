@@ -119,9 +119,9 @@ function ProductPage() {
         ) : (
           <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div>
-              <div className="aspect-square overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft">
+              <div className="aspect-square overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft p-6">
                 {mainImage ? (
-                  <img src={mainImage} alt={product.name} className="h-full w-full object-cover" />
+                  <img src={mainImage} alt={product.name} className="h-full w-full object-contain" />
                 ) : null}
               </div>
               {gallery.length > 1 && (
@@ -130,11 +130,11 @@ function ProductPage() {
                     <button
                       key={url}
                       onClick={() => setActiveImage(url)}
-                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border ${
+                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border p-1.5 ${
                         (mainImage === url) ? "border-primary" : "border-border opacity-70 hover:opacity-100"
                       }`}
                     >
-                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <img src={url} alt="" className="h-full w-full object-contain" />
                     </button>
                   ))}
                 </div>
