@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
@@ -166,205 +165,66 @@ function Index() {
   );
 }
 
-type Category = "switches" | "fans" | "wires" | "fittings";
-
-const CATEGORY_TABS = [
-  { id: "switches" as const, label: "Switches", icon: ToggleLeft },
-  { id: "fans" as const, label: "Fans", icon: Fan },
-  { id: "wires" as const, label: "Wires", icon: Cable },
-  { id: "fittings" as const, label: "Fittings", icon: Plug },
-];
-
-/** Signature element: a small working control panel spanning all four
- *  categories, not just one product. Tap a tab, get a real, live demo for
- *  that category — a switch you actually flip, a fan you actually speed
- *  up, a wire you actually pulse, a fitting whose colour temperature
- *  actually shifts. Auto-tours through all four once on load (skipped
- *  under prefers-reduced-motion) so people see the range before touching
- *  anything, then hands control over the moment they tap a tab. */
+/** Signature element: a large, continuous loop of current flowing through
+ *  all four categories at once — not boxed into a small bordered widget,
+ *  just floating directly in the hero. A soft comet of light travels the
+ *  loop forever; each category's icon and label brighten as the current
+ *  passes near it. No taps, no toy interactions — a big, atmospheric
+ *  piece rather than a diagram. */
 function HeroPanel() {
-  const [tab, setTab] = useState<Category>("switches");
-  const [autoTour, setAutoTour] = useState(true);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setAutoTour(false);
-      return;
-    }
-    if (!autoTour) return;
-    const order: Category[] = ["switches", "fans", "wires", "fittings"];
-    let i = order.indexOf(tab);
-    const id = setInterval(() => {
-      i = (i + 1) % order.length;
-      setTab(order[i]);
-      if (i === order.length - 1) clearInterval(id);
-    }, 1900);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoTour]);
-
-  function selectTab(id: Category) {
-    setAutoTour(false);
-    setTab(id);
-  }
+  const nodes = [
+    { icon: ToggleLeft, label: "Switches", left: 22.7, top: 25.1, delay: "0s" },
+    { icon: Fan, label: "Fans", left: 77.3, top: 25.1, delay: "1.5s" },
+    { icon: Plug, label: "Fittings", left: 77.3, top: 74.9, delay: "3s" },
+    { icon: Cable, label: "Wires", left: 22.7, top: 74.9, delay: "4.5s" },
+  ];
 
   return (
-    <div className="relative mx-auto aspect-[4/3] w-full max-w-sm rounded-3xl bg-gradient-to-br from-brass/50 via-copper/20 to-transparent p-[1px] shadow-soft-lg md:max-w-md">
-      <div className="flex h-full w-full flex-col overflow-hidden rounded-[inherit] bg-obsidian-deep">
-        <div className="flex items-center justify-center gap-1.5 border-b border-porcelain/10 p-2.5">
-          {CATEGORY_TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              aria-label={label}
-              aria-pressed={tab === id}
-              onClick={() => selectTab(id)}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors sm:h-9 sm:w-9 ${
-                tab === id ? "bg-brass text-obsidian" : "text-brass/45 hover:text-brass"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-            </button>
-          ))}
-        </div>
-
-        <div className="relative flex-1 p-4 sm:p-5">
-          {tab === "switches" && <SwitchDemo />}
-          {tab === "fans" && <FanDemo />}
-          {tab === "wires" && <WireDemo />}
-          {tab === "fittings" && <FittingDemo />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SwitchDemo() {
-  const [on, setOn] = useState(false);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setOn(true), 500);
-    return () => window.clearTimeout(t);
-  }, []);
-
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-3">
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-md md:max-w-lg">
       <div
-        className="pointer-events-none absolute inset-0 transition-opacity duration-300"
-        style={{
-          background: "radial-gradient(45% 45% at 50% 40%, var(--brass), transparent 70%)",
-          opacity: on ? 0.3 : 0.05,
-        }}
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{ background: "radial-gradient(55% 55% at 50% 50%, var(--brass), transparent 70%)", filter: "blur(60px)" }}
       />
-      <button
-        type="button"
-        onClick={() => setOn((v) => !v)}
-        aria-pressed={on}
-        aria-label="Toggle demo switch"
-        className="relative z-10 flex h-24 w-20 items-center justify-center rounded-2xl border border-brass/25 bg-obsidian shadow-soft-lg [perspective:400px] sm:h-28 sm:w-24"
-      >
+
+      <svg viewBox="0 0 440 340" className="absolute inset-0 h-full w-full">
+        <defs>
+          <filter id="loop-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <ellipse cx="220" cy="170" rx="170" ry="120" fill="none" stroke="var(--color-brass)" strokeOpacity="0.14" strokeWidth="1.5" />
+        <ellipse
+          cx="220" cy="170" rx="170" ry="120" pathLength="1" fill="none" stroke="var(--color-copper-bright)"
+          strokeOpacity="0.4" strokeWidth="3" strokeLinecap="round" strokeDasharray="0.22 1"
+          className="loop-flow" filter="url(#loop-glow)"
+        />
+        <ellipse
+          cx="220" cy="170" rx="170" ry="120" pathLength="1" fill="none" stroke="var(--color-brass-soft)"
+          strokeWidth="3.5" strokeLinecap="round" strokeDasharray="0.05 1"
+          className="loop-flow" filter="url(#loop-glow)"
+        />
+      </svg>
+
+      {nodes.map(({ icon: Icon, label, left, top, delay }) => (
         <div
-          className="h-[70%] w-[65%] rounded-xl bg-gradient-to-br from-brass-soft via-copper to-copper-bright shadow-soft transition-transform duration-200 ease-out"
-          style={{ transform: on ? "rotateX(-16deg) translateY(3%)" : "rotateX(20deg) translateY(-3%)" }}
+          key={label}
+          className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2"
+          style={{ left: `${left}%`, top: `${top}%` }}
         >
+          <Icon className="category-label h-5 w-5 text-brass sm:h-6 sm:w-6" style={{ animationDelay: delay }} />
           <span
-            className="mx-auto mt-2.5 block h-1.5 w-1.5 rounded-full bg-brass-soft transition-opacity duration-200"
-            style={{ opacity: on ? 1 : 0.25, boxShadow: on ? "0 0 6px 1.5px var(--brass)" : "none" }}
-          />
+            className="category-label font-mono text-[10px] font-medium tracking-[0.18em] text-porcelain/70 sm:text-[11px]"
+            style={{ animationDelay: delay }}
+          >
+            {label.toUpperCase()}
+          </span>
         </div>
-      </button>
-      <p className="relative z-10 font-mono text-[9px] text-porcelain/40 sm:text-[10px]">
-        {on ? "ON — tap to switch off" : "Tap the switch"}
-      </p>
-    </div>
-  );
-}
-
-function FanDemo() {
-  const [speed, setSpeed] = useState(3);
-  const rpm = Math.round(180 + (speed - 1) * 50);
-
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-3">
-      <div
-        className="fan-spin flex h-16 w-16 items-center justify-center rounded-full border border-brass/25 bg-obsidian text-brass shadow-soft sm:h-20 sm:w-20"
-        style={{ animationDuration: `${2.6 / speed}s` }}
-      >
-        <Fan className="h-8 w-8 sm:h-10 sm:w-10" />
-      </div>
-      <input
-        type="range"
-        min={1}
-        max={5}
-        value={speed}
-        aria-label="Fan speed"
-        onChange={(e) => setSpeed(Number(e.target.value))}
-        className="dimmer-slider w-2/3"
-      />
-      <p className="font-mono text-[9px] text-porcelain/40 sm:text-[10px]">Speed {speed}/5 · ~{rpm} RPM</p>
-    </div>
-  );
-}
-
-function WireDemo() {
-  const [pulseKey, setPulseKey] = useState(0);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setPulseKey((k) => k + 1), 350);
-    return () => window.clearTimeout(t);
-  }, []);
-
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4">
-      <div className="relative flex w-4/5 items-center justify-between">
-        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-brass/25" />
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span
-            key={`${pulseKey}-${i}`}
-            className="wire-pulse-dot relative h-2.5 w-2.5 rounded-full bg-brass"
-            style={{ animationDelay: `${i * 120}ms` }}
-          />
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => setPulseKey((k) => k + 1)}
-        className="rounded-full bg-brass px-4 py-1.5 font-mono text-[10px] font-semibold text-obsidian sm:text-[11px]"
-      >
-        Send current →
-      </button>
-      <p className="font-mono text-[9px] text-porcelain/40 sm:text-[10px]">2.5mm² copper · tap to test</p>
-    </div>
-  );
-}
-
-function FittingDemo() {
-  const [warm, setWarm] = useState(true);
-  const glow = warm ? "oklch(0.85 0.09 85)" : "oklch(0.90 0.02 240)";
-
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4">
-      <div
-        className="h-14 w-14 rounded-full transition-[background,box-shadow] duration-300 sm:h-16 sm:w-16"
-        style={{ background: glow, boxShadow: `0 0 32px 8px ${glow}` }}
-      />
-      <div className="flex overflow-hidden rounded-full border border-brass/30">
-        <button
-          type="button"
-          onClick={() => setWarm(true)}
-          className={`px-3 py-1 font-mono text-[10px] transition-colors ${warm ? "bg-brass text-obsidian" : "text-porcelain/50"}`}
-        >
-          Warm
-        </button>
-        <button
-          type="button"
-          onClick={() => setWarm(false)}
-          className={`px-3 py-1 font-mono text-[10px] transition-colors ${!warm ? "bg-brass text-obsidian" : "text-porcelain/50"}`}
-        >
-          Cool
-        </button>
-      </div>
-      <p className="font-mono text-[9px] text-porcelain/40 sm:text-[10px]">{warm ? "2700K · Warm White" : "6500K · Cool Daylight"}</p>
+      ))}
     </div>
   );
 }
