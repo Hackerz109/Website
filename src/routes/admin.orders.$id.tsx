@@ -262,6 +262,21 @@ function AdminOrderDetailPage() {
                     {!addr.line1 && addr.address && <p>{addr.address}</p>}
                   </div>
                 </div>
+                <div className="mt-2">
+                  {order.delivery_location_precise === true && (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+                      <MapPin className="mr-1 h-3 w-3" /> Precise location — GPS or map pin
+                    </Badge>
+                  )}
+                  {order.delivery_location_precise === false && (
+                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-500">
+                      Approximate — from typed address only
+                    </Badge>
+                  )}
+                  {order.delivery_location_precise === null && hasDeliveryPin && (
+                    <Badge variant="outline">Location precision unknown (older order)</Badge>
+                  )}
+                </div>
                 {order.delivery_distance_km != null && (
                   <p className="mt-1.5 text-xs">{order.delivery_distance_km} km from store</p>
                 )}

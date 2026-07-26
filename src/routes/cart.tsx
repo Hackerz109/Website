@@ -490,6 +490,13 @@ function CartPage() {
         delivery_zone_id: fulfillment === "delivery" ? finalQuote?.zone_id ?? null : null,
         delivery_lat: fulfillment === "delivery" ? effectiveCoords?.lat ?? null : null,
         delivery_lng: fulfillment === "delivery" ? effectiveCoords?.lng ?? null : null,
+        // `coords` only ever holds a location the shopper explicitly set
+        // (GPS "use my location", a map tap, or a pin drag) — never a typed
+        // address. So its presence is exactly "was this precise" for
+        // admin's purposes; addressCoords (the address-only fallback) never
+        // counts as precise even though it's what effectiveCoords ends up
+        // using when no pin was set.
+        delivery_location_precise: fulfillment === "delivery" ? !!coords : null,
         delivery_distance_km: fulfillment === "delivery" ? finalQuote?.distance_km ?? null : null,
         delivery_instructions_snapshot: fulfillment === "delivery" ? freshInfo?.delivery_instructions ?? null : null,
         pickup_instructions_snapshot: fulfillment === "pickup" ? freshInfo?.pickup_instructions ?? null : null,
