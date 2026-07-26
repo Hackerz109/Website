@@ -38,6 +38,7 @@ function ProductPage() {
   const add = useCart((s) => s.add);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [variantId, setVariantId] = useState<string | null>(null);
+  const [imgRatio, setImgRatio] = useState<number | null>(null);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -67,6 +68,11 @@ function ProductPage() {
       ? [product.image_url]
       : [];
   const mainImage = activeImage ?? gallery[0] ?? null;
+
+  // Recompute the frame's shape whenever the active image changes
+  useEffect(() => {
+    setImgRatio(null);
+  }, [mainImage]);
 
   // Reset local selection state whenever a different product loads
   useEffect(() => {
@@ -119,9 +125,17 @@ function ProductPage() {
         ) : (
           <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div>
-              <div className="aspect-square overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft p-6">
+              <div
+                className="w-full max-h-[520px] overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft transition-[aspect-ratio] duration-200"
+                style={{ aspectRatio: imgRatio ?? 1 }}
+              >
                 {mainImage ? (
-                  <img src={mainImage} alt={product.name} className="h-full w-full object-contain" />
+                  <img
+                    src={mainImage}
+                    alt={product.name}
+                    onLoad={(e) => setImgRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
+                    className="h-full w-full object-contain p-2"
+                  />
                 ) : null}
               </div>
               {gallery.length > 1 && (
