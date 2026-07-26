@@ -141,18 +141,18 @@ function ProductPage() {
           <>
           <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div>
-              <div className="flex items-center justify-center rounded-2xl border border-border bg-secondary/40 p-3 shadow-soft">
-                {mainImage ? (
+              {mainImage ? (
+                <div className="mx-auto flex w-fit items-center justify-center rounded-2xl border border-border bg-secondary/40 p-3 shadow-soft">
                   <img
                     src={mainImage}
                     alt={product.name}
                     onClick={() => setLightboxOpen(true)}
                     className="max-h-[460px] w-auto max-w-full cursor-zoom-in rounded-xl object-contain"
                   />
-                ) : (
-                  <div className="aspect-square w-full rounded-xl bg-secondary/60" />
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="aspect-square w-full rounded-2xl border border-border bg-secondary/40 shadow-soft" />
+              )}
               {gallery.length > 1 && (
                 <div className="mt-3 flex gap-2 overflow-x-auto">
                   {gallery.map((url) => (
