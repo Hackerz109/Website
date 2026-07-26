@@ -27,7 +27,7 @@ function CouponTicket({ coupon }: { coupon: VisibleCoupon }) {
   }
 
   return (
-    <div className="relative mx-2 flex w-72 flex-shrink-0 overflow-hidden rounded-2xl border border-primary/20 bg-brass text-primary-foreground shadow-soft-lg">
+    <div className="relative mx-2 flex w-72 flex-shrink-0 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg">
       {/* Perforated ticket edge */}
       <div className="absolute inset-y-0 left-[74px] flex flex-col justify-between py-1">
         {Array.from({ length: 8 }).map((_, i) => (

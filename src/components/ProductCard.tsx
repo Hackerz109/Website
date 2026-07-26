@@ -42,13 +42,9 @@ export function ProductCard({ product }: { product: Product }) {
     <Link
       to="/product/$slug"
       params={{ slug: product.slug }}
-      className="card-target group block rounded-2xl transition-transform duration-300 hover:-translate-y-1"
+      className="group block rounded-2xl transition-transform duration-300 hover:-translate-y-1"
     >
       <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow duration-300 group-hover:shadow-soft-lg">
-        <span className="absolute left-1 top-1 h-3 w-3 border-l-2 border-t-2 border-primary" />
-        <span className="absolute right-1 top-1 h-3 w-3 border-r-2 border-t-2 border-primary" />
-        <span className="absolute bottom-1 left-1 h-3 w-3 border-b-2 border-l-2 border-primary" />
-        <span className="absolute bottom-1 right-1 h-3 w-3 border-b-2 border-r-2 border-primary" />
         {primaryImage ? (
           <img
             src={primaryImage}
@@ -83,11 +79,11 @@ export function ProductCard({ product }: { product: Product }) {
           </p>
         )}
         <div className="mt-1 flex items-center gap-1.5">
-          <p className="font-mono text-base font-semibold text-foreground">{priceLabel}</p>
+          <p className="text-base font-bold text-foreground">{priceLabel}</p>
           {hasDiscount && (
             <>
-              <p className="font-mono text-xs text-muted-foreground line-through">{formatMoney(product.mrp_cents!, product.currency)}</p>
-              <p className="text-xs font-semibold text-emerald-700">{discountPct}% off</p>
+              <p className="text-xs text-muted-foreground line-through">{formatMoney(product.mrp_cents!, product.currency)}</p>
+              <p className="text-xs font-semibold text-green-600">{discountPct}% off</p>
             </>
           )}
         </div>
