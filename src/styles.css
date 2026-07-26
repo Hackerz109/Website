@@ -248,64 +248,28 @@
   animation: reveal-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Signature hero element: a small working control panel spanning every
-   category — the slider below (reused for both the fan-speed and, if
-   re-added, brightness demos) is a native <input type="range">, restyled
-   to match the brand metals. Cross-browser thumb/track rules are
-   required since Firefox and Chromium don't share pseudo-elements. */
-.dimmer-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--copper), var(--brass));
-  outline: none;
-  cursor: pointer;
+/* Signature hero element: a large, continuous loop of current — a soft
+   comet (bright core + dimmer trailing glow, both sharing one keyframe so
+   they travel together) circles a big ellipse forever. pathLength="1"
+   normalises the ellipse's circumference to 1 unit, so "dasharray: X 1"
+   always draws exactly one arc of length X with no repeats, however the
+   ellipse itself is sized. */
+@keyframes loop-flow {
+  to { stroke-dashoffset: -1; }
 }
-.dimmer-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--brass-soft);
-  border: 2px solid var(--obsidian-deep);
-  box-shadow: 0 0 0 1px oklch(0.76 0.12 81 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
-}
-.dimmer-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--brass-soft);
-  border: 2px solid var(--obsidian-deep);
-  box-shadow: 0 0 0 1px oklch(0.76 0.12 81 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
-}
-.dimmer-slider::-moz-range-track {
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--copper), var(--brass));
+.loop-flow {
+  animation: loop-flow 6s linear infinite;
 }
 
-/* Fans tab — continuous rotation, speed (and therefore duration) driven
-   live by the speed slider via inline style. */
-@keyframes fan-spin {
-  to { transform: rotate(360deg); }
+/* Each category's icon + label brighten as the current passes near it —
+   timed to loop-flow's 6s cycle, staggered a quarter-turn apart to
+   roughly match the comet's position going around the loop. */
+@keyframes category-glow {
+  0%, 20%, 100% { opacity: 0.55; filter: none; }
+  6% { opacity: 1; filter: drop-shadow(0 0 6px var(--brass)); }
 }
-.fan-spin {
-  animation-name: fan-spin;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-/* Wires tab — a one-shot "current flowing" pulse across five dots,
-   replayed on demand by remounting with a fresh React key. */
-@keyframes wire-pulse {
-  0%, 100% { opacity: 0.2; box-shadow: none; transform: scale(1); }
-  50% { opacity: 1; box-shadow: 0 0 8px 2px var(--brass); transform: scale(1.3); }
-}
-.wire-pulse-dot {
-  animation: wire-pulse 0.6s ease-in-out 1;
+.category-label {
+  animation: category-glow 6s ease-in-out infinite;
 }
 
 /* Live / "spark" indicator — a small brass dot with a soft breathing glow
@@ -363,10 +327,11 @@
   .spark-dot {
     animation: none !important;
   }
-  .fan-spin {
+  .loop-flow {
     animation: none !important;
+    opacity: 0.3 !important;
   }
-  .wire-pulse-dot {
+  .category-label {
     animation: none !important;
     opacity: 0.85 !important;
   }
