@@ -37,7 +37,7 @@ function Index() {
       <section className="relative overflow-hidden bg-obsidian">
         <div className="pointer-events-none absolute inset-0 bg-glow-mesh" />
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-6 py-14 md:grid-cols-2 md:gap-12 md:py-28">
           <div className="reveal-up">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-porcelain/15 bg-porcelain/5 px-3 py-1 text-xs font-medium text-porcelain/70 backdrop-blur-sm">
               <span className="spark-dot h-1.5 w-1.5 rounded-full bg-brass" />
@@ -75,7 +75,7 @@ function Index() {
             )}
           </div>
 
-          <div className="relative hidden md:block">
+          <div className="relative mt-2 md:mt-0">
             <HeroPanel />
           </div>
         </div>
@@ -188,7 +188,7 @@ function HeroPanel() {
   ];
 
   return (
-    <div className="relative mx-auto aspect-[4/3] w-full max-w-md rounded-3xl bg-gradient-to-br from-brass/50 via-copper/20 to-transparent p-[1px] shadow-soft-lg">
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-sm rounded-3xl bg-gradient-to-br from-brass/50 via-copper/20 to-transparent p-[1px] shadow-soft-lg md:max-w-md">
       <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-obsidian-deep">
         <svg viewBox="0 0 380 280" className="absolute inset-0 h-full w-full">
           <defs>
@@ -230,16 +230,19 @@ function HeroPanel() {
           ))}
         </svg>
 
+        {/* Positioned as a % of the panel, matching the SVG viewBox (380x280)
+            proportionally — so nodes stay locked to the wire endpoints at
+            any panel size, from a small phone up to the desktop column. */}
         {nodes.map(({ icon: Icon, label, x, y }) => (
           <div
             key={label}
-            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
-            style={{ left: x, top: y }}
+            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 sm:gap-1.5"
+            style={{ left: `${(x / 380) * 100}%`, top: `${(y / 280) * 100}%` }}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-brass/30 bg-obsidian text-brass shadow-[0_0_16px_-4px_var(--color-brass)]">
-              <Icon className="h-5 w-5" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-brass/30 bg-obsidian text-brass shadow-[0_0_16px_-4px_var(--color-brass)] sm:h-11 sm:w-11">
+              <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
             </span>
-            <span className="rounded-full bg-brass px-2 py-0.5 font-mono text-[10px] font-semibold text-obsidian">
+            <span className="rounded-full bg-brass px-1.5 py-0.5 font-mono text-[9px] font-semibold text-obsidian sm:px-2 sm:text-[10px]">
               {label}
             </span>
           </div>
