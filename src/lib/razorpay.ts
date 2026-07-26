@@ -67,7 +67,7 @@ export async function payForOrder(order: PayableOrder): Promise<PayResult> {
         name: order.customer_name ?? undefined,
         email: order.customer_email ?? undefined,
       },
-      theme: { color: "#0A2647" },
+      theme: { color: "#8A6A22" },
       handler: async (response: unknown) => {
         const r = response as {
           razorpay_order_id: string;
