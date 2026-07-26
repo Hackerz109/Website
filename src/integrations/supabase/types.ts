@@ -100,6 +100,7 @@ export type Database = {
           delivery_zone_id: string | null
           delivery_lat: number | null
           delivery_lng: number | null
+          delivery_location_precise: boolean | null
           delivery_distance_km: number | null
           delivery_instructions_snapshot: string | null
           pickup_instructions_snapshot: string | null
@@ -136,6 +137,7 @@ export type Database = {
           delivery_zone_id?: string | null
           delivery_lat?: number | null
           delivery_lng?: number | null
+          delivery_location_precise?: boolean | null
           delivery_distance_km?: number | null
           delivery_instructions_snapshot?: string | null
           pickup_instructions_snapshot?: string | null
@@ -172,6 +174,7 @@ export type Database = {
           delivery_zone_id?: string | null
           delivery_lat?: number | null
           delivery_lng?: number | null
+          delivery_location_precise?: boolean | null
           delivery_distance_km?: number | null
           delivery_instructions_snapshot?: string | null
           pickup_instructions_snapshot?: string | null
