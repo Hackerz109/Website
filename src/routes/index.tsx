@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
@@ -165,66 +166,99 @@ function Index() {
   );
 }
 
-/** Signature element: a large, continuous loop of current flowing through
- *  all four categories at once — not boxed into a small bordered widget,
- *  just floating directly in the hero. A soft comet of light travels the
- *  loop forever; each category's icon and label brighten as the current
- *  passes near it. No taps, no toy interactions — a big, atmospheric
- *  piece rather than a diagram. */
+/** Signature element: a floating instrument panel showing the shop's
+ *  categories, wired together by a live schematic. Thin brass traces
+ *  carry a travelling copper spark between nodes on a loop — current,
+ *  literally flowing, standing in for what the shop actually sells. */
 function HeroPanel() {
+  // SMIL animations (animateMotion / animate) aren't covered by the CSS
+  // prefers-reduced-motion rules below, so gate them here explicitly.
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduceMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const nodes = [
-    { icon: ToggleLeft, label: "Switches", left: 22.7, top: 25.1, delay: "0s" },
-    { icon: Fan, label: "Fans", left: 77.3, top: 25.1, delay: "1.5s" },
-    { icon: Plug, label: "Fittings", left: 77.3, top: 74.9, delay: "3s" },
-    { icon: Cable, label: "Wires", left: 22.7, top: 74.9, delay: "4.5s" },
+    { icon: ToggleLeft, label: "Switches", x: 60, y: 46 },
+    { icon: Fan, label: "Fans", x: 300, y: 30 },
+    { icon: Cable, label: "Wires", x: 50, y: 210 },
+    { icon: Plug, label: "Fittings", x: 290, y: 220 },
+  ];
+
+  // Rounded bends (via quadratic curves) rather than hard right angles —
+  // reads like a smooth PCB trace instead of a sharp schematic corner.
+  const paths = [
+    { d: "M 95 60 H 172 Q 190 60 190 78 V 130", delay: "0s" },
+    { d: "M 285 55 H 208 Q 190 55 190 73 V 130", delay: "0.8s" },
+    { d: "M 90 220 H 172 Q 190 220 190 202 V 130", delay: "1.6s" },
+    { d: "M 275 230 H 208 Q 190 230 190 212 V 130", delay: "2.4s" },
   ];
 
   return (
-    <div className="relative mx-auto aspect-[4/3] w-full max-w-md md:max-w-lg">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{ background: "radial-gradient(55% 55% at 50% 50%, var(--brass), transparent 70%)", filter: "blur(60px)" }}
-      />
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-sm rounded-3xl bg-gradient-to-br from-brass/50 via-copper/20 to-transparent p-[1px] shadow-soft-lg md:max-w-md">
+      <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-obsidian-deep">
+        <svg viewBox="0 0 380 280" className="absolute inset-0 h-full w-full">
+          <defs>
+            <filter id="spark-glow" x="-200%" y="-200%" width="500%" height="500%">
+              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-      <svg viewBox="0 0 440 340" className="absolute inset-0 h-full w-full">
-        <defs>
-          <filter id="loop-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+          {paths.map((p) => (
+            <path key={`base-${p.d}`} d={p.d} fill="none" stroke="var(--color-brass)" strokeOpacity="0.18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          ))}
+          <circle cx="190" cy="130" r="4" fill="var(--color-brass)" filter="url(#spark-glow)" />
 
-        <ellipse cx="220" cy="170" rx="170" ry="120" fill="none" stroke="var(--color-brass)" strokeOpacity="0.14" strokeWidth="1.5" />
-        <ellipse
-          cx="220" cy="170" rx="170" ry="120" pathLength="1" fill="none" stroke="var(--color-copper-bright)"
-          strokeOpacity="0.4" strokeWidth="3" strokeLinecap="round" strokeDasharray="0.22 1"
-          className="loop-flow" filter="url(#loop-glow)"
-        />
-        <ellipse
-          cx="220" cy="170" rx="170" ry="120" pathLength="1" fill="none" stroke="var(--color-brass-soft)"
-          strokeWidth="3.5" strokeLinecap="round" strokeDasharray="0.05 1"
-          className="loop-flow" filter="url(#loop-glow)"
-        />
-      </svg>
+          {!reduceMotion && paths.map((p) => (
+            <path
+              key={`pulse-${p.d}`}
+              d={p.d} fill="none" stroke="var(--color-copper-bright)" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+              pathLength="1" className="current-pulse" style={{ animationDelay: p.delay }}
+            />
+          ))}
 
-      {nodes.map(({ icon: Icon, label, left, top, delay }) => (
-        <div
-          key={label}
-          className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2"
-          style={{ left: `${left}%`, top: `${top}%` }}
-        >
-          <Icon className="category-label h-5 w-5 text-brass sm:h-6 sm:w-6" style={{ animationDelay: delay }} />
-          <span
-            className="category-label font-mono text-[10px] font-medium tracking-[0.18em] text-porcelain/70 sm:text-[11px]"
-            style={{ animationDelay: delay }}
+          {!reduceMotion && paths.map((p) => (
+            <circle key={`dot-${p.d}`} r="2.6" fill="var(--color-brass-soft)" filter="url(#spark-glow)">
+              <animateMotion path={p.d} dur="3.2s" repeatCount="indefinite" begin={p.delay} />
+              <animate
+                attributeName="opacity"
+                values="0;1;1;0"
+                keyTimes="0;0.1;0.65;1"
+                dur="3.2s"
+                repeatCount="indefinite"
+                begin={p.delay}
+              />
+            </circle>
+          ))}
+        </svg>
+
+        {/* Positioned as a % of the panel, matching the SVG viewBox (380x280)
+            proportionally — so nodes stay locked to the wire endpoints at
+            any panel size, from a small phone up to the desktop column. */}
+        {nodes.map(({ icon: Icon, label, x, y }) => (
+          <div
+            key={label}
+            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 sm:gap-1.5"
+            style={{ left: `${(x / 380) * 100}%`, top: `${(y / 280) * 100}%` }}
           >
-            {label.toUpperCase()}
-          </span>
-        </div>
-      ))}
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-brass/30 bg-obsidian text-brass shadow-[0_0_16px_-4px_var(--color-brass)] sm:h-11 sm:w-11">
+              <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+            </span>
+            <span className="rounded-full bg-brass px-1.5 py-0.5 font-mono text-[9px] font-semibold text-obsidian sm:px-2 sm:text-[10px]">
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
