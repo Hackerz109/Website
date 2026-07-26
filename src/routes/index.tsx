@@ -18,7 +18,7 @@ function Index() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_images(url, is_primary), product_variants(price_cents, stock)")
+        .select("*, product_images(url, is_primary), product_variants(price_cents, stock), categories(name, slug)")
         .eq("active", true)
         .order("featured", { ascending: false })
         .order("created_at", { ascending: false });
@@ -28,7 +28,18 @@ function Index() {
   });
 
   const products = data ?? [];
-  const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))) as string[];
+  // products.category doesn't exist on the table — category is a joined
+  // relation (category_id -> categories.{name,slug}) — so we dedupe on
+  // slug (what the /category/$name route actually filters by) while
+  // keeping the display name alongside it.
+  const categories = Array.from(
+    new Map(
+      products
+        .map((p) => p.categories)
+        .filter((c): c is { name: string; slug: string } => !!c)
+        .map((c) => [c.slug, c]),
+    ).values(),
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,12 +74,12 @@ function Index() {
               <div className="mt-8 flex flex-wrap gap-2">
                 {categories.slice(0, 6).map((c) => (
                   <Link
-                    key={c}
+                    key={c.slug}
                     to="/category/$name"
-                    params={{ name: c }}
+                    params={{ name: c.slug }}
                     className="rounded-lg border border-porcelain/15 bg-porcelain/5 px-3 py-1.5 text-xs font-medium text-porcelain/75 backdrop-blur-sm transition-colors hover:border-brass/60 hover:bg-porcelain/10 hover:text-brass-soft"
                   >
-                    {c}
+                    {c.name}
                   </Link>
                 ))}
               </div>
