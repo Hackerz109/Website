@@ -6,7 +6,6 @@ import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { BrandsStrip } from "@/components/BrandsStrip";
 import { CouponShowcase } from "@/components/CouponShowcase";
-import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -40,13 +39,13 @@ function Index() {
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
           <div className="reveal-up">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft">
-              <span className="led-dot h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               Live inventory, every category
             </span>
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground md:text-6xl">
               Everything electrical,
               <br />
-              <span className="text-brass-gradient">done right.</span>
+              <span className="text-primary">done right.</span>
             </h1>
             <p className="mt-5 max-w-md text-base text-muted-foreground md:text-lg">
               Switches, fans, wiring, and fittings from brands you can trust — with clear
@@ -81,9 +80,7 @@ function Index() {
         </div>
       </section>
 
-      <Reveal>
-        <CouponShowcase />
-      </Reveal>
+      <CouponShowcase />
 
       <section className="border-y border-border bg-card">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-10 md:grid-cols-3">
@@ -91,25 +88,21 @@ function Index() {
             { icon: PackageCheck, title: "Real-time stock", desc: "See exactly what's available before you order" },
             { icon: Zap, title: "Every category", desc: "Wiring, switches, fans, fittings & more" },
             { icon: ShieldCheck, title: "Secure, worry-free checkout", desc: "Encrypted payment and clear warranty details on every order" },
-          ].map(({ icon: Icon, title, desc }, i) => (
-            <Reveal key={title} delay={i * 100}>
-              <div className="flex items-start gap-3 rounded-2xl border border-border bg-background p-4 shadow-soft">
-                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">{title}</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
-                </div>
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex items-start gap-3 rounded-2xl border border-border bg-background p-4 shadow-soft">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+                <Icon className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">{title}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
               </div>
-            </Reveal>
+            </div>
           ))}
         </div>
       </section>
 
-      <Reveal>
-        <BrandsStrip />
-      </Reveal>
+      <BrandsStrip />
 
       <section id="products" className="mx-auto max-w-6xl px-6 py-16 md:py-24">
         <div className="mb-10">
@@ -145,10 +138,8 @@ function Index() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((p, i) => (
-              <Reveal key={p.id} delay={(i % 8) * 60}>
-                <ProductCard product={p} />
-              </Reveal>
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         )}
@@ -170,7 +161,7 @@ function HeroPanel() {
   ];
 
   return (
-    <div className="glow-ring relative mx-auto aspect-[4/3] w-full max-w-md rounded-3xl border border-border bg-card p-2 shadow-soft-lg">
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-md rounded-3xl border border-border bg-card p-2 shadow-soft-lg">
       <div className="relative h-full w-full overflow-hidden rounded-2xl bg-secondary/40">
         <svg viewBox="0 0 380 280" className="absolute inset-0 h-full w-full">
           <path d="M 95 60 H 190 V 130 H 190" fill="none" stroke="var(--color-border)" strokeWidth="1.5" />
