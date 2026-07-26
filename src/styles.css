@@ -248,28 +248,31 @@
   animation: reveal-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Signature hero element: a large, continuous loop of current — a soft
-   comet (bright core + dimmer trailing glow, both sharing one keyframe so
-   they travel together) circles a big ellipse forever. pathLength="1"
-   normalises the ellipse's circumference to 1 unit, so "dasharray: X 1"
-   always draws exactly one arc of length X with no repeats, however the
-   ellipse itself is sized. */
-@keyframes loop-flow {
-  to { stroke-dashoffset: -1; }
+/* Current flowing through a schematic trace — a bright dash travels the
+   length of the path, the way live current would. */
+@keyframes current-pulse {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  10% { opacity: 1; }
+  50% { opacity: 1; }
+  62% { opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
 }
-.loop-flow {
-  animation: loop-flow 6s linear infinite;
+.current-pulse {
+  stroke-dasharray: 1;
+  animation: current-pulse 3.2s ease-in-out infinite;
 }
 
-/* Each category's icon + label brighten as the current passes near it —
-   timed to loop-flow's 6s cycle, staggered a quarter-turn apart to
-   roughly match the comet's position going around the loop. */
-@keyframes category-glow {
-  0%, 20%, 100% { opacity: 0.55; filter: none; }
-  6% { opacity: 1; filter: drop-shadow(0 0 6px var(--brass)); }
+/* A small glowing spark that travels a motion path — progressive
+   enhancement; browsers without offset-path support just show a static
+   glowing point at the origin, which still reads fine. */
+@keyframes current-dot-travel {
+  0% { offset-distance: 0%; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
 }
-.category-label {
-  animation: category-glow 6s ease-in-out infinite;
+.current-dot {
+  animation: current-dot-travel 3.2s ease-in-out infinite;
 }
 
 /* Live / "spark" indicator — a small brass dot with a soft breathing glow
@@ -324,16 +327,16 @@
     opacity: 1 !important;
     transform: none !important;
   }
+  .current-pulse {
+    animation: none !important;
+    opacity: 0.4 !important;
+  }
+  .current-dot {
+    animation: none !important;
+    opacity: 0.9 !important;
+  }
   .spark-dot {
     animation: none !important;
-  }
-  .loop-flow {
-    animation: none !important;
-    opacity: 0.3 !important;
-  }
-  .category-label {
-    animation: none !important;
-    opacity: 0.85 !important;
   }
   .link-trace::after {
     transition: none !important;
