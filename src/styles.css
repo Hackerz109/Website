@@ -248,31 +248,64 @@
   animation: reveal-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Current flowing through a schematic trace — a bright dash travels the
-   length of the path, the way live current would. */
-@keyframes current-pulse {
-  0% { stroke-dashoffset: 1; opacity: 0; }
-  10% { opacity: 1; }
-  50% { opacity: 1; }
-  62% { opacity: 0; }
-  100% { stroke-dashoffset: 0; opacity: 0; }
+/* Signature hero element: a small working control panel spanning every
+   category — the slider below (reused for both the fan-speed and, if
+   re-added, brightness demos) is a native <input type="range">, restyled
+   to match the brand metals. Cross-browser thumb/track rules are
+   required since Firefox and Chromium don't share pseudo-elements. */
+.dimmer-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--copper), var(--brass));
+  outline: none;
+  cursor: pointer;
 }
-.current-pulse {
-  stroke-dasharray: 1;
-  animation: current-pulse 3.2s ease-in-out infinite;
+.dimmer-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--brass-soft);
+  border: 2px solid var(--obsidian-deep);
+  box-shadow: 0 0 0 1px oklch(0.76 0.12 81 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
+}
+.dimmer-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--brass-soft);
+  border: 2px solid var(--obsidian-deep);
+  box-shadow: 0 0 0 1px oklch(0.76 0.12 81 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4);
+}
+.dimmer-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--copper), var(--brass));
 }
 
-/* A small glowing spark that travels a motion path — progressive
-   enhancement; browsers without offset-path support just show a static
-   glowing point at the origin, which still reads fine. */
-@keyframes current-dot-travel {
-  0% { offset-distance: 0%; opacity: 0; }
-  8% { opacity: 1; }
-  92% { opacity: 1; }
-  100% { offset-distance: 100%; opacity: 0; }
+/* Fans tab — continuous rotation, speed (and therefore duration) driven
+   live by the speed slider via inline style. */
+@keyframes fan-spin {
+  to { transform: rotate(360deg); }
 }
-.current-dot {
-  animation: current-dot-travel 3.2s ease-in-out infinite;
+.fan-spin {
+  animation-name: fan-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* Wires tab — a one-shot "current flowing" pulse across five dots,
+   replayed on demand by remounting with a fresh React key. */
+@keyframes wire-pulse {
+  0%, 100% { opacity: 0.2; box-shadow: none; transform: scale(1); }
+  50% { opacity: 1; box-shadow: 0 0 8px 2px var(--brass); transform: scale(1.3); }
+}
+.wire-pulse-dot {
+  animation: wire-pulse 0.6s ease-in-out 1;
 }
 
 /* Live / "spark" indicator — a small brass dot with a soft breathing glow
@@ -327,16 +360,15 @@
     opacity: 1 !important;
     transform: none !important;
   }
-  .current-pulse {
-    animation: none !important;
-    opacity: 0.4 !important;
-  }
-  .current-dot {
-    animation: none !important;
-    opacity: 0.9 !important;
-  }
   .spark-dot {
     animation: none !important;
+  }
+  .fan-spin {
+    animation: none !important;
+  }
+  .wire-pulse-dot {
+    animation: none !important;
+    opacity: 0.85 !important;
   }
   .link-trace::after {
     transition: none !important;
