@@ -24,11 +24,11 @@ export function StoreHeader() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
-        <Link to="/" className="flex flex-shrink-0 items-center gap-2">
+        <Link to="/" className="flex flex-shrink-0 items-center gap-2.5">
           <img src="/logo-mark.png" alt="Sanjay Electricals logo" className="h-9 w-9" />
-          <span className="font-display text-lg font-bold tracking-tight text-foreground">
+          <span className="font-display text-lg font-semibold tracking-tight text-foreground">
             Sanjay Electricals
           </span>
         </Link>
@@ -51,7 +51,7 @@ export function StoreHeader() {
               <ShoppingBag className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Cart</span>
               {count > 0 && (
-                <span className="ml-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
+                <span className="ml-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 font-mono text-[11px] font-semibold text-primary-foreground">
                   {count}
                 </span>
               )}
@@ -61,9 +61,9 @@ export function StoreHeader() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="rounded-lg px-1.5 sm:px-2.5">
-                  <Avatar className="h-6 w-6">
+                  <Avatar className="h-6 w-6 ring-1 ring-brass/40 ring-offset-1 ring-offset-background">
                     <AvatarImage src={profile?.avatar_url ?? undefined} alt="" />
-                    <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+                    <AvatarFallback className="bg-accent text-[10px] font-semibold text-accent-foreground">
                       {initials(profile?.full_name, user.email)}
                     </AvatarFallback>
                   </Avatar>
@@ -120,6 +120,7 @@ export function StoreHeader() {
           <SearchBar autoFocus onNavigate={() => setMobileSearchOpen(false)} />
         </div>
       )}
+      <div className="hairline-copper" />
     </header>
   );
 }

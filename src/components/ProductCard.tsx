@@ -42,14 +42,14 @@ export function ProductCard({ product }: { product: Product }) {
     <Link
       to="/product/$slug"
       params={{ slug: product.slug }}
-      className="group block rounded-2xl transition-transform duration-300 hover:-translate-y-1"
+      className="group block rounded-2xl transition-transform duration-500 ease-out hover:-translate-y-1"
     >
-      <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow duration-300 group-hover:shadow-soft-lg">
+      <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-all duration-500 ease-out group-hover:shadow-soft-lg group-hover:ring-1 group-hover:ring-copper/30">
         {primaryImage ? (
           <img
             src={primaryImage}
             alt={product.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-secondary">
@@ -58,7 +58,7 @@ export function ProductCard({ product }: { product: Product }) {
         )}
 
         {product.featured && (
-          <div className="absolute right-2.5 top-2.5 rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground shadow-soft">
+          <div className="absolute right-2.5 top-2.5 rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground shadow-soft">
             Featured
           </div>
         )}
@@ -70,20 +70,20 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
       <div className="mt-3">
         {product.categories?.name && (
-          <p className="text-[11px] font-medium text-primary">{product.categories.name}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-copper">{product.categories.name}</p>
         )}
         <h3 className="mt-0.5 truncate text-sm font-medium text-foreground">{product.name}</h3>
         {product.warranty_available && (
-          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-primary/80">
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-copper/80">
             <ShieldCheck className="h-3 w-3" /> Warranty included
           </p>
         )}
         <div className="mt-1 flex items-center gap-1.5">
-          <p className="text-base font-bold text-foreground">{priceLabel}</p>
+          <p className="font-mono text-base font-semibold text-foreground">{priceLabel}</p>
           {hasDiscount && (
             <>
-              <p className="text-xs text-muted-foreground line-through">{formatMoney(product.mrp_cents!, product.currency)}</p>
-              <p className="text-xs font-semibold text-green-600">{discountPct}% off</p>
+              <p className="font-mono text-xs text-muted-foreground line-through">{formatMoney(product.mrp_cents!, product.currency)}</p>
+              <p className="text-xs font-semibold text-success">{discountPct}% off</p>
             </>
           )}
         </div>

@@ -12,12 +12,12 @@ const BRANDS = [
 
 function LogoTile({ name, src }: { name: string; src: string }) {
   return (
-    <div className="mx-3 flex h-24 w-40 flex-shrink-0 items-center justify-center rounded-2xl border border-border bg-card p-4 shadow-soft">
+    <div className="mx-3 flex h-24 w-40 flex-shrink-0 items-center justify-center rounded-2xl border border-border bg-card p-4 shadow-soft transition-all duration-500 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg hover:ring-1 hover:ring-brass/40">
       <img
         src={src}
         alt={name}
         title={name}
-        className="max-h-full max-w-full object-contain grayscale opacity-70 transition-all duration-300 hover:grayscale-0 hover:opacity-100"
+        className="max-h-full max-w-full object-contain grayscale opacity-70 transition-all duration-500 ease-out hover:grayscale-0 hover:opacity-100"
       />
     </div>
   );
@@ -25,12 +25,12 @@ function LogoTile({ name, src }: { name: string; src: string }) {
 
 export function BrandsStrip() {
   return (
-    <section className="border-y border-border bg-card/50 py-12">
+    <section className="bg-secondary/30 py-12">
       <div className="mx-auto max-w-6xl px-6">
-        <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="text-center text-xs font-semibold uppercase tracking-wide text-copper">
           Brands we carry
         </p>
-        <h2 className="mt-1 text-center text-xl font-extrabold tracking-tight text-foreground md:text-2xl">
+        <h2 className="mt-1 text-center font-display text-xl font-semibold tracking-tight text-foreground md:text-2xl">
           Genuine products, trusted names
         </h2>
       </div>
