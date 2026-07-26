@@ -25,19 +25,19 @@ export function StoreHeader() {
 
   return (
     <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
-        <Link to="/" className="flex flex-shrink-0 items-center gap-2.5">
-          <img src="/logo-mark.png" alt="Sanjay Electricals logo" className="h-9 w-9" />
-          <span className="font-display text-lg font-semibold tracking-tight text-foreground">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
+        <Link to="/" className="flex min-w-0 flex-shrink items-center gap-2.5">
+          <img src="/logo-mark.png" alt="Sanjay Electricals logo" className="h-9 w-9 flex-shrink-0" />
+          <span className="truncate font-display text-base font-semibold tracking-tight text-foreground sm:text-lg">
             Sanjay Electricals
           </span>
         </Link>
 
-        <div className="mx-6 hidden max-w-md flex-1 md:block">
+        <div className="mx-2 hidden max-w-md flex-1 md:block">
           <SearchBar />
         </div>
 
-        <nav className="flex items-center gap-1.5">
+        <nav className="flex flex-shrink-0 items-center gap-1 sm:gap-1.5">
           <Button
             variant="ghost"
             size="sm"
