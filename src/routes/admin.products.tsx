@@ -737,6 +737,102 @@ function VariantsEditor({
   );
 }
 
+function loadImageElement(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (err) => {
+      URL.revokeObjectURL(url);
+      reject(err);
+    };
+    img.src = url;
+  });
+}
+
+// Auto-crops baked-in white padding around the product and re-renders it onto a
+// clean, standardized square canvas at a consistent high resolution. This is what
+// fixes images looking "smaller than the frame" and blurry after upload.
+async function standardizeProductImage(file: File, targetSize = 1600): Promise<Blob> {
+  const img = await loadImageElement(file);
+  const srcW = img.naturalWidth;
+  const srcH = img.naturalHeight;
+
+  // Scan a small downscaled copy to find the actual product's bounding box
+  // (ignoring white/transparent background padding baked into the source photo)
+  const scanMax = 320;
+  const scanScale = Math.min(1, scanMax / Math.max(srcW, srcH));
+  const scanW = Math.max(1, Math.round(srcW * scanScale));
+  const scanH = Math.max(1, Math.round(srcH * scanScale));
+  const scanCanvas = document.createElement("canvas");
+  scanCanvas.width = scanW;
+  scanCanvas.height = scanH;
+  const sctx = scanCanvas.getContext("2d")!;
+  sctx.drawImage(img, 0, 0, scanW, scanH);
+  const { data } = sctx.getImageData(0, 0, scanW, scanH);
+
+  const WHITE_THRESHOLD = 240;
+  let minX = scanW, minY = scanH, maxX = -1, maxY = -1;
+  for (let y = 0; y < scanH; y++) {
+    for (let x = 0; x < scanW; x++) {
+      const idx = (y * scanW + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+      const isBackground = a < 15 || (r > WHITE_THRESHOLD && g > WHITE_THRESHOLD && b > WHITE_THRESHOLD);
+      if (!isBackground) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  // Fallback if nothing was detected (e.g. a blank/solid image) — use the full frame
+  if (maxX < 0 || maxY < 0) {
+    minX = 0; minY = 0; maxX = scanW - 1; maxY = scanH - 1;
+  }
+
+  const pad = 0.06; // 6% breathing room around the detected product
+  const boxW = maxX - minX + 1;
+  const boxH = maxY - minY + 1;
+  const padX = boxW * pad;
+  const padY = boxH * pad;
+
+  const cropX = Math.max(0, (minX - padX) / scanScale);
+  const cropY = Math.max(0, (minY - padY) / scanScale);
+  const cropRight = Math.min(srcW, (maxX + 1 + padX) / scanScale);
+  const cropBottom = Math.min(srcH, (maxY + 1 + padY) / scanScale);
+  const cropW = cropRight - cropX;
+  const cropH = cropBottom - cropY;
+
+  const outCanvas = document.createElement("canvas");
+  outCanvas.width = targetSize;
+  outCanvas.height = targetSize;
+  const octx = outCanvas.getContext("2d")!;
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.fillStyle = "#ffffff";
+  octx.fillRect(0, 0, targetSize, targetSize);
+
+  const scale = Math.min(targetSize / cropW, targetSize / cropH);
+  const drawW = cropW * scale;
+  const drawH = cropH * scale;
+  const offsetX = (targetSize - drawW) / 2;
+  const offsetY = (targetSize - drawH) / 2;
+  octx.drawImage(img, cropX, cropY, cropW, cropH, offsetX, offsetY, drawW, drawH);
+
+  return await new Promise<Blob>((resolve, reject) => {
+    outCanvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("Could not process image"))),
+      "image/jpeg",
+      0.92
+    );
+  });
+}
+
 function ImagesEditor({
   product,
   qc,
@@ -774,9 +870,17 @@ function ImagesEditor({
     const startCount = images?.length ?? 0;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const cleanName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+      let uploadBlob: Blob = file;
+      try {
+        uploadBlob = await standardizeProductImage(file);
+      } catch (err) {
+        console.error("Image processing failed, uploading original file instead", err);
+      }
+      const cleanName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.[a-zA-Z0-9]+$/, "") + ".jpg";
       const path = `${product.id}/${crypto.randomUUID()}-${cleanName}`;
-      const { error: upErr } = await supabase.storage.from("product-images").upload(path, file);
+      const { error: upErr } = await supabase.storage
+        .from("product-images")
+        .upload(path, uploadBlob, { contentType: "image/jpeg" });
       if (upErr) {
         toast.error(`Upload failed: ${upErr.message}`);
         continue;

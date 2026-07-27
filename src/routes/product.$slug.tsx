@@ -142,12 +142,12 @@ function ProductPage() {
           <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div>
               {mainImage ? (
-                <div className="mx-auto flex w-fit items-center justify-center rounded-2xl border border-border bg-secondary/40 p-3 shadow-soft">
+                <div className="aspect-square w-full overflow-hidden rounded-2xl border border-border bg-secondary/40 p-4 shadow-soft">
                   <img
                     src={mainImage}
                     alt={product.name}
                     onClick={() => setLightboxOpen(true)}
-                    className="max-h-[460px] w-auto max-w-full cursor-zoom-in rounded-xl object-contain"
+                    className="h-full w-full cursor-zoom-in rounded-xl object-contain"
                   />
                 </div>
               ) : (
