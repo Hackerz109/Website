@@ -219,8 +219,8 @@ function OrderDetailPage() {
           <h2 className="font-semibold">Items</h2>
           <div className="mt-3 space-y-2 text-sm">
             {orderItems.map((it) => (
-              <div key={it.id} className="flex justify-between">
-                <span>
+              <div key={it.id} className="flex justify-between gap-3">
+                <span className="min-w-0 break-words">
                   {it.product_name}
                   {it.variant_name && <span className="text-muted-foreground"> ({it.variant_name})</span>} × {it.quantity}
                   {(alreadyReturnedQty[it.id] ?? 0) > 0 && (
@@ -229,7 +229,7 @@ function OrderDetailPage() {
                     </span>
                   )}
                 </span>
-                <span>{formatMoney(it.unit_price_cents * it.quantity)}</span>
+                <span className="flex-shrink-0">{formatMoney(it.unit_price_cents * it.quantity)}</span>
               </div>
             ))}
           </div>

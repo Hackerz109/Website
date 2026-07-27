@@ -118,7 +118,7 @@ function ProductPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen overflow-x-hidden bg-background">
       <StoreHeader />
       <div className="mx-auto max-w-5xl px-6 py-8">
         <Button asChild variant="ghost" size="sm">
@@ -140,14 +140,14 @@ function ProductPage() {
         ) : (
           <>
           <div className="mt-8 grid gap-10 md:grid-cols-2">
-            <div>
+            <div className="min-w-0">
               {mainImage ? (
-                <div className="aspect-square w-full overflow-hidden rounded-2xl border border-border bg-secondary/40 p-4 shadow-soft">
+                <div className="aspect-square w-full overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft">
                   <img
                     src={mainImage}
                     alt={product.name}
                     onClick={() => setLightboxOpen(true)}
-                    className="h-full w-full cursor-zoom-in rounded-xl object-contain"
+                    className="h-full w-full cursor-zoom-in object-cover"
                   />
                 </div>
               ) : (
@@ -159,17 +159,18 @@ function ProductPage() {
                     <button
                       key={url}
                       onClick={() => setActiveImage(url)}
-                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border p-1.5 ${
+                      className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 ${
                         (mainImage === url) ? "border-primary" : "border-border opacity-70 hover:opacity-100"
                       }`}
                     >
-                      <img src={url} alt="" className="h-full w-full object-contain" />
+                      <img src={url} alt="" className="h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            <div>
+            <div className="min-w-0">
+
               {(product.brands?.name || product.categories?.name) && (
                 <p className="text-xs font-semibold text-primary">
                   {product.brands?.name}
@@ -185,7 +186,7 @@ function ProductPage() {
                   )}
                 </p>
               )}
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight">{product.name}</h1>
+              <h1 className="mt-1 break-words text-3xl font-extrabold tracking-tight">{product.name}</h1>
               <div className="mt-3 flex items-center gap-2">
                 <p className="text-2xl font-bold">{formatMoney(price, product.currency)}</p>
                 {hasDiscount && (

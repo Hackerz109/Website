@@ -817,7 +817,10 @@ async function standardizeProductImage(file: File, targetSize = 1600): Promise<B
   octx.fillStyle = "#ffffff";
   octx.fillRect(0, 0, targetSize, targetSize);
 
-  const scale = Math.min(targetSize / cropW, targetSize / cropH);
+  // Use the larger ratio (not smaller) so the image zooms in to fill the entire
+  // square with no white bars — any overflow beyond the canvas edges is simply
+  // clipped, same as object-fit: cover.
+  const scale = Math.max(targetSize / cropW, targetSize / cropH);
   const drawW = cropW * scale;
   const drawH = cropH * scale;
   const offsetX = (targetSize - drawW) / 2;
