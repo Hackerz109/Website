@@ -188,9 +188,6 @@
   .bg-glow-mesh {
     filter: blur(28px);
   }
-  .helix-ambient-glow {
-    filter: blur(22px);
-  }
 }
 
 /* ---- Luxury / "current" motifs ------------------------------------------ */
@@ -213,19 +210,6 @@
     radial-gradient(45% 45% at 88% 10%, oklch(0.76 0.120 81 / 0.28), transparent 70%),
     radial-gradient(50% 50% at 75% 85%, oklch(0.585 0.150 49 / 0.16), transparent 70%);
   filter: blur(50px);
-}
-
-/* Cool "current" glow behind the hero product helix — a blue counterpoint
-   to the warm copper/brass mesh above, standing in for the electricity
-   flowing through the products rather than their brass fittings. */
-.helix-ambient-glow {
-  background: radial-gradient(45% 55% at 50% 42%, oklch(0.62 0.16 240 / 0.28), transparent 72%);
-  filter: blur(38px);
-  animation: helix-breathe 6s ease-in-out infinite;
-}
-@keyframes helix-breathe {
-  0%, 100% { opacity: 0.75; }
-  50% { opacity: 1; }
 }
 
 /* Obsidian statement sections — hero and footer bookend the page. A faint
@@ -353,10 +337,6 @@
   }
   .spark-dot {
     animation: none !important;
-  }
-  .helix-ambient-glow {
-    animation: none !important;
-    opacity: 0.85 !important;
   }
   .link-trace::after {
     transition: none !important;
