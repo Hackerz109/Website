@@ -13,6 +13,9 @@ import { useCart, formatMoney } from "@/stores/cart";
 
 export const Route = createFileRoute("/product/$slug")({
   component: ProductPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    variant: typeof search.variant === "string" ? search.variant : undefined,
+  }),
   errorComponent: ({ error, reset }) => {
     const router = useRouter();
     return (
@@ -35,6 +38,7 @@ export const Route = createFileRoute("/product/$slug")({
 
 function ProductPage() {
   const { slug } = Route.useParams();
+  const { variant: variantParam } = Route.useSearch();
   const add = useCart((s) => s.add);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [variantId, setVariantId] = useState<string | null>(null);
@@ -128,12 +132,17 @@ function ProductPage() {
     };
   }, [lightboxOpen]);
 
-  // Reset local selection state whenever a different product loads
+  // Reset local selection state whenever a different product loads. Prefer a
+  // ?variant= deep link (e.g. from a search result for a specific variant)
+  // when it names a real variant of this product; otherwise fall back to the
+  // default (first variant). Also re-checked if just the param changes while
+  // staying on the same product, e.g. clicking between two variant search
+  // results for that product without a full page reload.
   useEffect(() => {
     setActiveImage(null);
-    setVariantId(null);
+    setVariantId(variantParam && variants.some((v) => v.id === variantParam) ? variantParam : null);
     setQtyState(1);
-  }, [product?.id]);
+  }, [product?.id, variantParam]);
 
   const price = hasVariants ? selectedVariant?.price_cents ?? 0 : product?.price_cents ?? 0;
   const stock = hasVariants ? selectedVariant?.stock ?? 0 : product?.stock ?? 0;

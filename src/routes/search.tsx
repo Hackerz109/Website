@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { SearchX, ShoppingBag } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { SearchBar } from "@/components/SearchBar";
 import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
 import { supabase } from "@/integrations/supabase/client";
+import { formatMoney } from "@/stores/cart";
 
 function sanitize(q: string) {
   return q.replace(/[%,()]/g, " ").trim();
@@ -37,7 +38,7 @@ function SearchPage() {
       const [{ data: matchedCategories }, { data: matchedBrands }, { data: matchedVariants }] = await Promise.all([
         supabase.from("categories").select("id").ilike("name", like),
         supabase.from("brands").select("id").ilike("name", like),
-        supabase.from("product_variants").select("product_id").or(`name.ilike.${like},sku.ilike.${like}`),
+        supabase.from("product_variants").select("id, product_id, name, price_cents").or(`name.ilike.${like},sku.ilike.${like}`),
       ]);
       const categoryIds = (matchedCategories ?? []).map((c) => c.id);
       const brandIds = (matchedBrands ?? []).map((b) => b.id);
@@ -56,12 +57,21 @@ function SearchPage() {
       query = applySortAndFilter(query, sort, category, brand);
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+
+      // Group matched variants by their product, same reasoning as the
+      // quick-search dropdown: only the ones whose own name/SKU hit the
+      // term, so each product can show exactly which option matched.
+      const variantsByProduct: Record<string, { id: string; name: string; price_cents: number }[]> = {};
+      for (const v of matchedVariants ?? []) {
+        (variantsByProduct[v.product_id] ??= []).push({ id: v.id, name: v.name, price_cents: v.price_cents });
+      }
+      return { products: data ?? [], variantsByProduct };
     },
     enabled: term.length > 0,
   });
 
-  const products = data ?? [];
+  const products = data?.products ?? [];
+  const variantsByProduct = data?.variantsByProduct ?? {};
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,9 +130,32 @@ function SearchPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
+              {products.map((p) => {
+                const matched = variantsByProduct[p.id] ?? [];
+                return (
+                  <div key={p.id}>
+                    <ProductCard product={p} />
+                    {matched.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {matched.map((v) => (
+                          <Link
+                            key={v.id}
+                            to="/product/$slug"
+                            params={{ slug: p.slug }}
+                            search={{ variant: v.id }}
+                            className="flex items-center justify-between rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
+                          >
+                            <span className="truncate text-muted-foreground">↳ {v.name}</span>
+                            <span className="flex-shrink-0 font-semibold text-foreground">
+                              {formatMoney(v.price_cents, p.currency)}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
