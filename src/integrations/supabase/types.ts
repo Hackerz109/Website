@@ -705,6 +705,7 @@ export type Database = {
           product_id: string
           sort_order: number
           url: string
+          variant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -713,6 +714,7 @@ export type Database = {
           product_id: string
           sort_order?: number
           url: string
+          variant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -721,6 +723,7 @@ export type Database = {
           product_id?: string
           sort_order?: number
           url?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -730,12 +733,20 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_images_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       product_variants: {
         Row: {
           created_at: string
           id: string
+          mrp_cents: number | null
           name: string
           price_cents: number
           product_id: string
@@ -747,6 +758,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          mrp_cents?: number | null
           name: string
           price_cents: number
           product_id: string
@@ -758,6 +770,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          mrp_cents?: number | null
           name?: string
           price_cents?: number
           product_id?: string
