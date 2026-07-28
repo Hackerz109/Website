@@ -150,6 +150,10 @@
   }
 
   html {
+    /* Slightly bigger base than the 16px browser default — scales every
+       rem-based text size and spacing value together (same effect as a
+       light browser zoom), so proportions stay consistent everywhere. */
+    font-size: 104%;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
   }
