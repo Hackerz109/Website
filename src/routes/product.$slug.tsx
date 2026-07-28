@@ -48,7 +48,7 @@ function ProductPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_images(id, url, is_primary, sort_order), product_variants(id, name, price_cents, stock, sku, sort_order), categories(name, slug), brands(name)")
+        .select("*, product_images(id, url, is_primary, sort_order, variant_id), product_variants(id, name, price_cents, mrp_cents, stock, sku, sort_order), categories(name, slug), brands(name)")
         .eq("slug", slug)
         .eq("active", true)
         .maybeSingle();
@@ -57,13 +57,22 @@ function ProductPage() {
     },
   });
 
-  const images = [...(product?.product_images ?? [])].sort((a, b) => {
-    if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
-    return a.sort_order - b.sort_order;
-  });
   const variants = [...(product?.product_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order);
   const hasVariants = variants.length > 0;
   const selectedVariant = variants.find((v) => v.id === variantId) ?? variants[0] ?? null;
+
+  // Prefer the selected variant's own photos when it has any; otherwise fall
+  // back to the product's shared gallery (variant_id null) — same fallback
+  // the admin editor describes when there are no variant-specific images.
+  const allImages = product?.product_images ?? [];
+  const variantImages = hasVariants && selectedVariant
+    ? allImages.filter((i) => i.variant_id === selectedVariant.id)
+    : [];
+  const sharedImages = allImages.filter((i) => i.variant_id === null);
+  const images = [...(variantImages.length > 0 ? variantImages : sharedImages)].sort((a, b) => {
+    if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
+    return a.sort_order - b.sort_order;
+  });
 
   const gallery = images.length > 0
     ? images.map((i) => i.url)
@@ -84,6 +93,14 @@ function ProductPage() {
     frameRatioLockedRef.current = false;
     setFrameRatio(1);
   }, [product?.id]);
+
+  // A variant switch can bring in a differently-shaped set of photos (its
+  // own images, not the shared gallery) — unlock so the frame re-measures.
+  // Unlike the product-load reset above, don't snap back to square first;
+  // the frame just holds its current shape until the new image loads.
+  useEffect(() => {
+    frameRatioLockedRef.current = false;
+  }, [selectedVariant?.id]);
 
   // Let the frame match the product's own photo shape so it can zoom to fill
   // with no white bars — but clamp it so a very tall or very wide product
@@ -122,9 +139,10 @@ function ProductPage() {
   const stock = hasVariants ? selectedVariant?.stock ?? 0 : product?.stock ?? 0;
   const canAdd = hasVariants ? !!selectedVariant && stock > 0 : stock > 0;
 
-  const hasDiscount = !hasVariants && !!product?.mrp_cents && product.mrp_cents > (product?.price_cents ?? 0);
+  const activeMrpCents = hasVariants ? selectedVariant?.mrp_cents ?? null : product?.mrp_cents ?? null;
+  const hasDiscount = !!activeMrpCents && activeMrpCents > price;
   const discountPct = hasDiscount
-    ? Math.round(((product!.mrp_cents! - product!.price_cents) / product!.mrp_cents!) * 100)
+    ? Math.round(((activeMrpCents! - price) / activeMrpCents!) * 100)
     : 0;
   const specs = Array.isArray(product?.specifications)
     ? (product!.specifications as { key: string; value: string }[]).filter((s) => s.key || s.value)
@@ -217,7 +235,7 @@ function ProductPage() {
                 <p className="text-2xl font-bold">{formatMoney(price, product.currency)}</p>
                 {hasDiscount && (
                   <>
-                    <p className="text-sm text-muted-foreground line-through">{formatMoney(product.mrp_cents!, product.currency)}</p>
+                    <p className="text-sm text-muted-foreground line-through">{formatMoney(activeMrpCents!, product.currency)}</p>
                     <p className="text-sm font-semibold text-green-600">{discountPct}% off</p>
                   </>
                 )}
@@ -237,7 +255,10 @@ function ProductPage() {
                     {variants.map((v) => (
                       <button
                         key={v.id}
-                        onClick={() => setVariantId(v.id)}
+                        onClick={() => {
+                          setVariantId(v.id);
+                          setActiveImage(null);
+                        }}
                         disabled={v.stock <= 0}
                         className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                           selectedVariant?.id === v.id

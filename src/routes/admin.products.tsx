@@ -95,6 +95,20 @@ function pathFromPublicUrl(url: string) {
   return idx >= 0 ? url.slice(idx + marker.length) : null;
 }
 
+const MAX_IMAGE_MB = 10;
+const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
+
+// Shared by the product-level and per-variant uploaders so a stray huge
+// file or an accidental non-image can't hang image processing or get
+// uploaded with the wrong content type.
+function validateImageFiles(files: File[]): string | null {
+  for (const f of files) {
+    if (!f.type.startsWith("image/")) return `"${f.name}" isn't an image file.`;
+    if (f.size > MAX_IMAGE_BYTES) return `"${f.name}" is over ${MAX_IMAGE_MB}MB.`;
+  }
+  return null;
+}
+
 function AdminProducts() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -603,7 +617,7 @@ function VariantsEditor({
     },
   });
 
-  const [drafts, setDrafts] = useState<Record<string, { name: string; price: string; stock: string; sku: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { name: string; price: string; mrp: string; stock: string; sku: string }>>({});
 
   useEffect(() => {
     if (!variants) return;
@@ -612,6 +626,7 @@ function VariantsEditor({
       next[v.id] = {
         name: v.name,
         price: (v.price_cents / 100).toString(),
+        mrp: v.mrp_cents ? (v.mrp_cents / 100).toString() : "",
         stock: v.stock.toString(),
         sku: v.sku ?? "",
       };
@@ -636,6 +651,7 @@ function VariantsEditor({
         product_id: product.id,
         name: "Standard",
         price_cents: product.price_cents,
+        mrp_cents: product.mrp_cents,
         stock: product.stock,
         sort_order: 0,
       });
@@ -662,9 +678,17 @@ function VariantsEditor({
     const price_cents = Math.round(parseFloat(d.price || "0") * 100);
     const stock = parseInt(d.stock || "0", 10);
     if (!d.name || isNaN(price_cents)) return toast.error("Variant name and price required");
+
+    let mrp_cents: number | null = null;
+    if (d.mrp.trim()) {
+      mrp_cents = Math.round(parseFloat(d.mrp) * 100);
+      if (isNaN(mrp_cents)) return toast.error("Variant MRP must be a number");
+      if (mrp_cents < price_cents) return toast.error("Variant MRP can't be lower than the price");
+    }
+
     const { error } = await supabase
       .from("product_variants")
-      .update({ name: d.name, price_cents, stock, sku: d.sku || null })
+      .update({ name: d.name, price_cents, mrp_cents, stock, sku: d.sku || null })
       .eq("id", v.id);
     if (error) return toast.error(error.message);
     toast.success("Variant saved");
@@ -672,7 +696,13 @@ function VariantsEditor({
   }
 
   async function deleteVariant(v: Variant) {
-    if (!confirm(`Delete variant "${v.name}"?`)) return;
+    if (!confirm(`Delete variant "${v.name}"? This also removes any images added just for it.`)) return;
+    // Cascade takes care of the product_images rows themselves, but not the
+    // underlying storage files — Postgres can't reach into Supabase Storage,
+    // so clean those up here first.
+    const { data: imgs } = await supabase.from("product_images").select("url").eq("variant_id", v.id);
+    const paths = (imgs ?? []).map((i) => pathFromPublicUrl(i.url)).filter((p): p is string => !!p);
+    if (paths.length > 0) await supabase.storage.from("product-images").remove(paths);
     const { error } = await supabase.from("product_variants").delete().eq("id", v.id);
     if (error) return toast.error(error.message);
     refresh();
@@ -693,7 +723,7 @@ function VariantsEditor({
       )}
       <div className="mt-2 space-y-2">
         {(variants ?? []).map((v) => {
-          const d = drafts[v.id] ?? { name: "", price: "", stock: "", sku: "" };
+          const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", sku: "" };
           return (
             <div key={v.id} className="rounded-lg border p-3">
               <div className="grid grid-cols-2 gap-2">
@@ -712,6 +742,13 @@ function VariantsEditor({
                 />
                 <Input
                   type="number"
+                  step="0.01"
+                  placeholder="MRP (optional)"
+                  value={d.mrp}
+                  onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, mrp: e.target.value } })}
+                />
+                <Input
+                  type="number"
                   placeholder="Stock"
                   value={d.stock}
                   onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, stock: e.target.value } })}
@@ -720,9 +757,14 @@ function VariantsEditor({
                   placeholder="SKU (optional)"
                   value={d.sku}
                   onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, sku: e.target.value } })}
-                  className="col-span-2"
                 />
               </div>
+              <VariantImagesEditor
+                productId={product.id}
+                variantId={v.id}
+                qc={qc}
+                invalidateStoreFront={invalidateStoreFront}
+              />
               <div className="mt-2 flex justify-end gap-2">
                 <Button size="sm" variant="ghost" onClick={() => deleteVariant(v)}>
                   <Trash2 className="mr-1 h-3 w-3" /> Delete
@@ -733,6 +775,128 @@ function VariantsEditor({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// A compact image manager scoped to one variant, mounted inside its card in
+// VariantsEditor. Deliberately simpler than the shared ImagesEditor above:
+// variant photos are never "primary" (that concept stays product-wide, for
+// the storefront card/grid thumbnail), so upload order via sort_order is
+// all that's needed — no star toggle.
+function VariantImagesEditor({
+  productId,
+  variantId,
+  qc,
+  invalidateStoreFront,
+}: {
+  productId: string;
+  variantId: string;
+  qc: ReturnType<typeof useQueryClient>;
+  invalidateStoreFront: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  const { data: images } = useQuery({
+    queryKey: ["admin-variant-images", variantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_images")
+        .select("*")
+        .eq("variant_id", variantId)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ["admin-variant-images", variantId] });
+    invalidateStoreFront();
+  }
+
+  async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    const validationError = validateImageFiles(files);
+    if (validationError) return toast.error(validationError);
+    setUploading(true);
+    const startCount = images?.length ?? 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      let uploadBlob: Blob = file;
+      try {
+        uploadBlob = await standardizeProductImage(file);
+      } catch (err) {
+        console.error("Image processing failed, uploading original file instead", err);
+      }
+      const cleanName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.[a-zA-Z0-9]+$/, "") + ".jpg";
+      const path = `${productId}/variants/${variantId}/${crypto.randomUUID()}-${cleanName}`;
+      const { error: upErr } = await supabase.storage
+        .from("product-images")
+        .upload(path, uploadBlob, { contentType: "image/jpeg" });
+      if (upErr) {
+        toast.error(`Upload failed: ${upErr.message}`);
+        continue;
+      }
+      const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
+      const { error: insErr } = await supabase.from("product_images").insert({
+        product_id: productId,
+        variant_id: variantId,
+        url: pub.publicUrl,
+        is_primary: false,
+        sort_order: startCount + i,
+      });
+      if (insErr) toast.error(insErr.message);
+    }
+    setUploading(false);
+    toast.success("Variant image uploaded");
+    refresh();
+  }
+
+  async function deleteImage(img: ProductImage) {
+    if (!confirm("Delete this image?")) return;
+    const path = pathFromPublicUrl(img.url);
+    if (path) await supabase.storage.from("product-images").remove([path]);
+    const { error } = await supabase.from("product_images").delete().eq("id", img.id);
+    if (error) return toast.error(error.message);
+    refresh();
+  }
+
+  return (
+    <div className="mt-2 rounded-md bg-secondary/30 p-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground">Images for this variant</p>
+        <label>
+          <input type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} disabled={uploading} />
+          <span className="inline-flex cursor-pointer items-center rounded-md border bg-background px-2 py-1 text-[11px] hover:bg-secondary/50">
+            {uploading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Upload className="mr-1 h-3 w-3" />}
+            {uploading ? "Uploading…" : "Add image"}
+          </span>
+        </label>
+      </div>
+      {(!images || images.length === 0) ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          None yet — this variant will fall back to the shared images below.
+        </p>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {images.map((img) => (
+            <div key={img.id} className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border">
+              <img src={img.url} alt="" className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => deleteImage(img)}
+                aria-label="Delete image"
+                className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -853,6 +1017,7 @@ function ImagesEditor({
         .from("product_images")
         .select("*")
         .eq("product_id", product.id)
+        .is("variant_id", null)
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return data;
@@ -868,6 +1033,8 @@ function ImagesEditor({
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     if (files.length === 0) return;
+    const validationError = validateImageFiles(files);
+    if (validationError) return toast.error(validationError);
     setUploading(true);
     const startCount = images?.length ?? 0;
     for (let i = 0; i < files.length; i++) {
@@ -890,6 +1057,7 @@ function ImagesEditor({
       const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
       const { error: insErr } = await supabase.from("product_images").insert({
         product_id: product.id,
+        variant_id: null,
         url: pub.publicUrl,
         is_primary: startCount === 0 && i === 0,
         sort_order: startCount + i,
@@ -926,10 +1094,13 @@ function ImagesEditor({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <Label>Images</Label>
+        <div>
+          <Label>Shared images</Label>
+          <p className="text-xs text-muted-foreground">Used for products with no variants, and as the fallback for any variant with no images of its own.</p>
+        </div>
         <label>
           <input type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} disabled={uploading} />
-          <span className="inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm hover:bg-secondary/50">
+          <span className="inline-flex flex-shrink-0 cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm hover:bg-secondary/50">
             {uploading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Upload className="mr-1 h-3 w-3" />}
             {uploading ? "Uploading…" : "Upload images"}
           </span>
@@ -937,7 +1108,7 @@ function ImagesEditor({
       </div>
       {(!images || images.length === 0) && (
         <p className="mt-2 text-xs text-muted-foreground">
-          No images uploaded — the fallback image URL above will be used.
+          No shared images uploaded yet — the fallback image URL above will be used.
         </p>
       )}
       <div className="mt-2 grid grid-cols-3 gap-2">

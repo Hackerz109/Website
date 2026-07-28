@@ -34,16 +34,19 @@ function SearchPage() {
 
       // category/brand are now separate tables, not text columns on products —
       // resolve any name matches to ids first so they still count as hits.
-      const [{ data: matchedCategories }, { data: matchedBrands }] = await Promise.all([
+      const [{ data: matchedCategories }, { data: matchedBrands }, { data: matchedVariants }] = await Promise.all([
         supabase.from("categories").select("id").ilike("name", like),
         supabase.from("brands").select("id").ilike("name", like),
+        supabase.from("product_variants").select("product_id").or(`name.ilike.${like},sku.ilike.${like}`),
       ]);
       const categoryIds = (matchedCategories ?? []).map((c) => c.id);
       const brandIds = (matchedBrands ?? []).map((b) => b.id);
+      const variantProductIds = [...new Set((matchedVariants ?? []).map((v) => v.product_id))];
 
       const orParts = [`name.ilike.${like}`, `description.ilike.${like}`];
       if (categoryIds.length > 0) orParts.push(`category_id.in.(${categoryIds.join(",")})`);
       if (brandIds.length > 0) orParts.push(`brand_id.in.(${brandIds.join(",")})`);
+      if (variantProductIds.length > 0) orParts.push(`id.in.(${variantProductIds.join(",")})`);
 
       let query = supabase
         .from("products")
