@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 import { ArrowLeft, ShoppingBag, Minus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
@@ -40,6 +40,7 @@ function ProductPage() {
   const [variantId, setVariantId] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomed, setZoomed] = useState(false);
+  const [frameRatio, setFrameRatio] = useState(1);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -73,7 +74,18 @@ function ProductPage() {
   // Reset zoom whenever a different image is shown
   useEffect(() => {
     setZoomed(false);
+    setFrameRatio(1); // safe default until the new image finishes loading
   }, [mainImage]);
+
+  // Let the frame match each photo's own shape so it can zoom to fill with no
+  // white bars — but clamp it so a very tall or very wide product photo doesn't
+  // get cropped down to a sliver. Outside the clamp we accept a small, bounded
+  // crop rather than lose part of the product.
+  function handleMainImageLoad(e: SyntheticEvent<HTMLImageElement>) {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    if (!w || !h) return;
+    setFrameRatio(Math.min(2.2, Math.max(0.45, w / h)));
+  }
 
   // Close the lightbox on Escape, and lock background scroll while it's open
   useEffect(() => {
@@ -142,11 +154,15 @@ function ProductPage() {
           <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div className="min-w-0">
               {mainImage ? (
-                <div className="aspect-square w-full overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft">
+                <div
+                  className="w-full overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft"
+                  style={{ aspectRatio: frameRatio }}
+                >
                   <img
                     src={mainImage}
                     alt={product.name}
                     onClick={() => setLightboxOpen(true)}
+                    onLoad={handleMainImageLoad}
                     className="h-full w-full cursor-zoom-in object-cover"
                   />
                 </div>

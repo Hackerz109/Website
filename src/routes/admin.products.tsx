@@ -753,10 +753,13 @@ function loadImageElement(file: File): Promise<HTMLImageElement> {
   });
 }
 
-// Auto-crops baked-in white padding around the product and re-renders it onto a
-// clean, standardized square canvas at a consistent high resolution. This is what
-// fixes images looking "smaller than the frame" and blurry after upload.
-async function standardizeProductImage(file: File, targetSize = 1600): Promise<Blob> {
+// Auto-crops baked-in white padding around the product and re-renders it at a
+// consistent high resolution, keeping the product's own aspect ratio. This is
+// what fixes images looking "smaller than the frame" and blurry after upload —
+// without forcing every photo into a square, which either crops parts of a
+// tall/wide product away or pads it with white bars. The display frame on the
+// product page adapts to each photo's real shape instead.
+async function standardizeProductImage(file: File, maxSide = 1600): Promise<Blob> {
   const img = await loadImageElement(file);
   const srcW = img.naturalWidth;
   const srcH = img.naturalHeight;
@@ -808,24 +811,20 @@ async function standardizeProductImage(file: File, targetSize = 1600): Promise<B
   const cropW = cropRight - cropX;
   const cropH = cropBottom - cropY;
 
+  // Scale so the longer side reaches maxSide, keeping the trimmed crop's own
+  // aspect ratio intact — no forced square, no cropping beyond the whitespace
+  // trim above, so the full product is always preserved.
+  const outScale = maxSide / Math.max(cropW, cropH);
+  const outW = Math.max(1, Math.round(cropW * outScale));
+  const outH = Math.max(1, Math.round(cropH * outScale));
+
   const outCanvas = document.createElement("canvas");
-  outCanvas.width = targetSize;
-  outCanvas.height = targetSize;
+  outCanvas.width = outW;
+  outCanvas.height = outH;
   const octx = outCanvas.getContext("2d")!;
   octx.imageSmoothingEnabled = true;
   octx.imageSmoothingQuality = "high";
-  octx.fillStyle = "#ffffff";
-  octx.fillRect(0, 0, targetSize, targetSize);
-
-  // Use the larger ratio (not smaller) so the image zooms in to fill the entire
-  // square with no white bars — any overflow beyond the canvas edges is simply
-  // clipped, same as object-fit: cover.
-  const scale = Math.max(targetSize / cropW, targetSize / cropH);
-  const drawW = cropW * scale;
-  const drawH = cropH * scale;
-  const offsetX = (targetSize - drawW) / 2;
-  const offsetY = (targetSize - drawH) / 2;
-  octx.drawImage(img, cropX, cropY, cropW, cropH, offsetX, offsetY, drawW, drawH);
+  octx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
 
   return await new Promise<Blob>((resolve, reject) => {
     outCanvas.toBlob(
