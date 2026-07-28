@@ -585,8 +585,8 @@ function CartPage() {
                       {i.image_url && <img src={i.image_url} alt="" className="h-full w-full object-cover" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{i.name}</p>
-                      {i.sku && <p className="text-xs text-muted-foreground">SKU: {i.sku}</p>}
+                      <p className="break-words font-medium">{i.name}</p>
+                      {i.sku && <p className="break-words text-xs text-muted-foreground">SKU: {i.sku}</p>}
                       <p className="text-sm text-muted-foreground">
                         {formatMoney(i.price_cents)}
                       </p>
