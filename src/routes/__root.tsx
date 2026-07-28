@@ -159,6 +159,26 @@ function AppShell() {
     }
   }, []);
 
+  // Tabs left open across a new deploy still hold the OLD build's chunk
+  // filenames (Vite hashes them per-build). Navigating to a route lazily
+  // loaded since that old build then 404s with "Failed to fetch dynamically
+  // imported module" — Vite surfaces this as a `vite:preloadError` event.
+  // Auto-reload once to pick up the current build instead of showing the
+  // error page; sessionStorage guards against looping if a reload genuinely
+  // doesn't fix it (e.g. an actually-broken deploy).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePreloadError = (event: Event) => {
+      event.preventDefault();
+      const key = "chunk-reload-attempted";
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+      window.location.reload();
+    };
+    window.addEventListener("vite:preloadError", handlePreloadError);
+    return () => window.removeEventListener("vite:preloadError", handlePreloadError);
+  }, []);
+
   return (
     <>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
