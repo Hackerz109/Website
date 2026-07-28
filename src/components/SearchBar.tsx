@@ -35,16 +35,19 @@ export function SearchBar({
     queryFn: async () => {
       const term = `%${debounced}%`;
 
-      const [{ data: matchedCategories }, { data: matchedBrands }] = await Promise.all([
+      const [{ data: matchedCategories }, { data: matchedBrands }, { data: matchedVariants }] = await Promise.all([
         supabase.from("categories").select("id").ilike("name", term),
         supabase.from("brands").select("id").ilike("name", term),
+        supabase.from("product_variants").select("product_id").or(`name.ilike.${term},sku.ilike.${term}`),
       ]);
       const categoryIds = (matchedCategories ?? []).map((c) => c.id);
       const brandIds = (matchedBrands ?? []).map((b) => b.id);
+      const variantProductIds = [...new Set((matchedVariants ?? []).map((v) => v.product_id))];
 
       const orParts = [`name.ilike.${term}`, `description.ilike.${term}`];
       if (categoryIds.length > 0) orParts.push(`category_id.in.(${categoryIds.join(",")})`);
       if (brandIds.length > 0) orParts.push(`brand_id.in.(${brandIds.join(",")})`);
+      if (variantProductIds.length > 0) orParts.push(`id.in.(${variantProductIds.join(",")})`);
 
       const { data, error } = await supabase
         .from("products")
