@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { ArrowLeft, ShoppingBag, Minus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
@@ -41,6 +41,7 @@ function ProductPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [frameRatio, setFrameRatio] = useState(1);
+  const frameRatioLockedRef = useRef(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", slug],
@@ -74,16 +75,25 @@ function ProductPage() {
   // Reset zoom whenever a different image is shown
   useEffect(() => {
     setZoomed(false);
-    setFrameRatio(1); // safe default until the new image finishes loading
   }, [mainImage]);
 
-  // Let the frame match each photo's own shape so it can zoom to fill with no
-  // white bars — but clamp it so a very tall or very wide product photo doesn't
-  // get cropped down to a sliver. Outside the clamp we accept a small, bounded
-  // crop rather than lose part of the product.
+  // Size the frame once per product, from whichever photo loads first — not on
+  // every thumbnail tap. Re-measuring per image is what caused the page to
+  // grow/shrink and jump around when switching between a product's photos.
+  useEffect(() => {
+    frameRatioLockedRef.current = false;
+    setFrameRatio(1);
+  }, [product?.id]);
+
+  // Let the frame match the product's own photo shape so it can zoom to fill
+  // with no white bars — but clamp it so a very tall or very wide product
+  // photo doesn't get cropped down to a sliver. Outside the clamp we accept a
+  // small, bounded crop rather than lose part of the product.
   function handleMainImageLoad(e: SyntheticEvent<HTMLImageElement>) {
+    if (frameRatioLockedRef.current) return;
     const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
     if (!w || !h) return;
+    frameRatioLockedRef.current = true;
     setFrameRatio(Math.min(2.2, Math.max(0.45, w / h)));
   }
 
