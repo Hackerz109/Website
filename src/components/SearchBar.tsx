@@ -38,7 +38,7 @@ export function SearchBar({
       const [{ data: matchedCategories }, { data: matchedBrands }, { data: matchedVariants }] = await Promise.all([
         supabase.from("categories").select("id").ilike("name", term),
         supabase.from("brands").select("id").ilike("name", term),
-        supabase.from("product_variants").select("product_id").or(`name.ilike.${term},sku.ilike.${term}`),
+        supabase.from("product_variants").select("id, product_id, name, price_cents").or(`name.ilike.${term},sku.ilike.${term}`).limit(30),
       ]);
       const categoryIds = (matchedCategories ?? []).map((c) => c.id);
       const brandIds = (matchedBrands ?? []).map((b) => b.id);
@@ -56,10 +56,25 @@ export function SearchBar({
         .or(orParts.join(","))
         .limit(6);
       if (error) throw error;
-      return data;
+
+      // Group matched variants (the ones whose own name/SKU hit the search
+      // term, not just any variant of a matched product) by their product,
+      // so each result can show exactly which option matched and its price.
+      const variantsByProduct: Record<string, { id: string; name: string; price_cents: number }[]> = {};
+      for (const v of matchedVariants ?? []) {
+        (variantsByProduct[v.product_id] ??= []).push({ id: v.id, name: v.name, price_cents: v.price_cents });
+      }
+      return { products: data ?? [], variantsByProduct };
     },
     enabled: debounced.length > 1,
   });
+
+  function goToProduct(slug: string, variantId?: string) {
+    navigate({ to: "/product/$slug", params: { slug }, search: variantId ? { variant: variantId } : {} });
+    setOpen(false);
+    setQuery("");
+    onNavigate?.();
+  }
 
   function goToResults() {
     const q = query.trim();
@@ -114,17 +129,18 @@ export function SearchBar({
             <div className="flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Searching…
             </div>
-          ) : !results || results.length === 0 ? (
+          ) : !results || results.products.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
               No results for "{debounced}"
             </div>
           ) : (
             <>
               <ul>
-                {results.map((p) => {
+                {results.products.map((p) => {
                   const img = p.product_images?.find((i) => i.is_primary)?.url
                     ?? p.product_images?.[0]?.url
                     ?? p.image_url;
+                  const matched = results.variantsByProduct[p.id] ?? [];
                   const variantPrices = (p.product_variants ?? []).map((v) => v.price_cents);
                   const priceLabel = variantPrices.length > 0
                     ? (Math.min(...variantPrices) === Math.max(...variantPrices)
@@ -136,12 +152,7 @@ export function SearchBar({
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          navigate({ to: "/product/$slug", params: { slug: p.slug } });
-                          setOpen(false);
-                          setQuery("");
-                          onNavigate?.();
-                        }}
+                        onClick={() => goToProduct(p.slug)}
                         className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-accent"
                       >
                         <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
@@ -157,6 +168,24 @@ export function SearchBar({
                           {priceLabel}
                         </p>
                       </button>
+                      {matched.length > 0 && (
+                        <div className="mb-1 ml-[52px] mr-4 space-y-0.5">
+                          {matched.map((v) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => goToProduct(p.slug, v.id)}
+                              className="flex w-full items-center justify-between rounded-md py-1 text-left text-muted-foreground hover:text-foreground"
+                            >
+                              <span className="truncate text-xs">↳ {v.name}</span>
+                              <span className="flex-shrink-0 text-xs font-semibold text-foreground">
+                                {formatMoney(v.price_cents, p.currency)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   );
                 })}
