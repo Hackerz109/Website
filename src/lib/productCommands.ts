@@ -120,7 +120,7 @@ async function searchProductLines(filter: ProductFilter): Promise<{ lines: Match
   if ("error" in fetched) return fetched;
 
   const requireMatch = hasAnyFilterCriteria(filter);
-  const scored: MatchLine[] = [];
+  let scored: MatchLine[] = [];
 
   for (const row of fetched.rows) {
     for (const line of toLines(row)) {
@@ -142,10 +142,7 @@ async function searchProductLines(filter: ProductFilter): Promise<{ lines: Match
   }
 
   scored.sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
-
-  const narrowed = discriminateVariants(scored, filter);
-  scored.length = 0;
-  scored.push(...narrowed);
+  scored = discriminateVariants(scored, filter);
 
   // Fallback: if every filter field was given a fair shot and still matched
   // nothing, don't give up outright — try a plain, unscored substring search
@@ -202,7 +199,7 @@ function discriminateVariants(lines: MatchLine[], filter: ProductFilter): MatchL
   ]
     .map((w) => w.trim())
     .filter(Boolean);
-  if (words.length === 0) return lines;
+  if (words.length === 0) return [...lines];
 
   const byProduct = new Map<string, MatchLine[]>();
   for (const l of lines) {
@@ -223,7 +220,7 @@ function discriminateVariants(lines: MatchLine[], filter: ProductFilter): MatchL
       }
     }
   }
-  if (exclude.size === 0) return lines;
+  if (exclude.size === 0) return [...lines];
   return lines.filter((l) => !(l.variantId && exclude.has(`${l.productId}:${l.variantId}`)));
 }
 
