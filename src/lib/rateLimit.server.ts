@@ -15,7 +15,7 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export type IdentifierType = "email" | "ip" | "device";
+export type IdentifierType = "email" | "ip" | "device" | "user";
 export type Identifier = { type: IdentifierType; value: string | null | undefined };
 
 export type RateLimitConfig = {
@@ -46,6 +46,14 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
   signup: {
     ip: { limit: 6, windowMs: 60 * 60_000, lockMs: 60 * 60_000 },
     device: { limit: 3, windowMs: 24 * 60 * 60_000, lockMs: 24 * 60 * 60_000 },
+  },
+  // AI Product Console: every command spends a Gemini API call, so this is
+  // about capping cost/abuse, not brute-force protection like the scopes
+  // above. Keyed on the admin's own user id (the real identity here, since
+  // callers are already authenticated admins) with IP as a loose backstop.
+  ai_console: {
+    user: { limit: 60, windowMs: 60 * 60_000, lockMs: 5 * 60_000 },
+    ip: { limit: 120, windowMs: 60 * 60_000, lockMs: 5 * 60_000 },
   },
 };
 
