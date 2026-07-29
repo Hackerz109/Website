@@ -61,12 +61,15 @@ export type CommandFilter = z.infer<typeof CommandFilterSchema>;
 export const CommandIntentSchema = z.object({
   action: z.enum(ACTIONS),
   filter: CommandFilterSchema,
-  // set_price / adjust_price
-  price_mode: z.enum(["fixed", "percent"]).nullable(),
-  price_direction: z.enum(["increase", "decrease", "set"]).nullable(),
+  // set_price / adjust_price. "none" (rather than null) when the action
+  // isn't a price action — Gemini's schema validator can reject an enum
+  // field that's also marked nullable, so these three fields use an
+  // explicit "none" sentinel instead of null.
+  price_mode: z.enum(["fixed", "percent", "none"]),
+  price_direction: z.enum(["increase", "decrease", "set", "none"]),
   price_value: z.number().nullable(),
   // set_stock / adjust_stock
-  stock_direction: z.enum(["increase", "decrease", "set"]).nullable(),
+  stock_direction: z.enum(["increase", "decrease", "set", "none"]),
   stock_value: z.number().nullable(),
   // update_description
   new_description: z.string().nullable(),
@@ -87,31 +90,40 @@ export type CommandIntent = z.infer<typeof CommandIntentSchema>;
 // responseSchema so generation is constrained at the model level. Kept in
 // sync with CommandIntentSchema by hand; the zod parse below is the safety
 // net if the two ever drift.
+//
+// IMPORTANT: the classic generateContent REST endpoint (used below) expects
+// the older OpenAPI-3.0-style schema: uppercase type names ("STRING",
+// "OBJECT", "NUMBER", "ARRAY") plus a separate `nullable: true` flag — NOT
+// JSON-Schema-style type arrays like ["string","null"] (that syntax belongs
+// to Google's newer, separate Interactions API and gets rejected here with
+// a 400). Enum fields also avoid `nullable: true` (some Gemini versions
+// reject enum+nullable together) — they use an explicit "none" value
+// instead wherever null would otherwise be needed.
 const GEMINI_RESPONSE_SCHEMA = {
-  type: "object",
+  type: "OBJECT",
   properties: {
-    action: { type: "string", enum: ACTIONS as unknown as string[] },
+    action: { type: "STRING", enum: ACTIONS as unknown as string[] },
     filter: {
-      type: "object",
+      type: "OBJECT",
       properties: {
-        brand: { type: ["string", "null"] },
-        category: { type: ["string", "null"] },
-        keywords: { type: ["array", "null"], items: { type: "string" } },
-        size_text: { type: ["string", "null"] },
-        name_hint: { type: ["string", "null"] },
+        brand: { type: "STRING", nullable: true },
+        category: { type: "STRING", nullable: true },
+        keywords: { type: "ARRAY", items: { type: "STRING" }, nullable: true },
+        size_text: { type: "STRING", nullable: true },
+        name_hint: { type: "STRING", nullable: true },
       },
       required: ["brand", "category", "keywords", "size_text", "name_hint"],
     },
-    price_mode: { type: ["string", "null"], enum: ["fixed", "percent", null] },
-    price_direction: { type: ["string", "null"], enum: ["increase", "decrease", "set", null] },
-    price_value: { type: ["number", "null"] },
-    stock_direction: { type: ["string", "null"], enum: ["increase", "decrease", "set", null] },
-    stock_value: { type: ["number", "null"] },
-    new_description: { type: ["string", "null"] },
-    new_category: { type: ["string", "null"] },
-    stock_threshold: { type: ["number", "null"] },
-    summary: { type: "string" },
-    clarification: { type: ["string", "null"] },
+    price_mode: { type: "STRING", enum: ["fixed", "percent", "none"] },
+    price_direction: { type: "STRING", enum: ["increase", "decrease", "set", "none"] },
+    price_value: { type: "NUMBER", nullable: true },
+    stock_direction: { type: "STRING", enum: ["increase", "decrease", "set", "none"] },
+    stock_value: { type: "NUMBER", nullable: true },
+    new_description: { type: "STRING", nullable: true },
+    new_category: { type: "STRING", nullable: true },
+    stock_threshold: { type: "NUMBER", nullable: true },
+    summary: { type: "STRING" },
+    clarification: { type: "STRING", nullable: true },
   },
   required: [
     "action",
@@ -150,10 +162,10 @@ Rules:
   - size_text: any size/rating/spec token mentioned, verbatim-ish (e.g. "1mm", "1.5 sq mm", "6A", "9W", "1200mm"). Do not try to normalize units yourself — just capture what was said.
   - keywords: any other distinguishing words worth matching against product name/description (e.g. "copper", "FR", "lifeline"). Omit brand/category/size words here — they already have their own fields.
   - name_hint: if the admin named something close to a full product name, put your best reconstruction of it here.
-  - Any field you have no information for must be null (or [] is not used — use null for keywords too if none).
+  - Any field you have no information for must be null (use null for keywords too if none) — EXCEPT price_mode, price_direction, and stock_direction, which are never null: use the literal string "none" for whichever of these don't apply to the chosen action (e.g. a "search" or "update_description" command should have price_mode "none", price_direction "none", stock_direction "none").
 - "summary" is one short plain-English sentence restating the request, for display to the admin above the preview — e.g. "Increase Havells wire prices by ₹50" or "Show products with stock below 10".
 - Never invent a specific rupee/percent/quantity value that wasn't stated or clearly implied. If a needed value is missing, use action "unclear".
-- Numbers: price_value and stock_value are always positive magnitudes; increase/decrease/set is carried separately in price_direction/stock_direction.
+- Numbers: price_value and stock_value are always positive magnitudes; increase/decrease/set is carried separately in price_direction/stock_direction. Both default to "none" whenever the action isn't a price/stock action.
 - If the admin's message is a vague chat message unrelated to product management (greeting, thanks, unrelated question), use action "unclear" with a brief clarification like "I can help with product prices, stock, descriptions, and categories — try a command like 'increase Havells wire prices by 5%'."`;
 
 // ---------------------------------------------------------------------------

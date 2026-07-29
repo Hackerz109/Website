@@ -154,10 +154,8 @@ export function computeNewPriceCents(oldCents: number, intent: CommandIntent): n
     return Math.max(0, Math.round((intent.price_value ?? 0) * 100));
   }
   const magnitude = Math.abs(intent.price_value ?? 0);
-  const mode = intent.price_mode ?? "fixed";
-  const direction = intent.price_direction ?? "increase";
-  const deltaCents = mode === "percent" ? Math.round(oldCents * (magnitude / 100)) : Math.round(magnitude * 100);
-  const signed = direction === "decrease" ? -deltaCents : deltaCents;
+  const deltaCents = intent.price_mode === "percent" ? Math.round(oldCents * (magnitude / 100)) : Math.round(magnitude * 100);
+  const signed = intent.price_direction === "decrease" ? -deltaCents : deltaCents;
   return Math.max(0, oldCents + signed);
 }
 
@@ -166,8 +164,7 @@ export function computeNewStock(oldStock: number, intent: CommandIntent): number
     return Math.max(0, Math.round(intent.stock_value ?? 0));
   }
   const magnitude = Math.round(Math.abs(intent.stock_value ?? 0));
-  const direction = intent.stock_direction ?? "increase";
-  const signed = direction === "decrease" ? -magnitude : magnitude;
+  const signed = intent.stock_direction === "decrease" ? -magnitude : magnitude;
   return Math.max(0, oldStock + signed);
 }
 
