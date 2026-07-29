@@ -144,8 +144,10 @@ export function scoreProduct(product: MatchableProduct, filter: ProductFilter): 
   let score = 0;
 
   if (filter.brand) {
-    if (!product.brandName || !looselyContains(product.brandName, filter.brand)) return null;
-    score += 3;
+    const matchesBrandName = !!product.brandName && looselyContains(product.brandName, filter.brand);
+    const matchesText = looselyContains(searchableText, filter.brand);
+    if (!matchesBrandName && !matchesText) return null;
+    score += matchesBrandName ? 3 : 2;
   }
 
   if (filter.category) {

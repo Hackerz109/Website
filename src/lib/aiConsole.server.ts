@@ -157,7 +157,7 @@ Rules:
   - "update_category" — new_category = the target category name.
   - "unclear" — the command doesn't map cleanly to any action above, is empty, or is missing a value you cannot infer (e.g. "increase Havells prices" with no amount). Set "clarification" to a short, specific question.
 - "filter" narrows which products the action applies to. Fill in whatever the admin implied:
-  - brand: a brand name if mentioned (e.g. "Havells", "Polycab", "Anchor").
+  - brand: only a known electrical-goods manufacturer/company name (e.g. "Havells", "Polycab", "Anchor", "V-Guard", "Finolex", "Crompton", "Orient", "Legrand", "Bajaj"). If a proper noun in the command doesn't clearly read as a manufacturer, don't guess — put it in name_hint instead (it might be a product line, model name, or nickname rather than a brand).
   - category: a product category/type if mentioned (e.g. "wire", "switch", "fan", "MCB"), as a plain generic noun.
   - size_text: any size/rating/spec token mentioned, verbatim-ish (e.g. "1mm", "1.5 sq mm", "6A", "9W", "1200mm"). Do not try to normalize units yourself — just capture what was said.
   - keywords: any other distinguishing words worth matching against product name/description (e.g. "copper", "FR", "lifeline"). Omit brand/category/size words here — they already have their own fields.

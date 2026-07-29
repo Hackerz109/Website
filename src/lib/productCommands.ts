@@ -142,7 +142,43 @@ async function searchProductLines(filter: ProductFilter): Promise<{ lines: Match
   }
 
   scored.sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
+
+  // Fallback: if every filter field was given a fair shot and still matched
+  // nothing, don't give up outright — try a plain, unscored substring search
+  // for the raw terms across every product's name/description/variant name.
+  // This is what saves a command like "update Singham" when "Singham" turns
+  // out to be part of a product's own title rather than a brand or category
+  // this shop has formally set up — scoreProduct() already does its best,
+  // but a total dead end is worse than a low-confidence list to double-check.
+  if (requireMatch && scored.length === 0) {
+    const terms = collectFilterTerms(filter);
+    if (terms.length > 0) {
+      const seen = new Set<string>();
+      for (const row of fetched.rows) {
+        for (const line of toLines(row)) {
+          const key = line.variantId ? `${line.productId}:${line.variantId}` : line.productId;
+          if (seen.has(key)) continue;
+          const text = `${line.productName} ${line.variantName ?? ""} ${line.productDescription ?? ""}`.toLowerCase();
+          if (terms.some((t) => text.includes(t.toLowerCase()))) {
+            scored.push({ ...line, score: 0 });
+            seen.add(key);
+          }
+        }
+      }
+      scored.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    }
+  }
+
   return { lines: scored };
+}
+
+function collectFilterTerms(filter: ProductFilter): string[] {
+  const terms: string[] = [];
+  if (filter.brand) terms.push(filter.brand);
+  if (filter.category) terms.push(filter.category);
+  if (filter.name_hint) terms.push(filter.name_hint);
+  if (filter.keywords) terms.push(...filter.keywords);
+  return terms.filter((t) => t.trim().length > 0);
 }
 
 // ---------------------------------------------------------------------------
