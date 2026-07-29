@@ -8,13 +8,32 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics, type BeforeSendEvent } from "@vercel/analytics/react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "../components/ui/sonner";
 import { useIdleLogout } from "../hooks/useIdleLogout";
 import { useRememberMeGuard } from "../hooks/useRememberMeGuard";
+
+// Password-reset / magic-link / OTP flows put a one-time auth secret in the
+// URL (e.g. reset-password?code=... from Supabase's PKCE recovery flow).
+// Vercel Analytics tracks the full page URL including query params, so
+// strip any known auth-secret param before an event is ever sent — on
+// every route, since new call sites could add one later.
+const SENSITIVE_QUERY_PARAMS = ["code", "token", "token_hash", "access_token", "refresh_token", "otp"];
+
+function redactSensitiveParams(event: BeforeSendEvent) {
+  const url = new URL(event.url);
+  let redacted = false;
+  for (const param of SENSITIVE_QUERY_PARAMS) {
+    if (url.searchParams.has(param)) {
+      url.searchParams.delete(param);
+      redacted = true;
+    }
+  }
+  return redacted ? { ...event, url: url.toString() } : event;
+}
 
 function NotFoundComponent() {
   return (
@@ -185,7 +204,7 @@ function AppShell() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster position="top-center" richColors />
-      <Analytics />
+      <Analytics beforeSend={redactSensitiveParams} />
     </>
   );
 }
