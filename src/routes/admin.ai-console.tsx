@@ -301,8 +301,8 @@ function PreviewBody({ preview }: { preview: ActionableConsolePreview }) {
           rows={preview.rows}
           render={(r) => (
             <>
-              <span className="truncate">{r.displayName}</span>
-              <span className="whitespace-nowrap text-muted-foreground">
+              <span className="break-words">{r.displayName}</span>
+              <span className="text-xs text-muted-foreground">
                 {formatMoney(r.oldCents, r.currency)} → <span className="font-medium text-foreground">{formatMoney(r.newCents, r.currency)}</span>
               </span>
             </>
@@ -326,8 +326,8 @@ function PreviewBody({ preview }: { preview: ActionableConsolePreview }) {
           rows={preview.rows}
           render={(r) => (
             <>
-              <span className="truncate">{r.displayName}</span>
-              <span className="whitespace-nowrap text-muted-foreground">
+              <span className="break-words">{r.displayName}</span>
+              <span className="text-xs text-muted-foreground">
                 {r.oldStock} → <span className="font-medium text-foreground">{r.newStock}</span>
               </span>
             </>
@@ -344,7 +344,7 @@ function PreviewBody({ preview }: { preview: ActionableConsolePreview }) {
           New description for <span className="font-medium text-foreground">{preview.rows.length}</span> product{preview.rows.length === 1 ? "" : "s"}:
         </p>
         <p className="mb-2 rounded-md bg-muted px-3 py-2 italic">"{preview.newDescription}"</p>
-        <RowList rows={preview.rows} render={(r) => <span className="truncate">{r.displayName}</span>} />
+        <RowList rows={preview.rows} render={(r) => <span className="break-words">{r.displayName}</span>} />
       </div>
     );
   }
@@ -360,8 +360,8 @@ function PreviewBody({ preview }: { preview: ActionableConsolePreview }) {
           rows={preview.rows}
           render={(r) => (
             <>
-              <span className="truncate">{r.displayName}</span>
-              <span className="whitespace-nowrap text-muted-foreground">{r.oldCategoryName ?? "(none)"} → {preview.newCategoryName}</span>
+              <span className="break-words">{r.displayName}</span>
+              <span className="text-xs text-muted-foreground">{r.oldCategoryName ?? "(none)"} → {preview.newCategoryName}</span>
             </>
           )}
         />
@@ -379,8 +379,8 @@ function PreviewBody({ preview }: { preview: ActionableConsolePreview }) {
           rows={preview.rows}
           render={(r) => (
             <>
-              <span className="truncate">{r.displayName}</span>
-              <span className="whitespace-nowrap font-medium text-destructive">{r.stock} left</span>
+              <span className="break-words">{r.displayName}</span>
+              <span className="text-xs font-medium text-destructive">{r.stock} left</span>
             </>
           )}
         />
@@ -401,8 +401,8 @@ function PreviewBody({ preview }: { preview: ActionableConsolePreview }) {
         rows={preview.rows}
         render={(r) => (
           <>
-            <span className="truncate">{r.displayName}</span>
-            <span className="whitespace-nowrap text-muted-foreground">
+            <span className="break-words">{r.displayName}</span>
+            <span className="text-xs text-muted-foreground">
               {formatMoney(r.priceCents, r.currency)} · {r.stock} in stock{!r.active && " · hidden"}
             </span>
           </>
@@ -419,9 +419,9 @@ function RowList<T>({ rows, render }: { rows: T[]; render: (row: T) => React.Rea
   const shown = rows.slice(0, ROW_DISPLAY_CAP);
   const hidden = rows.length - shown.length;
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-2">
       {shown.map((r, i) => (
-        <li key={i} className="flex items-center justify-between gap-3 border-b border-dashed py-1 last:border-0">
+        <li key={i} className="flex flex-col gap-0.5 border-b border-dashed pb-2 last:border-0">
           {render(r)}
         </li>
       ))}
