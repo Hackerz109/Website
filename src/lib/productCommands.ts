@@ -13,7 +13,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
 import type { CommandIntent } from "./aiConsole.server";
-import { scoreProduct, hasAnyFilterCriteria, MIN_MATCH_SCORE, type ProductFilter } from "./productMatch";
+import { scoreProduct, hasAnyFilterCriteria, MIN_MATCH_SCORE, norm, looselyContains, type ProductFilter } from "./productMatch";
 
 // ---------------------------------------------------------------------------
 // Data fetching + line building
@@ -143,6 +143,10 @@ async function searchProductLines(filter: ProductFilter): Promise<{ lines: Match
 
   scored.sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
 
+  const narrowed = discriminateVariants(scored, filter);
+  scored.length = 0;
+  scored.push(...narrowed);
+
   // Fallback: if every filter field was given a fair shot and still matched
   // nothing, don't give up outright — try a plain, unscored substring search
   // for the raw terms across every product's name/description/variant name.
@@ -179,6 +183,48 @@ function collectFilterTerms(filter: ProductFilter): string[] {
   if (filter.name_hint) terms.push(filter.name_hint);
   if (filter.keywords) terms.push(...filter.keywords);
   return terms.filter((t) => t.trim().length > 0);
+}
+
+/** Brand/category/size all hard-exclude a non-matching product in
+ * scoreProduct(), but keywords/name_hint only ever add a soft score bonus —
+ * on purpose, since most keywords ("copper", "FR") describe the whole
+ * product and apply equally to every one of its variants. But when a word
+ * like a color ("white") only shows up in SOME sibling variants' own names
+ * and not others, that's the admin picking one specific variant, not
+ * describing the product family — so this narrows a product's variant
+ * lines down to just the ones that word actually matches, dropping the
+ * rest. If a word matches all siblings equally (or none of them), nothing
+ * changes here. */
+function discriminateVariants(lines: MatchLine[], filter: ProductFilter): MatchLine[] {
+  const words = [
+    ...(filter.keywords ?? []),
+    ...(filter.name_hint ? norm(filter.name_hint).split(" ") : []),
+  ]
+    .map((w) => w.trim())
+    .filter(Boolean);
+  if (words.length === 0) return lines;
+
+  const byProduct = new Map<string, MatchLine[]>();
+  for (const l of lines) {
+    if (!l.variantId) continue;
+    const arr = byProduct.get(l.productId) ?? [];
+    arr.push(l);
+    byProduct.set(l.productId, arr);
+  }
+
+  const exclude = new Set<string>();
+  for (const siblings of byProduct.values()) {
+    if (siblings.length < 2) continue;
+    for (const word of words) {
+      const matching = siblings.filter((s) => looselyContains(s.variantName ?? "", word));
+      if (matching.length > 0 && matching.length < siblings.length) {
+        const keep = new Set(matching.map((m) => m.variantId));
+        for (const s of siblings) if (!keep.has(s.variantId)) exclude.add(`${s.productId}:${s.variantId}`);
+      }
+    }
+  }
+  if (exclude.size === 0) return lines;
+  return lines.filter((l) => !(l.variantId && exclude.has(`${l.productId}:${l.variantId}`)));
 }
 
 // ---------------------------------------------------------------------------

@@ -88,14 +88,14 @@ export function bestSizeMatch(requested: SizeToken, candidateTokens: SizeToken[]
 // Text helpers
 // ---------------------------------------------------------------------------
 
-function norm(s: string): string {
+export function norm(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** True if `needle` reads as the same brand/category word as `haystack`
  * (handles plurals and partial containment either direction), e.g.
  * norm("wire") vs norm("wires"), or "Havells" vs "havells lifeline". */
-function looselyContains(haystack: string, needle: string): boolean {
+export function looselyContains(haystack: string, needle: string): boolean {
   const h = norm(haystack);
   const n = norm(needle);
   if (!n) return false;
