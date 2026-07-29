@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet, Users, Search } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet, Users, Search, Sparkles } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { Button } from "@/components/ui/button";
 import { AdminSearchBar } from "@/components/AdminSearchBar";
@@ -49,6 +49,7 @@ function AdminLayout() {
     { to: "/admin/search", label: "Search", icon: Search },
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/products", label: "Products", icon: Package },
+    { to: "/admin/ai-console", label: "AI Console", icon: Sparkles },
     { to: "/admin/taxonomy", label: "Categories & Brands", icon: Tags },
     { to: "/admin/coupons", label: "Coupons", icon: Ticket },
     { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
