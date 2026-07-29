@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ChangeEvent } from "react";
-import { Plus, Pencil, Trash2, Star, Upload, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Star, Upload, Loader2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +89,18 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+// Finds a free "<base>-copy", "<base>-copy-2", "<base>-copy-3"... slug in one
+// round trip, since slugs are unique and duplicating the same product twice
+// would otherwise collide.
+async function getUniqueCopySlug(baseSlug: string): Promise<string> {
+  const { data } = await supabase.from("products").select("slug").ilike("slug", `${baseSlug}-copy%`);
+  const existing = new Set((data ?? []).map((d) => d.slug));
+  if (!existing.has(`${baseSlug}-copy`)) return `${baseSlug}-copy`;
+  let n = 2;
+  while (existing.has(`${baseSlug}-copy-${n}`)) n++;
+  return `${baseSlug}-copy-${n}`;
+}
+
 function pathFromPublicUrl(url: string) {
   const marker = "/object/public/product-images/";
   const idx = url.indexOf(marker);
@@ -115,6 +127,7 @@ function AdminProducts() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { data: products } = useQuery({
     queryKey: ["admin-products"],
@@ -256,6 +269,99 @@ function AdminProducts() {
     invalidateStoreFront();
   }
 
+  async function duplicate(p: Product) {
+    setDuplicatingId(p.id);
+    try {
+      const newSlug = await getUniqueCopySlug(p.slug);
+
+      const { data: newProduct, error: prodErr } = await supabase
+        .from("products")
+        .insert({
+          name: `Copy of ${p.name}`,
+          slug: newSlug,
+          description: p.description,
+          category_id: p.category_id,
+          brand_id: p.brand_id,
+          price_cents: p.price_cents,
+          mrp_cents: p.mrp_cents,
+          currency: p.currency,
+          sku: p.sku,
+          stock: p.stock,
+          image_url: p.image_url,
+          warranty: p.warranty,
+          warranty_available: p.warranty_available,
+          warranty_type: p.warranty_type,
+          warranty_duration: p.warranty_duration,
+          warranty_provider: p.warranty_provider,
+          warranty_service_method: p.warranty_service_method,
+          warranty_notes: p.warranty_notes,
+          specifications: p.specifications,
+          // Starts hidden so the copy can't go live on the storefront
+          // before it's been reviewed/renamed — flip "Active" once ready.
+          active: false,
+          featured: false,
+        })
+        .select()
+        .single();
+      if (prodErr || !newProduct) {
+        toast.error(prodErr?.message ?? "Couldn't duplicate product");
+        return;
+      }
+
+      const [{ data: variants }, { data: images }] = await Promise.all([
+        supabase.from("product_variants").select("*").eq("product_id", p.id).order("sort_order", { ascending: true }),
+        supabase.from("product_images").select("*").eq("product_id", p.id).order("sort_order", { ascending: true }),
+      ]);
+
+      // Insert variants one at a time (rather than a single bulk insert) so
+      // each new id can be captured and mapped back to its source variant —
+      // that mapping is what lets the image-copy step below point each
+      // variant-specific image at the right *new* variant.
+      const variantIdMap = new Map<string, string>();
+      for (const v of variants ?? []) {
+        const { data: newVariant, error: vErr } = await supabase
+          .from("product_variants")
+          .insert({
+            product_id: newProduct.id,
+            name: v.name,
+            price_cents: v.price_cents,
+            mrp_cents: v.mrp_cents,
+            stock: v.stock,
+            sku: v.sku,
+            sort_order: v.sort_order,
+          })
+          .select()
+          .single();
+        if (vErr || !newVariant) {
+          toast.error(`Variant "${v.name}" failed to copy: ${vErr?.message ?? "unknown error"}`);
+          continue;
+        }
+        variantIdMap.set(v.id, newVariant.id);
+      }
+
+      if (images && images.length > 0) {
+        // Reuses the same storage URL rather than re-uploading the file —
+        // the image itself doesn't change, so both products can safely
+        // point at the same object in the product-images bucket.
+        const imageRows = images.map((img) => ({
+          product_id: newProduct.id,
+          variant_id: img.variant_id ? variantIdMap.get(img.variant_id) ?? null : null,
+          url: img.url,
+          is_primary: img.is_primary,
+          sort_order: img.sort_order,
+        }));
+        const { error: imgErr } = await supabase.from("product_images").insert(imageRows);
+        if (imgErr) toast.error(`Images failed to copy: ${imgErr.message}`);
+      }
+
+      toast.success("Product duplicated — review and save");
+      invalidateStoreFront();
+      openEdit(newProduct);
+    } finally {
+      setDuplicatingId(null);
+    }
+  }
+
   async function toggleActive(p: Product) {
     const { error } = await supabase.from("products").update({ active: !p.active }).eq("id", p.id);
     if (error) return toast.error(error.message);
@@ -302,6 +408,15 @@ function AdminProducts() {
                 <span className="text-xs text-muted-foreground">{p.active ? "Active" : "Hidden"}</span>
               </div>
               <div className="flex gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9"
+                  disabled={duplicatingId === p.id}
+                  onClick={() => duplicate(p)}
+                >
+                  {duplicatingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                </Button>
                 <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => openEdit(p)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -363,10 +478,19 @@ function AdminProducts() {
                   <Switch checked={p.active} onCheckedChange={() => toggleActive(p)} />
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button size="icon" variant="ghost" onClick={() => openEdit(p)}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={duplicatingId === p.id}
+                    onClick={() => duplicate(p)}
+                    title="Duplicate"
+                  >
+                    {duplicatingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => openEdit(p)} title="Edit">
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => del(p)}>
+                  <Button size="icon" variant="ghost" onClick={() => del(p)} title="Delete">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TableCell>
