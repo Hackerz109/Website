@@ -87,6 +87,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
+          payment_method: Database["public"]["Enums"]["payment_method_type"]
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           shipping_address: Json | null
@@ -124,6 +125,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          payment_method?: Database["public"]["Enums"]["payment_method_type"]
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           shipping_address?: Json | null
@@ -161,6 +163,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          payment_method?: Database["public"]["Enums"]["payment_method_type"]
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           shipping_address?: Json | null
@@ -1292,6 +1295,7 @@ export type Database = {
         | "return_approved"
         | "return_rejected"
       payment_status: "pending" | "paid" | "failed" | "refunded"
+      payment_method_type: "online" | "cash_on_pickup"
       fulfillment_type: "delivery" | "pickup"
       delivery_charge_type: "flat" | "distance"
       return_status:
@@ -1456,6 +1460,7 @@ export const Constants = {
         "return_rejected",
       ],
       payment_status: ["pending", "paid", "failed", "refunded"],
+      payment_method_type: ["online", "cash_on_pickup"],
       warranty_type: ["manufacturer", "seller", "extended"],
       warranty_service_method: [
         "home_service",
