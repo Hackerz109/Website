@@ -544,6 +544,15 @@ function CartPage() {
       return toast.error(itemsErr.message);
     }
 
+    // Fire-and-forget: lets the store owner know a new order came in
+    // (Telegram + admin app push). Never awaited/blocking and never allowed
+    // to affect checkout — if it fails, the order itself is already placed.
+    fetch("/api/order-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: order.id }),
+    }).catch(() => {});
+
     // Apply wallet credit, if the shopper opted in, before touching Razorpay.
     if (walletAmountCents > 0) {
       const walletResult = await redeemWalletForOrder(order.id, walletAmountCents);

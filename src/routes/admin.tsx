@@ -4,6 +4,7 @@ import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Tic
 import { StoreHeader } from "@/components/StoreHeader";
 import { Button } from "@/components/ui/button";
 import { AdminSearchBar } from "@/components/AdminSearchBar";
+import { PushNotificationSetup } from "@/components/PushNotificationSetup";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ function AdminLayout() {
           </div>
           <AdminSearchBar className="mx-3 hidden max-w-md flex-1 sm:block" />
           <div className="flex items-center gap-1 sm:gap-2">
+            <PushNotificationSetup />
             <Button asChild variant="ghost" size="sm">
               <Link to="/">
                 <ExternalLink className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">View store</span>
