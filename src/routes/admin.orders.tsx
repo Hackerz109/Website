@@ -50,6 +50,15 @@ function paymentBadge(status: PaymentStatus) {
   }
 }
 
+// Flags orders placed as Cash on Pickup that are still awaiting the cash —
+// a quick visual cue for staff to know which pending orders need cash
+// collected at the counter (as opposed to a delivery order still waiting
+// on Razorpay, which needs no action here).
+function cashPendingBadge(o: { payment_method: Database["public"]["Enums"]["payment_method_type"]; payment_status: PaymentStatus }) {
+  if (o.payment_method !== "cash_on_pickup" || o.payment_status === "paid") return null;
+  return <Badge variant="outline" className="border-amber-500/50 text-amber-700">Collect cash</Badge>;
+}
+
 function AdminOrders() {
   const qc = useQueryClient();
   const location = useLocation();
@@ -120,7 +129,10 @@ function AdminOrders() {
                 <div className="mt-1">{fulfillmentBadge(o.fulfillment_type)}</div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                {paymentBadge(o.payment_status)}
+                <div className="flex items-center gap-1">
+                  {paymentBadge(o.payment_status)}
+                  {cashPendingBadge(o)}
+                </div>
                 <span className="text-sm font-medium">{formatMoney(o.total_cents, o.currency)}</span>
               </div>
             </div>
@@ -142,7 +154,7 @@ function AdminOrders() {
               </Select>
               {o.payment_status !== "paid" && (
                 <Button size="sm" className="h-9" onClick={() => markPayment(o.id, "paid")}>
-                  Mark paid
+                  {o.payment_method === "cash_on_pickup" ? "Mark cash received" : "Mark paid"}
                 </Button>
               )}
             </div>
@@ -198,9 +210,10 @@ function AdminOrders() {
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {paymentBadge(o.payment_status)}
+                    {cashPendingBadge(o)}
                     {o.payment_status !== "paid" && (
                       <Button size="sm" variant="outline" onClick={() => markPayment(o.id, "paid")}>
-                        Mark paid
+                        {o.payment_method === "cash_on_pickup" ? "Mark cash received" : "Mark paid"}
                       </Button>
                     )}
                   </div>
@@ -234,7 +247,7 @@ function AdminOrders() {
           </TableBody>
         </Table>
         <div className="border-t p-3 text-xs text-muted-foreground">
-          <Badge variant="secondary">Tip</Badge> Payment status updates automatically via Razorpay. Use "Mark paid" for bank transfers, cash, or other payments made outside the site.
+          <Badge variant="secondary">Tip</Badge> Payment status updates automatically via Razorpay. Use "Mark paid" for bank transfers or other payments made outside the site — for a <Badge variant="outline" className="mx-0.5 border-amber-500/50 align-middle text-amber-700">Collect cash</Badge> order, this is also the moment stock actually gets deducted, so wait until the cash is in hand before marking it.
         </div>
       </div>
     </div>

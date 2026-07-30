@@ -115,6 +115,9 @@ function OrdersPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {paymentBadge(o.payment_status)}
+                      {o.payment_method === "cash_on_pickup" && o.payment_status !== "paid" && (
+                        <Badge variant="outline" className="border-amber-500/50 text-amber-700">Cash at pickup</Badge>
+                      )}
                       <Badge className={ORDER_STATUS_BADGE_CLASS[o.status]}>{ORDER_STATUS_LABELS[o.status]}</Badge>
                     </div>
                   </div>
@@ -142,15 +145,28 @@ function OrdersPage() {
                   </div>
 
                   {o.payment_status === "pending" || o.payment_status === "failed" ? (
-                    <Button
-                      className="mt-3 w-full"
-                      size="sm"
-                      variant="outline"
-                      disabled={payingId === o.id}
-                      onClick={() => retryPay({ id: o.id, customer_name: o.customer_name, customer_email: o.customer_email })}
-                    >
-                      {payingId === o.id ? "Opening payment…" : o.payment_status === "failed" ? "Try payment again" : "Pay now"}
-                    </Button>
+                    <>
+                      <Button
+                        className="mt-3 w-full"
+                        size="sm"
+                        variant="outline"
+                        disabled={payingId === o.id}
+                        onClick={() => retryPay({ id: o.id, customer_name: o.customer_name, customer_email: o.customer_email })}
+                      >
+                        {payingId === o.id
+                          ? "Opening payment…"
+                          : o.payment_method === "cash_on_pickup"
+                            ? "Pay online now to reserve your items"
+                            : o.payment_status === "failed"
+                              ? "Try payment again"
+                              : "Pay now"}
+                      </Button>
+                      {o.payment_method === "cash_on_pickup" && (
+                        <p className="mt-1.5 text-center text-xs text-muted-foreground">
+                          You chose cash at pickup — these items aren't reserved until paid.
+                        </p>
+                      )}
+                    </>
                   ) : null}
                 </div>
 

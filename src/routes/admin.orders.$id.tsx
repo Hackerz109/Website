@@ -209,7 +209,7 @@ function AdminOrderDetailPage() {
           </Select>
           {order.payment_status !== "paid" && (
             <Button size="sm" onClick={() => markPayment("paid")}>
-              Mark paid
+              {order.payment_method === "cash_on_pickup" ? "Mark cash received" : "Mark paid"}
             </Button>
           )}
         </div>
@@ -415,8 +415,17 @@ function AdminOrderDetailPage() {
                   {order.payment_status}
                 </Badge>
               </div>
+              <div className="flex items-center justify-between">
+                <span>Payment method</span>
+                <span>{order.payment_method === "cash_on_pickup" ? "Cash on pickup" : "Online (Razorpay)"}</span>
+              </div>
               {order.paid_at && <p>Paid {new Date(order.paid_at).toLocaleString()}</p>}
               {order.razorpay_payment_id && <p className="truncate">Razorpay: {order.razorpay_payment_id}</p>}
+              {order.payment_method === "cash_on_pickup" && order.payment_status !== "paid" && (
+                <p className="rounded-lg bg-amber-500/10 px-2.5 py-2 text-amber-700">
+                  Not reserved — stock for this order is only deducted once you mark it paid.
+                </p>
+              )}
             </div>
           </Section>
 

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet, Home, Building2, PencilLine } from "lucide-react";
+import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet, Home, Building2, PencilLine, CreditCard, Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
@@ -66,6 +66,11 @@ function CartPage() {
   // ---- Delivery / pickup -------------------------------------------------
   const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo | null>(null);
   const [fulfillment, setFulfillment] = useState<FulfillmentType>("delivery");
+  // Only ever meaningful when fulfillment === "pickup" — Cash on Pickup
+  // doesn't exist for home delivery. Switching back to Home Delivery
+  // resets this to "online" (see the fulfillment toggle below) so a stray
+  // cash selection can never silently carry over to a delivery order.
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "cash_on_pickup">("online");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
   const [city, setCity] = useState("");
@@ -469,6 +474,11 @@ function CartPage() {
 
     const finalTotal = Math.max(0, subtotal - finalDiscount + finalCharge);
     const combinedAddress = [addressLine1, addressLine2, city, stateName, pincode].filter(Boolean).join(", ");
+    // Cash on Pickup only exists for Store Pickup — the delivery tab never
+    // sets paymentMethod to "cash_on_pickup" in the first place (see the
+    // fulfillment toggle above), but this is the single source of truth
+    // that actually decides which path the order takes below.
+    const isCashOnPickup = fulfillment === "pickup" && paymentMethod === "cash_on_pickup";
 
     const { data: order, error } = await supabase
       .from("orders")
@@ -487,6 +497,7 @@ function CartPage() {
         total_cents: finalTotal,
         notes,
         fulfillment_type: fulfillment,
+        payment_method: isCashOnPickup ? "cash_on_pickup" : "online",
         delivery_zone_id: fulfillment === "delivery" ? finalQuote?.zone_id ?? null : null,
         delivery_lat: fulfillment === "delivery" ? effectiveCoords?.lat ?? null : null,
         delivery_lng: fulfillment === "delivery" ? effectiveCoords?.lng ?? null : null,
@@ -544,6 +555,29 @@ function CartPage() {
     clear();
     removeCoupon();
     setPlacing(false);
+
+    if (amountDueNow === 0 && walletAmountCents > 0) {
+      // Wallet covered the order in full — redeemWalletForOrder already
+      // marked it paid above (whichever payment method was chosen — a
+      // fully wallet-paid order is fully paid, cash or not). Calling
+      // payForOrder here would just hit "Order is already paid" and show a
+      // confusing error toast for what was actually a success, so this
+      // check runs before the cash-on-pickup branch below, not after it.
+      toast.success("Order placed — paid by wallet. Thank you!");
+      navigate({ to: "/orders" });
+      return;
+    }
+
+    if (isCashOnPickup) {
+      // No Razorpay at all for this path — the order is placed and left
+      // exactly as-is (payment_status: 'pending'), on purpose. Stock is
+      // only ever deducted once payment_status actually becomes 'paid',
+      // so this order does not hold its items until staff collect cash in
+      // store and mark it paid.
+      toast(`Order placed — bring ${formatMoney(amountDueNow)} cash when you pick up. This doesn't reserve your items until it's paid.`, { icon: "🏪" });
+      navigate({ to: "/orders" });
+      return;
+    }
 
     const result = await payForOrder({
       id: order.id,
@@ -616,7 +650,7 @@ function CartPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setFulfillment("delivery")}
+                    onClick={() => { setFulfillment("delivery"); setPaymentMethod("online"); }}
                     className={`flex items-center justify-center gap-2 rounded-lg border p-3 text-sm font-medium transition-colors ${
                       fulfillment === "delivery" ? "border-primary bg-primary/5 text-primary" : "text-muted-foreground"
                     }`}
@@ -783,6 +817,39 @@ function CartPage() {
                       <Label htmlFor="pickup-phone">Phone number</Label>
                       <PhoneInput id="pickup-phone" value={phone} onChange={setPhone} />
                     </div>
+
+                    <div className="mt-3 space-y-2">
+                      <Label>How will you pay?</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("online")}
+                          className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium transition-colors ${
+                            paymentMethod === "online" ? "border-primary bg-primary/5 text-primary" : "text-muted-foreground"
+                          }`}
+                        >
+                          <CreditCard className="h-3.5 w-3.5" /> Pay online now
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("cash_on_pickup")}
+                          className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium transition-colors ${
+                            paymentMethod === "cash_on_pickup" ? "border-primary bg-primary/5 text-primary" : "text-muted-foreground"
+                          }`}
+                        >
+                          <Banknote className="h-3.5 w-3.5" /> Cash at pickup
+                        </button>
+                      </div>
+                      {paymentMethod === "cash_on_pickup" ? (
+                        <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                          <strong>This does not reserve your items.</strong> Stock is only held for orders that are actually paid — an unpaid cash order can be sold to another customer before you arrive. Pay online instead if you want to guarantee stock.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Paying online now reserves your items immediately.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -879,7 +946,9 @@ function CartPage() {
                   )}
                   {useWallet && walletAmountCents > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Amount to pay now</span>
+                      <span className="text-muted-foreground">
+                        {fulfillment === "pickup" && paymentMethod === "cash_on_pickup" ? "Remaining — cash at pickup" : "Amount to pay now"}
+                      </span>
                       <span className="font-semibold">{formatMoney(amountDueNow)}</span>
                     </div>
                   )}
@@ -907,10 +976,18 @@ function CartPage() {
                 </button>
               )}
               <Button className="w-full" onClick={placeOrder} disabled={placing || !canDeliver}>
-                {placing ? "Placing order…" : amountDueNow === 0 && walletAmountCents > 0 ? "Place order — paid by wallet" : "Place order & pay"}
+                {placing
+                  ? "Placing order…"
+                  : fulfillment === "pickup" && paymentMethod === "cash_on_pickup"
+                    ? "Place order — pay cash at pickup"
+                    : amountDueNow === 0 && walletAmountCents > 0
+                      ? "Place order — paid by wallet"
+                      : "Place order & pay"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Secure payment via Razorpay. You can also pay later from "My orders" if you close the payment window.
+                {fulfillment === "pickup" && paymentMethod === "cash_on_pickup"
+                  ? "No payment now — pay cash when you collect your order. Your items aren't reserved until it's paid."
+                  : "Secure payment via Razorpay. You can also pay later from \"My orders\" if you close the payment window."}
               </p>
             </div>
           </div>

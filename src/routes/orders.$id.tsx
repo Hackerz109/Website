@@ -136,7 +136,12 @@ function OrderDetailPage() {
             <h1 className="text-xl font-semibold tracking-tight">Order #{order.id.slice(0, 8)}</h1>
             <p className="text-xs text-muted-foreground">Placed on {new Date(order.created_at).toLocaleString()}</p>
           </div>
-          <Badge className={ORDER_STATUS_BADGE_CLASS[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
+          <div className="flex items-center gap-2">
+            {order.payment_method === "cash_on_pickup" && order.payment_status !== "paid" && (
+              <Badge variant="outline" className="border-amber-500/50 text-amber-700">Cash at pickup</Badge>
+            )}
+            <Badge className={ORDER_STATUS_BADGE_CLASS[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
+          </div>
         </div>
 
         <Link
@@ -286,9 +291,22 @@ function OrderDetailPage() {
           )}
 
           {(order.payment_status === "pending" || order.payment_status === "failed") && order.total_cents > order.wallet_used_cents && (
-            <Button className="mt-4 w-full" size="sm" disabled={paying} onClick={retryPay}>
-              {paying ? "Opening payment…" : order.payment_status === "failed" ? "Try payment again" : "Pay now"}
-            </Button>
+            <>
+              <Button className="mt-4 w-full" size="sm" disabled={paying} onClick={retryPay}>
+                {paying
+                  ? "Opening payment…"
+                  : order.payment_method === "cash_on_pickup"
+                    ? "Pay online now to reserve your items"
+                    : order.payment_status === "failed"
+                      ? "Try payment again"
+                      : "Pay now"}
+              </Button>
+              {order.payment_method === "cash_on_pickup" && (
+                <p className="mt-1.5 text-center text-xs text-muted-foreground">
+                  You chose cash at pickup — these items aren't reserved until paid. Pay online now to guarantee stock.
+                </p>
+              )}
+            </>
           )}
         </div>
 
