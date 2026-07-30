@@ -113,6 +113,7 @@ export type Database = {
           delivered_at: string | null
           cancelled_at: string | null
           admin_notes: string | null
+          notified_at: string | null
         }
         Insert: {
           coupon_code?: string | null
@@ -151,6 +152,7 @@ export type Database = {
           delivered_at?: string | null
           cancelled_at?: string | null
           admin_notes?: string | null
+          notified_at?: string | null
         }
         Update: {
           coupon_code?: string | null
@@ -189,6 +191,7 @@ export type Database = {
           delivered_at?: string | null
           cancelled_at?: string | null
           admin_notes?: string | null
+          notified_at?: string | null
         }
         Relationships: [
           {
@@ -199,6 +202,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          created_at?: string
+        }
+        Relationships: []
       }
       coupons: {
         Row: {
