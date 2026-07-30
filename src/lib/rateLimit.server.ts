@@ -55,6 +55,13 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
     user: { limit: 60, windowMs: 60 * 60_000, lockMs: 5 * 60_000 },
     ip: { limit: 120, windowMs: 60 * 60_000, lockMs: 5 * 60_000 },
   },
+  // New-order alerts (Telegram + admin push): the notified_at claim in
+  // /api/order-notify already makes a real order fire at most once, so this
+  // is only here to stop someone from hammering the endpoint with bogus
+  // order ids. Loose and IP-only — genuine checkouts never come close.
+  order_notify: {
+    ip: { limit: 30, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
+  },
 };
 
 // Show a captcha this many attempts before the (email) identifier actually
