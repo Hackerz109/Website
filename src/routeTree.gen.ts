@@ -61,6 +61,9 @@ import { Route as ApiVerifyRazorpayPaymentRouteImport } from './routes/api.verif
 import { Route as ApiRefundRazorpayPaymentRouteImport } from './routes/api.refund-razorpay-payment'
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api.razorpay-webhook'
 import { Route as ApiCreateRazorpayOrderRouteImport } from './routes/api.create-razorpay-order'
+import { Route as ApiOrderNotifyRouteImport } from './routes/api.order-notify'
+import { Route as ApiPushSubscribeRouteImport } from './routes/api.push-subscribe'
+import { Route as ApiVapidPublicKeyRouteImport } from './routes/api.vapid-public-key'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminUsersIdRouteImport } from './routes/admin.users.$id'
@@ -246,6 +249,21 @@ const ApiCreateRazorpayOrderRoute = ApiCreateRazorpayOrderRouteImport.update({
   path: '/api/create-razorpay-order',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrderNotifyRoute = ApiOrderNotifyRouteImport.update({
+  id: '/api/order-notify',
+  path: '/api/order-notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
+  id: '/api/push-subscribe',
+  path: '/api/push-subscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVapidPublicKeyRoute = ApiVapidPublicKeyRouteImport.update({
+  id: '/api/vapid-public-key',
+  path: '/api/vapid-public-key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -304,6 +322,9 @@ export interface FileRoutesByFullPath {
   '/api/send-phone-otp': typeof ApiSendPhoneOtpRoute
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
   '/api/verify-phone-otp': typeof ApiVerifyPhoneOtpRoute
+  '/api/order-notify': typeof ApiOrderNotifyRoute
+  '/api/push-subscribe': typeof ApiPushSubscribeRoute
+  '/api/vapid-public-key': typeof ApiVapidPublicKeyRoute
   '/profile': typeof ProfileRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/users/$id': typeof AdminUsersIdRoute
@@ -345,6 +366,9 @@ export interface FileRoutesByTo {
   '/api/send-phone-otp': typeof ApiSendPhoneOtpRoute
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
   '/api/verify-phone-otp': typeof ApiVerifyPhoneOtpRoute
+  '/api/order-notify': typeof ApiOrderNotifyRoute
+  '/api/push-subscribe': typeof ApiPushSubscribeRoute
+  '/api/vapid-public-key': typeof ApiVapidPublicKeyRoute
   '/profile': typeof ProfileRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/users/$id': typeof AdminUsersIdRoute
@@ -388,6 +412,9 @@ export interface FileRoutesById {
   '/api/send-phone-otp': typeof ApiSendPhoneOtpRoute
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
   '/api/verify-phone-otp': typeof ApiVerifyPhoneOtpRoute
+  '/api/order-notify': typeof ApiOrderNotifyRoute
+  '/api/push-subscribe': typeof ApiPushSubscribeRoute
+  '/api/vapid-public-key': typeof ApiVapidPublicKeyRoute
   '/profile': typeof ProfileRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/users/$id': typeof AdminUsersIdRoute
@@ -432,6 +459,9 @@ export interface FileRouteTypes {
     | '/api/send-phone-otp'
     | '/api/verify-captcha'
     | '/api/verify-phone-otp'
+    | '/api/order-notify'
+    | '/api/push-subscribe'
+    | '/api/vapid-public-key'
     | '/profile'
     | '/admin/users'
     | '/admin/users/$id'
@@ -473,6 +503,9 @@ export interface FileRouteTypes {
     | '/api/send-phone-otp'
     | '/api/verify-captcha'
     | '/api/verify-phone-otp'
+    | '/api/order-notify'
+    | '/api/push-subscribe'
+    | '/api/vapid-public-key'
     | '/profile'
     | '/admin/users'
     | '/admin/users/$id'
@@ -515,6 +548,9 @@ export interface FileRouteTypes {
     | '/api/send-phone-otp'
     | '/api/verify-captcha'
     | '/api/verify-phone-otp'
+    | '/api/order-notify'
+    | '/api/push-subscribe'
+    | '/api/vapid-public-key'
     | '/profile'
     | '/admin/users'
     | '/admin/users/$id'
@@ -550,6 +586,9 @@ export interface RootRouteChildren {
   ApiSendPhoneOtpRoute: typeof ApiSendPhoneOtpRoute
   ApiVerifyCaptchaRoute: typeof ApiVerifyCaptchaRoute
   ApiVerifyPhoneOtpRoute: typeof ApiVerifyPhoneOtpRoute
+  ApiOrderNotifyRoute: typeof ApiOrderNotifyRoute
+  ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
+  ApiVapidPublicKeyRoute: typeof ApiVapidPublicKeyRoute
   ProfileRoute: typeof ProfileRoute
 }
 
@@ -772,6 +811,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/order-notify': {
+      id: '/api/order-notify'
+      path: '/api/order-notify'
+      fullPath: '/api/order-notify'
+      preLoaderRoute: typeof ApiOrderNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/push-subscribe': {
+      id: '/api/push-subscribe'
+      path: '/api/push-subscribe'
+      fullPath: '/api/push-subscribe'
+      preLoaderRoute: typeof ApiPushSubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/vapid-public-key': {
+      id: '/api/vapid-public-key'
+      path: '/api/vapid-public-key'
+      fullPath: '/api/vapid-public-key'
+      preLoaderRoute: typeof ApiVapidPublicKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -862,6 +922,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSendPhoneOtpRoute: ApiSendPhoneOtpRoute,
   ApiVerifyCaptchaRoute: ApiVerifyCaptchaRoute,
   ApiVerifyPhoneOtpRoute: ApiVerifyPhoneOtpRoute,
+  ApiOrderNotifyRoute: ApiOrderNotifyRoute,
+  ApiPushSubscribeRoute: ApiPushSubscribeRoute,
+  ApiVapidPublicKeyRoute: ApiVapidPublicKeyRoute,
   ProfileRoute: ProfileRoute,
 }
 export const routeTree = rootRouteImport
