@@ -142,6 +142,7 @@ async function searchProductLines(filter: ProductFilter): Promise<{ lines: Match
   }
 
   scored.sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));
+  scored = discriminateProducts(scored, filter);
   scored = discriminateVariants(scored, filter);
 
   // Fallback: if every filter field was given a fair shot and still matched
@@ -180,6 +181,34 @@ function collectFilterTerms(filter: ProductFilter): string[] {
   if (filter.name_hint) terms.push(filter.name_hint);
   if (filter.keywords) terms.push(...filter.keywords);
   return terms.filter((t) => t.trim().length > 0);
+}
+
+/** Same idea as discriminateVariants, one level up: a broad category or
+ * brand match ("cooler") can legitimately pull in every product in that
+ * category, and name_hint/keywords only ever add a soft score bonus rather
+ * than excluding anything — which is right when the word is genuinely just
+ * descriptive. But when a word (like "Bandhan") turns out to appear in
+ * SOME of the matched products' own names and not others, that's the admin
+ * naming one specific product, not describing the whole category — so this
+ * drops the ones missing it. If a word matches every candidate equally (or
+ * none of them), nothing changes here. */
+function discriminateProducts(lines: MatchLine[], filter: ProductFilter): MatchLine[] {
+  const words = [
+    ...(filter.keywords ?? []),
+    ...(filter.name_hint ? norm(filter.name_hint).split(" ") : []),
+  ]
+    .map((w) => w.trim())
+    .filter(Boolean);
+  if (words.length === 0 || lines.length < 2) return [...lines];
+
+  let result = lines;
+  for (const word of words) {
+    const matching = result.filter((l) => looselyContains(l.productName, word));
+    if (matching.length > 0 && matching.length < result.length) {
+      result = matching;
+    }
+  }
+  return result === lines ? [...lines] : result;
 }
 
 /** Brand/category/size all hard-exclude a non-matching product in
