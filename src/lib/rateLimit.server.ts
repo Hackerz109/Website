@@ -68,6 +68,9 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
   return_notify: {
     ip: { limit: 30, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
   },
+  push_subscribe: {
+    ip: { limit: 20, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
+  },
 };
 
 // Show a captcha this many attempts before the (email) identifier actually
