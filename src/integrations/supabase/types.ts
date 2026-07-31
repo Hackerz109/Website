@@ -114,6 +114,8 @@ export type Database = {
           cancelled_at: string | null
           admin_notes: string | null
           notified_at: string | null
+          payment_paid_notified_at: string | null
+          payment_failed_notified_at: string | null
         }
         Insert: {
           coupon_code?: string | null
@@ -153,6 +155,8 @@ export type Database = {
           cancelled_at?: string | null
           admin_notes?: string | null
           notified_at?: string | null
+          payment_paid_notified_at?: string | null
+          payment_failed_notified_at?: string | null
         }
         Update: {
           coupon_code?: string | null
@@ -192,6 +196,8 @@ export type Database = {
           cancelled_at?: string | null
           admin_notes?: string | null
           notified_at?: string | null
+          payment_paid_notified_at?: string | null
+          payment_failed_notified_at?: string | null
         }
         Relationships: [
           {
@@ -559,6 +565,7 @@ export type Database = {
           refunded_at: string | null
           created_at: string
           updated_at: string
+          notified_at: string | null
         }
         Insert: {
           id?: string
@@ -575,6 +582,7 @@ export type Database = {
           refunded_at?: string | null
           created_at?: string
           updated_at?: string
+          notified_at?: string | null
         }
         Update: {
           id?: string
@@ -591,6 +599,7 @@ export type Database = {
           refunded_at?: string | null
           created_at?: string
           updated_at?: string
+          notified_at?: string | null
         }
         Relationships: [
           {
