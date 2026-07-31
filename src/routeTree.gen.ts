@@ -62,6 +62,8 @@ import { Route as ApiRefundRazorpayPaymentRouteImport } from './routes/api.refun
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api.razorpay-webhook'
 import { Route as ApiCreateRazorpayOrderRouteImport } from './routes/api.create-razorpay-order'
 import { Route as ApiOrderNotifyRouteImport } from './routes/api.order-notify'
+import { Route as ApiPaymentNotifyRouteImport } from './routes/api.payment-notify'
+import { Route as ApiReturnNotifyRouteImport } from './routes/api.return-notify'
 import { Route as ApiPushSubscribeRouteImport } from './routes/api.push-subscribe'
 import { Route as ApiVapidPublicKeyRouteImport } from './routes/api.vapid-public-key'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -254,6 +256,16 @@ const ApiOrderNotifyRoute = ApiOrderNotifyRouteImport.update({
   path: '/api/order-notify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentNotifyRoute = ApiPaymentNotifyRouteImport.update({
+  id: '/api/payment-notify',
+  path: '/api/payment-notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReturnNotifyRoute = ApiReturnNotifyRouteImport.update({
+  id: '/api/return-notify',
+  path: '/api/return-notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
   id: '/api/push-subscribe',
   path: '/api/push-subscribe',
@@ -323,6 +335,8 @@ export interface FileRoutesByFullPath {
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
   '/api/verify-phone-otp': typeof ApiVerifyPhoneOtpRoute
   '/api/order-notify': typeof ApiOrderNotifyRoute
+  '/api/payment-notify': typeof ApiPaymentNotifyRoute
+  '/api/return-notify': typeof ApiReturnNotifyRoute
   '/api/push-subscribe': typeof ApiPushSubscribeRoute
   '/api/vapid-public-key': typeof ApiVapidPublicKeyRoute
   '/profile': typeof ProfileRoute
@@ -367,6 +381,8 @@ export interface FileRoutesByTo {
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
   '/api/verify-phone-otp': typeof ApiVerifyPhoneOtpRoute
   '/api/order-notify': typeof ApiOrderNotifyRoute
+  '/api/payment-notify': typeof ApiPaymentNotifyRoute
+  '/api/return-notify': typeof ApiReturnNotifyRoute
   '/api/push-subscribe': typeof ApiPushSubscribeRoute
   '/api/vapid-public-key': typeof ApiVapidPublicKeyRoute
   '/profile': typeof ProfileRoute
@@ -413,6 +429,8 @@ export interface FileRoutesById {
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
   '/api/verify-phone-otp': typeof ApiVerifyPhoneOtpRoute
   '/api/order-notify': typeof ApiOrderNotifyRoute
+  '/api/payment-notify': typeof ApiPaymentNotifyRoute
+  '/api/return-notify': typeof ApiReturnNotifyRoute
   '/api/push-subscribe': typeof ApiPushSubscribeRoute
   '/api/vapid-public-key': typeof ApiVapidPublicKeyRoute
   '/profile': typeof ProfileRoute
@@ -460,6 +478,8 @@ export interface FileRouteTypes {
     | '/api/verify-captcha'
     | '/api/verify-phone-otp'
     | '/api/order-notify'
+    | '/api/payment-notify'
+    | '/api/return-notify'
     | '/api/push-subscribe'
     | '/api/vapid-public-key'
     | '/profile'
@@ -504,6 +524,8 @@ export interface FileRouteTypes {
     | '/api/verify-captcha'
     | '/api/verify-phone-otp'
     | '/api/order-notify'
+    | '/api/payment-notify'
+    | '/api/return-notify'
     | '/api/push-subscribe'
     | '/api/vapid-public-key'
     | '/profile'
@@ -549,6 +571,8 @@ export interface FileRouteTypes {
     | '/api/verify-captcha'
     | '/api/verify-phone-otp'
     | '/api/order-notify'
+    | '/api/payment-notify'
+    | '/api/return-notify'
     | '/api/push-subscribe'
     | '/api/vapid-public-key'
     | '/profile'
@@ -587,6 +611,8 @@ export interface RootRouteChildren {
   ApiVerifyCaptchaRoute: typeof ApiVerifyCaptchaRoute
   ApiVerifyPhoneOtpRoute: typeof ApiVerifyPhoneOtpRoute
   ApiOrderNotifyRoute: typeof ApiOrderNotifyRoute
+  ApiPaymentNotifyRoute: typeof ApiPaymentNotifyRoute
+  ApiReturnNotifyRoute: typeof ApiReturnNotifyRoute
   ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
   ApiVapidPublicKeyRoute: typeof ApiVapidPublicKeyRoute
   ProfileRoute: typeof ProfileRoute
@@ -818,6 +844,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrderNotifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/payment-notify': {
+      id: '/api/payment-notify'
+      path: '/api/payment-notify'
+      fullPath: '/api/payment-notify'
+      preLoaderRoute: typeof ApiPaymentNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/return-notify': {
+      id: '/api/return-notify'
+      path: '/api/return-notify'
+      fullPath: '/api/return-notify'
+      preLoaderRoute: typeof ApiReturnNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/push-subscribe': {
       id: '/api/push-subscribe'
       path: '/api/push-subscribe'
@@ -923,6 +963,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVerifyCaptchaRoute: ApiVerifyCaptchaRoute,
   ApiVerifyPhoneOtpRoute: ApiVerifyPhoneOtpRoute,
   ApiOrderNotifyRoute: ApiOrderNotifyRoute,
+  ApiPaymentNotifyRoute: ApiPaymentNotifyRoute,
+  ApiReturnNotifyRoute: ApiReturnNotifyRoute,
   ApiPushSubscribeRoute: ApiPushSubscribeRoute,
   ApiVapidPublicKeyRoute: ApiVapidPublicKeyRoute,
   ProfileRoute: ProfileRoute,
