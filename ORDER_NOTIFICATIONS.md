@@ -1,15 +1,23 @@
 # Order Notifications (Telegram + admin app push) — what was added
 
-Fires once per order — Store Pickup, Home Delivery, Cash on Pickup, or paid
-online, doesn't matter — at the moment the order is placed. It does not fire
-again later when payment status changes (e.g. cash collected at pickup, or
-the Razorpay webhook marking an order paid).
+Five events now alert you, each exactly once:
+
+| Event | Fires from | Message |
+|---|---|---|
+| New order placed | Any checkout (pickup/delivery, online/cash/wallet) | 🛒 Order details, items, destination, payment status |
+| Payment received | Razorpay webhook, client-side verify, or wallet fully covering the order — whichever gets there first | 💰 Amount + method |
+| Payment failed | Razorpay webhook | ⚠️ Amount, order — a nudge to check in with the customer |
+| Return requested | Customer submits a return | ↩️ Items, reason, preferred refund method |
+
+**Deliberately not included** — each a conscious choice, not a gap:
+- Order status changes (packed/shipped/etc) and manually marking an order paid — these are things *you* click from the admin app, so alerting you about your own action isn't useful.
+- Low stock — this needs a different mechanism (stock only changes inside a database trigger, with no request to hang a notification call off), so it wasn't bundled in here. Ask if you want it added.
 
 ## 1. Setup
 
 ```bash
 bun install                 # picks up the new `web-push` dependency
-supabase db push             # applies the new migration (or however Lovable Cloud syncs migrations)
+supabase db push             # applies both new migrations (or however Lovable Cloud syncs migrations)
 ```
 
 **New environment variables** (add these wherever the site's other secrets
@@ -18,7 +26,7 @@ live — Vercel/Lovable Cloud project settings, not in the repo):
 | Variable | Where it goes | What it's for |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | server | Your bot's token from BotFather |
-| `TELEGRAM_CHAT_ID` | server | The private chat the bot sends order alerts to |
+| `TELEGRAM_CHAT_ID` | server | The private chat the bot sends alerts to |
 | `VAPID_PUBLIC_KEY` | server | Push key pair — public half |
 | `VAPID_PRIVATE_KEY` | server | Push key pair — private half, keep secret |
 | `VAPID_SUBJECT` | server | A `mailto:` address, required by the push spec |
@@ -52,44 +60,56 @@ permission — allow it. That device is now subscribed; repeat on any other
 phone/laptop that should also get alerts. Each device subscribes
 independently, so this is a one-time step per device, not per admin account.
 
-## 2. Database (`supabase/migrations/20260730110000_order_notifications.sql`)
+## 2. Database
 
-- `orders.notified_at` — nullable timestamp. `/api/order-notify` claims it
-  atomically (`UPDATE ... WHERE notified_at IS NULL`) before sending
-  anything, so a retried or duplicate call for the same order can never
-  double-send.
-- `push_subscriptions` — one row per device that's enabled push from the
-  admin app (`user_id`, `endpoint`, `p256dh`, `auth`). RLS: an admin can only
-  read/write their own rows; regular customer accounts can't have rows here
-  at all. The sending side reads every row using the service-role client,
-  same trust model as every other admin-only server route in this project.
+- `supabase/migrations/20260730110000_order_notifications.sql` —
+  `orders.notified_at` (new-order idempotency) + `push_subscriptions` table.
+- `supabase/migrations/20260730120000_payment_and_return_notifications.sql` —
+  `orders.payment_paid_notified_at`, `orders.payment_failed_notified_at`,
+  `return_requests.notified_at`. Every code path that can result in a paid
+  order (there are three — see below) attempts the payment notification
+  unconditionally; these columns are what actually guarantee one send per
+  order no matter which path gets there first, not caller discipline.
 
-## 3. What fires it (`src/routes/cart.tsx`)
+## 3. What fires each event
 
-Right after an order and its `order_items` are successfully inserted —
-covers every checkout path since they all go through that same insert — the
-client fires a non-blocking `POST /api/order-notify` with just the order id.
-If it fails for any reason, the order itself is unaffected; this is a
-side-channel alert, not part of checkout.
+- **New order** (`src/routes/cart.tsx`) — right after an order + its
+  `order_items` are inserted, for every checkout path.
+- **Payment received** — three independent, racing paths all call
+  `notifyPaymentPaid` (`src/lib/paymentNotify.server.ts`):
+  - `src/routes/api.razorpay-webhook.ts` (`payment.captured`)
+  - `src/routes/api.verify-razorpay-payment.ts` (the instant client-side
+    confirmation right after Razorpay Checkout succeeds)
+  - `src/lib/wallet.ts` (`redeemWalletForOrder`, via the new
+    `src/routes/api.payment-notify.ts`) when wallet credit covers the full
+    remaining balance
+- **Payment failed** — `src/routes/api.razorpay-webhook.ts`
+  (`payment.failed`), via `notifyPaymentFailed`.
+- **Return requested** — `src/lib/returns.ts` (`createReturnRequest`), via
+  the new `src/routes/api.return-notify.ts` and
+  `src/lib/returnNotify.server.ts`.
 
-## 4. `/api/order-notify` (`src/routes/api.order-notify.ts`)
+All of these are non-blocking / best-effort: if a notification fails to
+send, the underlying action (checkout, payment, return) is completely
+unaffected — it's a side channel, never part of the critical path.
 
-- Claims `notified_at` atomically, then looks up the order + its items
-  itself — the message is always built from what's actually in the
-  database, **never** from anything in the request body, so there's no way
-  to make this endpoint send arbitrary text. The request body only says
-  *which* order to notify about.
-- Sends both channels in parallel: `sendTelegramMessage` (`src/lib/telegram.server.ts`)
-  and `sendPushToAdmins` (`src/lib/push.server.ts`).
-- Rate-limited by IP (`order_notify` scope in `src/lib/rateLimit.server.ts`)
-  purely to stop someone from hammering it with bogus order ids — the
-  `notified_at` claim already caps real orders at one send each.
+## 4. `/api/order-notify`, `/api/payment-notify`, `/api/return-notify`
+
+Same trust model on all three: the request only ever says *which* order or
+return to notify about. The message itself is always built from what's
+actually in the database, never from anything in the request body, so
+there's no way to make any of them send arbitrary text. Each is rate-limited
+by IP (`order_notify` / `payment_notify` / `return_notify` scopes in
+`src/lib/rateLimit.server.ts`) purely to stop someone hammering them with
+bogus ids — the per-order/per-return atomic claim already caps real events
+at one send each.
 
 ## 5. Admin app push (`public/sw.js`, `src/components/PushNotificationSetup.tsx`)
 
-- The service worker now handles `push` (shows the OS notification) and
+- The service worker handles `push` (shows the OS notification) and
   `notificationclick` (focuses an open admin tab, or opens one, at the
-  relevant order) — it doesn't cache anything or change any other request.
+  relevant order/returns page) — it doesn't cache anything or change any
+  other request.
 - `PushNotificationSetup` is the bell button in the admin header
   (`src/routes/admin.tsx`). It subscribes via the browser's Push API using
   `VAPID_PUBLIC_KEY` (served from `/api/vapid-public-key` — safe to expose,
@@ -100,10 +120,11 @@ side-channel alert, not part of checkout.
   Add to Home Screen) before push permission can be granted at all — this is
   an Apple platform restriction, not something the app can work around.
 
-## 6. Message content
+## 6. Not fixed, but found along the way
 
-Both channels get the same information: order id, customer name/email,
-line items with quantities and prices, destination (pickup vs. delivery
-address), and payment status (paid / cash on pickup / awaiting payment). The
-push notification body is a shorter one-line summary; tapping it opens the
-order in the admin panel.
+`src/routes/contact.tsx`'s form doesn't actually send anywhere — it fakes a
+success toast after a timeout (there's a comment in the code saying so).
+Left untouched since it's outside this feature's scope, but it means contact
+messages are currently silently lost. Worth wiring into this same
+Telegram/push system, or an inbox table, whenever you're ready.
+
