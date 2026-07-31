@@ -74,6 +74,16 @@ export const Route = createFileRoute("/api/verify-razorpay-payment")({
           }
         }
 
+        // Safe to call even if the webhook already won this race — the
+        // atomic claim inside notifyPaymentPaid caps this at one send per
+        // order no matter which path (or how many) calls it.
+        try {
+          const { notifyPaymentPaid } = await import("@/lib/paymentNotify.server");
+          await notifyPaymentPaid(order.id);
+        } catch (err) {
+          console.error("[verify-razorpay-payment] notify error", err);
+        }
+
         return json({ ok: true });
       },
     },

@@ -78,16 +78,23 @@ async function handleEvent(payload: RazorpayWebhookPayload) {
       console.warn("[razorpay-webhook] payment.captured for unknown order", payment.order_id);
       return;
     }
-    if (order.payment_status === "paid") return; // already handled (e.g. by the client-side verify call) — idempotent no-op
 
-    await supabaseAdmin
-      .from("orders")
-      .update({
-        payment_status: "paid",
-        razorpay_payment_id: payment.id,
-        paid_at: new Date().toISOString(),
-      })
-      .eq("id", order.id);
+    if (order.payment_status !== "paid") {
+      await supabaseAdmin
+        .from("orders")
+        .update({
+          payment_status: "paid",
+          razorpay_payment_id: payment.id,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+    }
+
+    // Safe to call even if this webhook lost the race to the client-side
+    // verify call (or is a second delivery of the same event) — the atomic
+    // claim inside notifyPaymentPaid caps this at one send per order.
+    const { notifyPaymentPaid } = await import("@/lib/paymentNotify.server");
+    await notifyPaymentPaid(order.id);
   }
 
   if (payload.event === "payment.failed") {
@@ -99,5 +106,8 @@ async function handleEvent(payload: RazorpayWebhookPayload) {
     if (!order || order.payment_status === "paid") return;
 
     await supabaseAdmin.from("orders").update({ payment_status: "failed" }).eq("id", order.id);
+
+    const { notifyPaymentFailed } = await import("@/lib/paymentNotify.server");
+    await notifyPaymentFailed(order.id);
   }
 }
