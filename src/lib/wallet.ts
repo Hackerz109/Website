@@ -36,7 +36,20 @@ export async function redeemWalletForOrder(orderId: string, amountCents: number)
     p_amount_cents: Math.round(amountCents),
   });
   if (error) return { success: false, message: error.message };
-  return data as unknown as WalletRpcResult;
+  const result = data as unknown as WalletRpcResult;
+
+  // Wallet credit just covered the order in full — this is the only "order
+  // became paid" path with no server route of its own, so it needs to ping
+  // the notify endpoint itself (the two Razorpay paths do this server-side).
+  if (result.success && result.remaining_due_cents === 0) {
+    fetch("/api/payment-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: orderId }),
+    }).catch(() => {});
+  }
+
+  return result;
 }
 
 /** Admin-only: manually credit (positive) or debit (negative) a customer's wallet. */

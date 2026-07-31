@@ -64,7 +64,17 @@ export async function createReturnRequest(params: {
     p_id: params.id,
   });
   if (error) return { success: false, message: error.message };
-  return data as unknown as ReturnRpcResult;
+  const result = data as unknown as ReturnRpcResult;
+
+  if (result.success && result.return_id) {
+    fetch("/api/return-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ return_id: result.return_id }),
+    }).catch(() => {});
+  }
+
+  return result;
 }
 
 export async function fetchMyReturns(userId: string): Promise<ReturnRequestWithDetails[]> {
