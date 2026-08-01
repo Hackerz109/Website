@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingBag, UserCircle, LayoutDashboard, LogOut, Search, X, Wallet } from "lucide-react";
+import { ShoppingBag, UserCircle, LayoutDashboard, LogOut, Search, X, Wallet, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useCart } from "@/stores/cart";
@@ -88,6 +88,9 @@ export function StoreHeader() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ to: "/orders" })}>
                   My orders
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ to: "/support" })}>
+                  <MessageCircle className="mr-2 h-4 w-4" /> My messages
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ to: "/wallet" })}>
                   <Wallet className="mr-2 h-4 w-4" /> Store Wallet
