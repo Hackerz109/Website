@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug } from "lucide-react";
+import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug, LayoutGrid } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
@@ -13,33 +13,38 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/")({ component: Index });
 
 function Index() {
+  // A curated preview, not the full catalog — the whole point is to keep
+  // the homepage from growing every time a product's added. Featured items
+  // (see the "featured" toggle in the admin product editor) surface first;
+  // newest fills the rest. The full, filterable list lives at /collections.
+  const PREVIEW_COUNT = 8;
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["products", "public"],
+    queryKey: ["products", "public", "preview"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*, product_images(url, is_primary), product_variants(price_cents, stock), categories(name, slug)")
         .eq("active", true)
         .order("featured", { ascending: false })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(PREVIEW_COUNT);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories", "hero-chips"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categories").select("name, slug").order("name");
       if (error) throw error;
       return data;
     },
   });
 
   const products = data ?? [];
-  // products.category doesn't exist on the table — category is a joined
-  // relation (category_id -> categories.{name,slug}) — so we dedupe on
-  // slug (what the /category/$name route actually filters by) while
-  // keeping the display name alongside it.
-  const categories = Array.from(
-    new Map(
-      products
-        .map((p) => p.categories)
-        .filter((c): c is { name: string; slug: string } => !!c)
-        .map((c) => [c.slug, c]),
-    ).values(),
-  );
+  const categories = categoriesData ?? [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -65,9 +70,9 @@ function Index() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg" className="rounded-xl shadow-soft-lg">
-                <a href="#products">
+                <Link to="/collections">
                   <ShoppingBag className="mr-2 h-4 w-4" /> Shop the catalog
-                </a>
+                </Link>
               </Button>
             </div>
             {categories.length > 0 && (
@@ -121,13 +126,16 @@ function Index() {
       <BrandsStrip />
 
       <section id="products" className="mx-auto max-w-6xl px-6 py-16 md:py-24">
-        <div className="mb-10">
-          <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl">The collection</h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {products.length > 0
-              ? `${products.length} product${products.length !== 1 ? "s" : ""} available`
-              : "Fresh arrivals coming soon"}
-          </p>
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl">Featured picks</h2>
+            <p className="mt-1.5 text-sm text-muted-foreground">A few of what's in stock right now.</p>
+          </div>
+          <Button asChild variant="outline" className="rounded-xl">
+            <Link to="/collections">
+              <LayoutGrid className="mr-2 h-4 w-4" /> View all products
+            </Link>
+          </Button>
         </div>
 
         {isLoading ? (
