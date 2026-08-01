@@ -110,10 +110,12 @@ function ProductPage() {
     frameRatioLockedRef.current = false;
   }, [selectedVariant?.id]);
 
-  // Let the frame match the product's own photo shape so it can zoom to fill
-  // with no white bars — but clamp it so a very tall or very wide product
-  // photo doesn't get cropped down to a sliver. Outside the clamp we accept a
-  // small, bounded crop rather than lose part of the product.
+  // Let the frame roughly match the product's own photo shape, so it isn't
+  // always a plain square — but clamp it so a very tall or very wide photo
+  // doesn't stretch the page layout into something awkward. The image
+  // itself is shown with object-contain (see below), so unlike the old
+  // object-cover approach, going outside this clamp just means a bit more
+  // visible letterboxing on the sides — never a crop into the product.
   function handleMainImageLoad(e: SyntheticEvent<HTMLImageElement>) {
     if (frameRatioLockedRef.current) return;
     const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
@@ -204,7 +206,7 @@ function ProductPage() {
                     alt={product.name}
                     onClick={() => setLightboxOpen(true)}
                     onLoad={handleMainImageLoad}
-                    className="h-full w-full cursor-zoom-in object-cover"
+                    className="h-full w-full cursor-zoom-in object-contain"
                   />
                 </div>
               ) : (
