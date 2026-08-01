@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Phone, Mail, MapPin, Clock, MessageCircle, Send } from "lucide-react";
+import { Phone, Mail, MapPin, Clock, MessageCircle, Send, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/useAuth";
+import { createSupportTicket } from "@/lib/supportTickets";
 
 export const Route = createFileRoute("/contact")({ component: ContactPage });
 
@@ -20,23 +22,27 @@ const contactDetails = [
 ];
 
 function ContactPage() {
-  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ subject: "", message: "" });
   const [sending, setSending] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      toast.error("Please fill in your name, email, and message.");
+    if (!form.message.trim()) {
+      toast.error("Tell us a bit about what you need.");
       return;
     }
     setSending(true);
-    // No backend endpoint yet — this simply confirms receipt to the customer.
-    // Wire this up to an email service or a Supabase table when one is ready.
-    setTimeout(() => {
-      setSending(false);
-      setForm({ name: "", email: "", message: "" });
-      toast.success("Thanks for reaching out — we'll get back to you shortly.");
-    }, 500);
+    const result = await createSupportTicket(form.subject.trim() || "General question", form.message.trim());
+    setSending(false);
+    if (result.success && result.ticket_id) {
+      setForm({ subject: "", message: "" });
+      toast.success("Sent — we'll reply here and by email.");
+      navigate({ to: "/support/$id", params: { id: result.ticket_id } });
+    } else {
+      toast.error(result.message || "Couldn't send that — try again.");
+    }
   }
 
   return (
@@ -74,42 +80,56 @@ function ContactPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="md:col-span-3 space-y-4 rounded-2xl border border-border bg-card p-6 shadow-soft md:p-8">
-            <h2 className="text-lg font-semibold text-foreground">Send us a message</h2>
-            <div>
-              <Label htmlFor="name">Your name</Label>
-              <Input
-                id="name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Jane Doe"
-              />
+          {loading ? (
+            <div className="md:col-span-3 h-64 animate-pulse rounded-2xl border bg-secondary/30" />
+          ) : !user ? (
+            <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-card p-10 text-center shadow-soft md:col-span-3">
+              <MessageCircle className="h-8 w-8 text-muted-foreground" />
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Sign in to message us</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  We'll keep your conversation here so you can track replies and pick up right where you left off.
+                </p>
+              </div>
+              <Button asChild className="rounded-xl shadow-soft">
+                <Link to="/auth">
+                  <LogIn className="mr-2 h-4 w-4" /> Sign in
+                </Link>
+              </Button>
             </div>
-            <div>
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <Label htmlFor="message">How can we help?</Label>
-              <Textarea
-                id="message"
-                rows={5}
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                placeholder="Tell us a bit about what you need…"
-              />
-            </div>
-            <Button type="submit" className="rounded-xl shadow-soft" disabled={sending}>
-              <Send className="mr-2 h-4 w-4" />
-              {sending ? "Sending…" : "Send message"}
-            </Button>
-          </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="md:col-span-3 space-y-4 rounded-2xl border border-border bg-card p-6 shadow-soft md:p-8">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg font-semibold text-foreground">Send us a message</h2>
+                <Link to="/support" className="text-xs font-medium text-primary underline underline-offset-4">
+                  View past conversations
+                </Link>
+              </div>
+              <div>
+                <Label htmlFor="subject">What's this about? (optional)</Label>
+                <Input
+                  id="subject"
+                  value={form.subject}
+                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                  placeholder="e.g. Order question, product help…"
+                />
+              </div>
+              <div>
+                <Label htmlFor="message">Your message</Label>
+                <Textarea
+                  id="message"
+                  rows={5}
+                  value={form.message}
+                  onChange={(e) => setForm({ ...form, message: e.target.value })}
+                  placeholder="Tell us a bit about what you need…"
+                />
+              </div>
+              <Button type="submit" className="rounded-xl shadow-soft" disabled={sending}>
+                <Send className="mr-2 h-4 w-4" />
+                {sending ? "Sending…" : "Send message"}
+              </Button>
+            </form>
+          )}
         </div>
       </div>
       <StoreFooter />
