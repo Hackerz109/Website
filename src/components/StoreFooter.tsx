@@ -3,8 +3,8 @@ import { Mail, Phone, MapPin } from "lucide-react";
 
 const companyLinks = [
   { label: "About Us", to: "/about" as const },
-  { label: "Products", to: "/" as const, hash: "#products" },
-  { label: "Categories", to: "/" as const, hash: "#products" },
+  { label: "Products", to: "/collections" as const },
+  { label: "Categories", to: "/collections" as const },
 ];
 
 const supportLinks = [

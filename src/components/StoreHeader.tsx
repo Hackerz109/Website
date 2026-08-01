@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingBag, UserCircle, LayoutDashboard, LogOut, Search, X, Wallet, MessageCircle } from "lucide-react";
+import { ShoppingBag, UserCircle, LayoutDashboard, LogOut, Search, X, Wallet, MessageCircle, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useCart } from "@/stores/cart";
@@ -38,6 +38,12 @@ export function StoreHeader() {
         </div>
 
         <nav className="flex flex-shrink-0 items-center gap-1 sm:gap-1.5">
+          <Button asChild variant="ghost" size="sm" className="rounded-lg">
+            <Link to="/collections">
+              <LayoutGrid className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Collections</span>
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             size="sm"
