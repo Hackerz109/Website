@@ -198,7 +198,7 @@ function ProductPage() {
             <div className="min-w-0">
               {mainImage ? (
                 <div
-                  className="w-full overflow-hidden rounded-2xl border border-border bg-secondary/40 shadow-soft"
+                  className="w-full overflow-hidden rounded-2xl border border-border bg-white shadow-soft"
                   style={{ aspectRatio: frameRatio }}
                 >
                   <img
