@@ -31,6 +31,40 @@ Login is required to message you, same as checkout/orders/returns — nothing
 in this codebase currently supports guest actions, so this didn't introduce
 a new pattern.
 
+## Security review (2026-08-01)
+
+Went through RLS, the RPCs, and the notification paths end to end.
+
+**What was already solid:**
+- RLS on both tables requires ticket ownership or `has_role(..., 'admin')` —
+  a customer can't read or write another customer's conversation, confirmed
+  by tracing both `SELECT` policies.
+- Sender identity (`customer` vs `admin`) is derived server-side inside the
+  RPCs from `auth.uid()` / `has_role()` — never trusted from client input,
+  so there's no way to spoof a message as coming from you.
+- `create_support_ticket` hardcodes `auth.uid()` as the ticket owner — no
+  way to open a ticket in someone else's name.
+- Telegram and email content is HTML-escaped before sending — no injection
+  risk from a customer putting `<script>` or Telegram markup into a message.
+- `/api/support-notify` has no way to leak data — it can only trigger a
+  notification for a message that already exists, and does nothing if
+  that message was already notified (atomic claim). Same shape as your
+  existing `/api/order-notify` etc.
+
+**What wasn't — fixed in `20260801090000_support_tickets_hardening.sql`:**
+- `create_support_ticket` / `add_support_message` are called straight from
+  the browser via `supabase.rpc()`, never touching a Vercel API route — so
+  your Node rate limiter (`rateLimit.server.ts`) had zero visibility into
+  them. Anyone signed in could've scripted unlimited tickets/messages, each
+  one firing a notification to you. Added a rate limit *inside* the RPCs
+  themselves (reusing your existing `rate_limits` table): 5 new
+  conversations/hour and 20 messages/10 min per account for customers,
+  looser limits for admin replies.
+- No cap on message length — added a 4000-character limit.
+
+This is an additional migration, not a replacement — run it after the
+first one, don't edit the original.
+
 ## New environment variables
 
 Add these in Vercel (Project Settings → Environment Variables):
