@@ -1086,6 +1086,83 @@ export type Database = {
         }
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          id: string
+          user_id: string
+          subject: string
+          status: Database["public"]["Enums"]["support_ticket_status"]
+          customer_name: string | null
+          customer_email: string | null
+          last_message_at: string
+          last_message_from: Database["public"]["Enums"]["support_sender_role"]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          subject: string
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          customer_name?: string | null
+          customer_email?: string | null
+          last_message_at?: string
+          last_message_from?: Database["public"]["Enums"]["support_sender_role"]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          subject?: string
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          customer_name?: string | null
+          customer_email?: string | null
+          last_message_at?: string
+          last_message_from?: Database["public"]["Enums"]["support_sender_role"]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          id: string
+          ticket_id: string
+          sender_id: string | null
+          sender_role: Database["public"]["Enums"]["support_sender_role"]
+          body: string
+          created_at: string
+          notified_at: string | null
+        }
+        Insert: {
+          id?: string
+          ticket_id: string
+          sender_id?: string | null
+          sender_role: Database["public"]["Enums"]["support_sender_role"]
+          body: string
+          created_at?: string
+          notified_at?: string | null
+        }
+        Update: {
+          id?: string
+          ticket_id?: string
+          sender_id?: string | null
+          sender_role?: Database["public"]["Enums"]["support_sender_role"]
+          body?: string
+          created_at?: string
+          notified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1218,6 +1295,28 @@ export type Database = {
           p_decision: Database["public"]["Enums"]["return_status"]
           p_admin_notes?: string | null
           p_item_decisions?: Json
+        }
+        Returns: Json
+      }
+      create_support_ticket: {
+        Args: {
+          p_subject: string
+          p_message: string
+          p_id?: string | null
+        }
+        Returns: Json
+      }
+      add_support_message: {
+        Args: {
+          p_ticket_id: string
+          p_body: string
+        }
+        Returns: Json
+      }
+      admin_set_ticket_status: {
+        Args: {
+          p_ticket_id: string
+          p_status: Database["public"]["Enums"]["support_ticket_status"]
         }
         Returns: Json
       }
@@ -1355,6 +1454,8 @@ export type Database = {
       coupon_discount_type: "percentage" | "fixed" | "free_shipping"
       coupon_visibility: "visible" | "hidden" | "auto_apply"
       coupon_customer_type: "any" | "new" | "existing"
+      support_ticket_status: "open" | "resolved"
+      support_sender_role: "customer" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1522,6 +1623,8 @@ export const Constants = {
       ],
       refund_method_type: ["original_payment", "wallet_credit"],
       wallet_transaction_type: ["credit", "debit", "refund", "adjustment"],
+      support_ticket_status: ["open", "resolved"],
+      support_sender_role: ["customer", "admin"],
     },
   },
 } as const
