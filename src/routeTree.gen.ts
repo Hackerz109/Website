@@ -23,6 +23,10 @@
 // those plus the new api.geocode route (see src/routes/api.geocode.ts).
 // If you fix the regeneration step, delete both manual-correction notes —
 // this whole file gets safely overwritten on the next `vite build`/`vite dev`.
+//
+// MANUALLY CORRECTED AGAIN on 2026-07-31: added the new support ticket
+// routes (support, support.$id, admin.support, admin.support.$id) plus
+// api.support-notify for the same reason as above.
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
@@ -70,6 +74,11 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminUsersIdRouteImport } from './routes/admin.users.$id'
 import { Route as AdminOrdersIdRouteImport } from './routes/admin.orders.$id'
+import { Route as ApiSupportNotifyRouteImport } from './routes/api.support-notify'
+import { Route as SupportRouteImport } from './routes/support'
+import { Route as SupportIdRouteImport } from './routes/support.$id'
+import { Route as AdminSupportRouteImport } from './routes/admin.support'
+import { Route as AdminSupportIdRouteImport } from './routes/admin.support.$id'
 
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
@@ -296,6 +305,31 @@ const AdminOrdersIdRoute = AdminOrdersIdRouteImport.update({
   path: '/orders/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiSupportNotifyRoute = ApiSupportNotifyRouteImport.update({
+  id: '/api/support-notify',
+  path: '/api/support-notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportIdRoute = SupportIdRouteImport.update({
+  id: '/support/$id',
+  path: '/support/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSupportRoute = AdminSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSupportIdRoute = AdminSupportIdRouteImport.update({
+  id: '/support/$id',
+  path: '/support/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -343,6 +377,11 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/admin/users/$id': typeof AdminUsersIdRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
+  '/api/support-notify': typeof ApiSupportNotifyRoute
+  '/support': typeof SupportRoute
+  '/support/$id': typeof SupportIdRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/admin/support/$id': typeof AdminSupportIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -389,6 +428,11 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/admin/users/$id': typeof AdminUsersIdRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
+  '/api/support-notify': typeof ApiSupportNotifyRoute
+  '/support': typeof SupportRoute
+  '/support/$id': typeof SupportIdRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/admin/support/$id': typeof AdminSupportIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -437,6 +481,11 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/admin/users/$id': typeof AdminUsersIdRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
+  '/api/support-notify': typeof ApiSupportNotifyRoute
+  '/support': typeof SupportRoute
+  '/support/$id': typeof SupportIdRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/admin/support/$id': typeof AdminSupportIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -486,6 +535,11 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/users/$id'
     | '/admin/orders/$id'
+    | '/api/support-notify'
+    | '/support'
+    | '/support/$id'
+    | '/admin/support'
+    | '/admin/support/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -532,6 +586,11 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/users/$id'
     | '/admin/orders/$id'
+    | '/api/support-notify'
+    | '/support'
+    | '/support/$id'
+    | '/admin/support'
+    | '/admin/support/$id'
   id:
     | '__root__'
     | '/'
@@ -579,6 +638,11 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/users/$id'
     | '/admin/orders/$id'
+    | '/api/support-notify'
+    | '/support'
+    | '/support/$id'
+    | '/admin/support'
+    | '/admin/support/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -616,6 +680,9 @@ export interface RootRouteChildren {
   ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
   ApiVapidPublicKeyRoute: typeof ApiVapidPublicKeyRoute
   ProfileRoute: typeof ProfileRoute
+  ApiSupportNotifyRoute: typeof ApiSupportNotifyRoute
+  SupportRoute: typeof SupportRoute
+  SupportIdRoute: typeof SupportIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -900,6 +967,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrdersIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/support-notify': {
+      id: '/api/support-notify'
+      path: '/api/support-notify'
+      fullPath: '/api/support-notify'
+      preLoaderRoute: typeof ApiSupportNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support/$id': {
+      id: '/support/$id'
+      path: '/support/$id'
+      fullPath: '/support/$id'
+      preLoaderRoute: typeof SupportIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/support': {
+      id: '/admin/support'
+      path: '/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof AdminSupportRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/support/$id': {
+      id: '/admin/support/$id'
+      path: '/support/$id'
+      fullPath: '/admin/support/$id'
+      preLoaderRoute: typeof AdminSupportIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
@@ -915,6 +1017,8 @@ interface AdminRouteChildren {
   AdminUsersIdRoute: typeof AdminUsersIdRoute
   AdminWalletRoute: typeof AdminWalletRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminSupportRoute: typeof AdminSupportRoute
+  AdminSupportIdRoute: typeof AdminSupportIdRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -929,6 +1033,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminUsersIdRoute: AdminUsersIdRoute,
   AdminWalletRoute: AdminWalletRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminSupportRoute: AdminSupportRoute,
+  AdminSupportIdRoute: AdminSupportIdRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -968,6 +1074,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPushSubscribeRoute: ApiPushSubscribeRoute,
   ApiVapidPublicKeyRoute: ApiVapidPublicKeyRoute,
   ProfileRoute: ProfileRoute,
+  ApiSupportNotifyRoute: ApiSupportNotifyRoute,
+  SupportRoute: SupportRoute,
+  SupportIdRoute: SupportIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
