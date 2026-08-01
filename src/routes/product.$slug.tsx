@@ -65,18 +65,22 @@ function ProductPage() {
   const hasVariants = variants.length > 0;
   const selectedVariant = variants.find((v) => v.id === variantId) ?? variants[0] ?? null;
 
-  // Prefer the selected variant's own photos when it has any; otherwise fall
-  // back to the product's shared gallery (variant_id null) — same fallback
-  // the admin editor describes when there are no variant-specific images.
+  // Every variant shows its own photos first, followed by the product's
+  // shared gallery (variant_id null) appended after — shared images are
+  // "universal": add one once and it shows for every variant, always,
+  // not just when a variant happens to have none of its own. A variant
+  // with no photos of its own just shows the shared gallery on its own.
   const allImages = product?.product_images ?? [];
+  const sortImages = (arr: typeof allImages) =>
+    [...arr].sort((a, b) => {
+      if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
+      return a.sort_order - b.sort_order;
+    });
   const variantImages = hasVariants && selectedVariant
-    ? allImages.filter((i) => i.variant_id === selectedVariant.id)
+    ? sortImages(allImages.filter((i) => i.variant_id === selectedVariant.id))
     : [];
-  const sharedImages = allImages.filter((i) => i.variant_id === null);
-  const images = [...(variantImages.length > 0 ? variantImages : sharedImages)].sort((a, b) => {
-    if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
-    return a.sort_order - b.sort_order;
-  });
+  const sharedImages = sortImages(allImages.filter((i) => i.variant_id === null));
+  const images = [...variantImages, ...sharedImages];
 
   const gallery = images.length > 0
     ? images.map((i) => i.url)

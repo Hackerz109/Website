@@ -1000,11 +1000,12 @@ function VariantImagesEditor({
           </span>
         </label>
       </div>
-      {(!images || images.length === 0) ? (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          None yet — this variant will fall back to the shared images below.
-        </p>
-      ) : (
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        {(!images || images.length === 0)
+          ? "None yet — this variant will show the shared images below on its own."
+          : "The shared images below will also show, added after these."}
+      </p>
+      {images && images.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {images.map((img) => (
             <div key={img.id} className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border">
@@ -1220,7 +1221,7 @@ function ImagesEditor({
       <div className="flex items-center justify-between">
         <div>
           <Label>Shared images</Label>
-          <p className="text-xs text-muted-foreground">Used for products with no variants, and as the fallback for any variant with no images of its own.</p>
+          <p className="text-xs text-muted-foreground">Universal — shown on every variant's page, added after that variant's own images. Also used for products with no variants.</p>
         </div>
         <label>
           <input type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} disabled={uploading} />
