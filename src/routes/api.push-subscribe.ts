@@ -16,18 +16,27 @@ export const Route = createFileRoute("/api/push-subscribe")({
         await recordAttempt("push_subscribe", [{ type: "ip" as const, value: ip }]);
 
         const auth = await getAuthenticatedAdmin(request);
-        if (!auth) return json({ error: "Admin access required" }, 403);
+        if (!auth) {
+          console.error("[push-subscribe] POST rejected: not an authenticated admin");
+          return json({ error: "Admin access required" }, 403);
+        }
 
         let body: { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
         try {
           body = await request.json();
         } catch {
+          console.error("[push-subscribe] POST rejected: request body wasn't valid JSON");
           return json({ error: "Bad request" }, 400);
         }
         const endpoint = body.endpoint;
         const p256dh = body.keys?.p256dh;
         const authKey = body.keys?.auth;
         if (!endpoint || !p256dh || !authKey) {
+          console.error("[push-subscribe] POST rejected: missing endpoint/keys", {
+            hasEndpoint: !!endpoint,
+            hasP256dh: !!p256dh,
+            hasAuthKey: !!authKey,
+          });
           return json({ error: "endpoint and keys.p256dh/keys.auth are required" }, 400);
         }
         // Every new order later makes our server fetch() this exact URL
@@ -37,9 +46,16 @@ export const Route = createFileRoute("/api/push-subscribe")({
         // on every sale. Real push endpoints are always https on a public
         // host, so this costs nothing for legitimate use.
         if (!isSafePushEndpoint(endpoint)) {
+          console.error("[push-subscribe] POST rejected: isSafePushEndpoint() failed", {
+            host: safeHostFor(endpoint),
+          });
           return json({ error: "Invalid push endpoint" }, 400);
         }
         if (p256dh.length > 200 || authKey.length > 100) {
+          console.error("[push-subscribe] POST rejected: key length out of range", {
+            p256dhLength: p256dh.length,
+            authKeyLength: authKey.length,
+          });
           return json({ error: "Invalid subscription keys" }, 400);
         }
 
@@ -47,7 +63,10 @@ export const Route = createFileRoute("/api/push-subscribe")({
         const { error } = await supabaseAdmin
           .from("push_subscriptions")
           .upsert({ user_id: auth.userId, endpoint, p256dh, auth: authKey }, { onConflict: "endpoint" });
-        if (error) return json({ error: error.message }, 500);
+        if (error) {
+          console.error("[push-subscribe] POST rejected: db upsert failed", error.message);
+          return json({ error: error.message }, 500);
+        }
 
         return json({ ok: true });
       },
@@ -91,6 +110,17 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
+// For logging only — extracts just the hostname so we can tell "which
+// push service rejected" apart from "totally malformed URL" without
+// dumping the full (semi-sensitive) subscription endpoint into logs.
+function safeHostFor(endpoint: string): string {
+  try {
+    return new URL(endpoint).hostname;
+  } catch {
+    return "(unparseable URL)";
+  }
+}
+
 function isSafePushEndpoint(endpoint: string): boolean {
   let url: URL;
   try {
@@ -128,9 +158,15 @@ async function getAuthenticatedAdmin(request: Request) {
   }
 
   const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (!authHeader?.startsWith("Bearer ")) {
+    console.error("[push-subscribe] no Bearer token on request");
+    return null;
+  }
   const token = authHeader.replace("Bearer ", "");
-  if (!token || token.split(".").length !== 3) return null;
+  if (!token || token.split(".").length !== 3) {
+    console.error("[push-subscribe] Authorization header wasn't a JWT");
+    return null;
+  }
 
   const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -138,11 +174,17 @@ async function getAuthenticatedAdmin(request: Request) {
   });
 
   const { data, error } = await supabase.auth.getClaims(token);
-  if (error || !data?.claims?.sub) return null;
+  if (error || !data?.claims?.sub) {
+    console.error("[push-subscribe] token rejected by Supabase", error?.message);
+    return null;
+  }
   const userId = data.claims.sub as string;
 
   const { data: roleRow } = await supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
-  if (!roleRow) return null;
+  if (!roleRow) {
+    console.error("[push-subscribe] signed in but not an admin", userId);
+    return null;
+  }
 
   return { userId };
 }
