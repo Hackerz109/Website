@@ -1066,7 +1066,47 @@ async function standardizeProductImage(file: File, maxSide = 1600): Promise<Blob
   sctx.drawImage(img, 0, 0, scanW, scanH);
   const { data } = sctx.getImageData(0, 0, scanW, scanH);
 
-  const WHITE_THRESHOLD = 240;
+  // Calibrate against this image's actual background instead of assuming
+  // pure white. A flat "brighter than 240 = background" cutoff was the bug:
+  // your catalog is mostly white/light plastic (switches, MCBs, fittings),
+  // and a light-colored part of the product — like a mounting clip — can
+  // easily read brighter than 240 too, especially under even studio
+  // lighting. It was getting misclassified as background and trimmed away
+  // along with the real background, cutting off part of the product.
+  //
+  // Fix: sample a thin band along all four edges (background in virtually
+  // every product photo) to find how bright *this specific photo's*
+  // background actually is, then only call a pixel "background" if it's
+  // close to that — not just "bright in general". A product's surface,
+  // even a white one, is a lit 3D shape and almost always reads at least
+  // a little darker somewhere than a flat, evenly-lit background sheet, so
+  // this reliably tells them apart in a way a fixed number can't.
+  const edgeBand = Math.max(1, Math.round(Math.min(scanW, scanH) * 0.03));
+  const edgeBrightness: number[] = [];
+  for (let y = 0; y < scanH; y++) {
+    for (let x = 0; x < scanW; x++) {
+      const onEdge = x < edgeBand || x >= scanW - edgeBand || y < edgeBand || y >= scanH - edgeBand;
+      if (!onEdge) continue;
+      const idx = (y * scanW + x) * 4;
+      if (data[idx + 3] < 15) continue; // transparent, not useful for calibration
+      edgeBrightness.push((data[idx] + data[idx + 1] + data[idx + 2]) / 3);
+    }
+  }
+  edgeBrightness.sort((a, b) => a - b);
+  // 90th percentile, not the average or the max — robust against a corner
+  // of the product occasionally touching the frame edge, while still
+  // reflecting the true (bright) background tone rather than getting
+  // dragged down by it.
+  const sampledBackground = edgeBrightness.length > 0
+    ? edgeBrightness[Math.floor(edgeBrightness.length * 0.9)]
+    : 255;
+  // Stay close to the sampled background (small margin, so real product
+  // pixels that are merely "light" still count as product) but never trust
+  // a reading below 235 — if the edges themselves are that dark, this
+  // isn't a clean white-background photo, so fall back to the original
+  // conservative cutoff rather than calibrating too aggressively.
+  const WHITE_THRESHOLD = Math.max(235, sampledBackground - 8);
+
   let minX = scanW, minY = scanH, maxX = -1, maxY = -1;
   for (let y = 0; y < scanH; y++) {
     for (let x = 0; x < scanW; x++) {
@@ -1082,12 +1122,17 @@ async function standardizeProductImage(file: File, maxSide = 1600): Promise<Blob
     }
   }
 
-  // Fallback if nothing was detected (e.g. a blank/solid image) — use the full frame
-  if (maxX < 0 || maxY < 0) {
+  // Fallback if nothing was detected (e.g. a blank/solid image), or if
+  // what got detected is implausibly small — a product photo where the
+  // "product" is under 12% of the frame is more likely a missed detection
+  // than a real tiny product, so play it safe and skip cropping rather
+  // than risk trimming most of the actual photo away.
+  const detectedArea = Math.max(0, maxX - minX + 1) * Math.max(0, maxY - minY + 1);
+  if (maxX < 0 || maxY < 0 || detectedArea < scanW * scanH * 0.12) {
     minX = 0; minY = 0; maxX = scanW - 1; maxY = scanH - 1;
   }
 
-  const pad = 0.06; // 6% breathing room around the detected product
+  const pad = 0.09; // was 6% — a bit more breathing room as a safety margin
   const boxW = maxX - minX + 1;
   const boxH = maxY - minY + 1;
   const padX = boxW * pad;
