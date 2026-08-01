@@ -144,7 +144,19 @@ function isSafePushEndpoint(endpoint: string): boolean {
       return false;
     }
   }
-  if (host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) return false;
+  // The URL parser wraps IPv6 hosts in brackets — e.g. "[fc00::1]", not
+  // "fc00::1" — which is its own previously-unnoticed bug here: the old
+  // bracket-less checks below never matched a real IPv6 literal at all, on
+  // top of false-matching ordinary hostnames like fcm.googleapis.com.
+  // Strip the brackets (only ever present on an actual IPv6 literal, never
+  // on a domain name) before checking either case.
+  const bareHost = host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
+  // IPv6 literals always contain a colon; ordinary DNS hostnames never do —
+  // so only run the IPv6 private-range checks against something that could
+  // actually be one.
+  if (bareHost.includes(":")) {
+    if (bareHost === "::1" || bareHost.startsWith("fe80:") || bareHost.startsWith("fc") || bareHost.startsWith("fd")) return false;
+  }
 
   return true;
 }
