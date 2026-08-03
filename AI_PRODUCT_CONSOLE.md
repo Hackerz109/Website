@@ -10,16 +10,17 @@ feature was modified beyond two small additive edits (noted below).
 ## How it works
 
 ```
-Your command
+Your message (one or more instructions)
     ↓
-Gemini (server-side): text → structured intent JSON   ← the ONLY thing AI does
+Gemini (server-side): text → array of structured intents   ← the ONLY thing AI does
     ↓
-productMatch.ts + productCommands.ts: fuzzy-match real products, compute
-old/new values                                          ← plain TypeScript, no AI
+productMatch.ts + productCommands.ts: fuzzy-match real products per
+instruction, compute old/new values                    ← plain TypeScript, no AI
     ↓
-Preview shown in chat: products affected, old → new values, count
+One preview per instruction shown in chat: products affected, old → new
+values, count
     ↓
-You tap Confirm
+You tap Confirm on each one you want applied
     ↓
 productCommands.ts writes to Supabase (same admin-only RLS as
 admin.products.tsx already enforces)
@@ -28,13 +29,14 @@ Product/list pages re-fetch automatically (same React Query cache
 invalidation admin.products.tsx already uses)
 ```
 
-**Gemini never touches the database.** It only ever returns a small JSON
-object like `{ action: "adjust_price", filter: { brand: "Havells", ... },
-price_mode: "percent", price_value: 5, ... }`. All product search, the
-preview math, and every write are ordinary TypeScript functions running
-through the same Supabase client and RLS policies your other admin pages
-already use — there's no code path where AI output reaches the database
-directly.
+**Gemini never touches the database.** It only ever returns an array of
+small JSON objects, one per instruction it found in your message, e.g.
+`[{ action: "adjust_price", filter: { brand: "Havells", ... }, price_mode:
+"percent", price_value: 5, ... }, { action: "set_stock", ... }]`. All
+product search, the preview math, and every write are ordinary TypeScript
+functions running through the same Supabase client and RLS policies your
+other admin pages already use — there's no code path where AI output
+reaches the database directly.
 
 ## New files
 
@@ -111,6 +113,34 @@ table.
 - Existing open items from `SECURITY_REVIEW.md` (no CSP header yet, `npm
   audit` not run) are unrelated to this module and still outstanding.
 
+## Multiple instructions in one message
+
+Gemini now always returns an **array** of intents — one per distinct
+instruction — instead of a single one. So "set this product's stock to 1,
+this one's price to ₹100, and this to ₹1000" (or "increase Havells wire
+prices by 5% and also restock the 1.5mm ones") is understood as N separate
+instructions, each independently searched, previewed, and confirmed:
+
+```
+Your message
+    ↓
+Gemini: text → [intent₁, intent₂, …intentₙ]   ← still the ONLY thing AI does
+    ↓
+buildPreview(intentᵢ) for each — same plain-TypeScript matching as before
+    ↓
+One preview card per instruction, each with its own Confirm/Cancel
+```
+
+Everything downstream of Gemini (`productMatch.ts`, `productCommands.ts`,
+the RLS-enforced writes) is unchanged — `buildPreview()` and the
+`applyXRows()` functions still only ever see one `CommandIntent` at a time.
+The only thing that changed is that the chat page now loops over an array
+of intents instead of handling exactly one, and each instruction gets its
+own preview bubble so you can confirm some and cancel others independently.
+
+Capped at 8 instructions per message — if you list more, only the first 8
+are extracted (ask the rest as a follow-up message).
+
 ## Known limitations
 
 - Size matching only recognizes common electrical units (mm, sq mm, cm, m,
@@ -118,9 +148,6 @@ table.
   sell something with an unusual unit that doesn't parse, the command will
   still work but won't get the size-match confidence boost — it'll still
   work off brand/category/keywords, just less precisely.
-- One command = one intent. "Increase Havells wire prices by 5% and also
-  restock the 1.5mm ones" would only act on the first part — ask as two
-  separate commands.
 - Conversation memory is short (last 6 turns) — enough for a quick
   follow-up like "do the same for Polycab", not a long multi-step
   negotiation.
