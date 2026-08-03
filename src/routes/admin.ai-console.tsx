@@ -58,19 +58,27 @@ async function requestIntents(command: string, history: ConsoleTurn[]): Promise<
   const token = data.session?.access_token;
   if (!token) return { error: "Please sign in again." };
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
   try {
     const res = await fetch("/api/ai-console", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ command, history }),
+      signal: controller.signal,
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { error: body?.error ?? "Something went wrong." };
     const intents = Array.isArray(body.intents) ? (body.intents as CommandIntent[]) : [];
     if (intents.length === 0) return { error: "Couldn't understand that command — try rephrasing it." };
     return { intents };
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { error: "That took too long to respond — try again." };
+    }
     return { error: "Network error — please try again." };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -100,46 +108,56 @@ function AiConsole() {
     setInput("");
     setThinking(true);
 
-    const result = await requestIntents(command, history);
-    setHistory((h) => [...h, { role: "admin", text: command }].slice(-6));
+    try {
+      const result = await requestIntents(command, history);
+      setHistory((h) => [...h, { role: "admin", text: command }].slice(-6));
 
-    if ("error" in result) {
-      setMessages((m) => [...m, { id: nextId(), kind: "text", text: result.error, tone: "error" }]);
-      setThinking(false);
-      return;
-    }
-
-    const { intents } = result;
-    // Build every intent's preview in parallel — each is an independent
-    // read-only DB fetch, same as buildPreview() always was.
-    const previews = await Promise.all(intents.map((intent) => buildPreview(intent)));
-    setThinking(false);
-
-    const newMsgs: Msg[] = [];
-    const assistantSummaries: string[] = [];
-
-    if (intents.length > 1) {
-      newMsgs.push({ id: nextId(), kind: "text", text: `Got it — that's ${intents.length} separate updates:` });
-    }
-
-    for (let i = 0; i < intents.length; i++) {
-      const intent = intents[i];
-      const preview = previews[i];
-
-      if (preview.kind === "clarification" || preview.kind === "empty") {
-        newMsgs.push({ id: nextId(), kind: "text", text: preview.message });
-        assistantSummaries.push(preview.message);
-        continue;
+      if ("error" in result) {
+        setMessages((m) => [...m, { id: nextId(), kind: "text", text: result.error, tone: "error" }]);
+        return;
       }
 
-      const summary = intent.summary || undefined;
-      newMsgs.push({ id: nextId(), kind: "preview", preview, status: "pending", summary });
-      if (summary) assistantSummaries.push(summary);
-    }
+      const { intents } = result;
+      // Build every intent's preview in parallel — each is an independent
+      // read-only DB fetch, same as buildPreview() always was.
+      const previews = await Promise.all(intents.map((intent) => buildPreview(intent)));
 
-    setMessages((m) => [...m, ...newMsgs]);
-    if (assistantSummaries.length > 0) {
-      setHistory((h) => [...h, { role: "assistant", text: assistantSummaries.join(" | ") }].slice(-6));
+      const newMsgs: Msg[] = [];
+      const assistantSummaries: string[] = [];
+
+      if (intents.length > 1) {
+        newMsgs.push({ id: nextId(), kind: "text", text: `Got it — that's ${intents.length} separate updates:` });
+      }
+
+      for (let i = 0; i < intents.length; i++) {
+        const intent = intents[i];
+        const preview = previews[i];
+
+        if (preview.kind === "clarification" || preview.kind === "empty") {
+          newMsgs.push({ id: nextId(), kind: "text", text: preview.message });
+          assistantSummaries.push(preview.message);
+          continue;
+        }
+
+        const summary = intent.summary || undefined;
+        newMsgs.push({ id: nextId(), kind: "preview", preview, status: "pending", summary });
+        if (summary) assistantSummaries.push(summary);
+      }
+
+      setMessages((m) => [...m, ...newMsgs]);
+      if (assistantSummaries.length > 0) {
+        setHistory((h) => [...h, { role: "assistant", text: assistantSummaries.join(" | ") }].slice(-6));
+      }
+    } catch (err) {
+      // Belt-and-braces: if anything above throws unexpectedly (a bad
+      // Supabase response, a rejected promise from buildPreview, etc.),
+      // this is what stops the spinner from sticking on "Thinking…"
+      // forever with the input silently locked (since `thinking` gates
+      // every future send() call too).
+      console.error("[ai-console] send() failed", err);
+      setMessages((m) => [...m, { id: nextId(), kind: "text", text: "Something went wrong on this end — try that again.", tone: "error" }]);
+    } finally {
+      setThinking(false);
     }
   }
 
