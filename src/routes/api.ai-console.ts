@@ -4,9 +4,10 @@ import type { Database } from "@/integrations/supabase/types";
 import { checkRateLimit, recordAttempt, getClientIp } from "@/lib/rateLimit.server";
 import { parseCommandWithGemini, type ConsoleTurn } from "@/lib/aiConsole.server";
 
-// Admin-only: understands one free-text product-management command and
-// returns a structured intent. Does not read or write products/variants —
-// see aiConsole.server.ts for the security rationale.
+// Admin-only: understands one free-text product-management message — which
+// may contain several distinct instructions — and returns an array of
+// structured intents (one per instruction). Does not read or write
+// products/variants — see aiConsole.server.ts for the security rationale.
 export const Route = createFileRoute("/api/ai-console")({
   server: {
     handlers: {
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/api/ai-console")({
         const result = await parseCommandWithGemini(command, history);
         if (!result.ok) return json({ error: result.error }, 502);
 
-        return json({ intent: result.intent });
+        return json({ intents: result.intents });
       },
     },
   },

@@ -44,11 +44,16 @@ const SUGGESTIONS = [
   "Increase wire prices by 3%",
   "Increase Havells Lifeline 1mm wire price by ₹50",
   "Add 20 rolls of Havells 1.5mm wire to stock",
+  "Set Havells fan stock to 5 and Anchor switch price to ₹120",
 ];
 
 const NEEDS_CONFIRM: ActionableConsolePreview["kind"][] = ["price", "stock", "description", "category"];
 
-async function requestIntent(command: string, history: ConsoleTurn[]): Promise<{ intent: CommandIntent } | { error: string }> {
+// One admin message can carry several distinct instructions at once (e.g.
+// "set this product's stock to 1, this one's price to 100, and this to
+// 1000") — the API now always returns an ARRAY of intents, one per
+// instruction, even when there's only one.
+async function requestIntents(command: string, history: ConsoleTurn[]): Promise<{ intents: CommandIntent[] } | { error: string }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) return { error: "Please sign in again." };
@@ -61,7 +66,9 @@ async function requestIntent(command: string, history: ConsoleTurn[]): Promise<{
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { error: body?.error ?? "Something went wrong." };
-    return { intent: body.intent as CommandIntent };
+    const intents = Array.isArray(body.intents) ? (body.intents as CommandIntent[]) : [];
+    if (intents.length === 0) return { error: "Couldn't understand that command — try rephrasing it." };
+    return { intents };
   } catch {
     return { error: "Network error — please try again." };
   }
@@ -93,7 +100,7 @@ function AiConsole() {
     setInput("");
     setThinking(true);
 
-    const result = await requestIntent(command, history);
+    const result = await requestIntents(command, history);
     setHistory((h) => [...h, { role: "admin", text: command }].slice(-6));
 
     if ("error" in result) {
@@ -102,19 +109,38 @@ function AiConsole() {
       return;
     }
 
-    const intent = result.intent;
-    const preview = await buildPreview(intent);
+    const { intents } = result;
+    // Build every intent's preview in parallel — each is an independent
+    // read-only DB fetch, same as buildPreview() always was.
+    const previews = await Promise.all(intents.map((intent) => buildPreview(intent)));
     setThinking(false);
 
-    if (preview.kind === "clarification" || preview.kind === "empty") {
-      setMessages((m) => [...m, { id: nextId(), kind: "text", text: preview.message }]);
-      setHistory((h) => [...h, { role: "assistant", text: preview.message }].slice(-6));
-      return;
+    const newMsgs: Msg[] = [];
+    const assistantSummaries: string[] = [];
+
+    if (intents.length > 1) {
+      newMsgs.push({ id: nextId(), kind: "text", text: `Got it — that's ${intents.length} separate updates:` });
     }
 
-    const summary = intent.summary || undefined;
-    setMessages((m) => [...m, { id: nextId(), kind: "preview", preview, status: "pending", summary }]);
-    if (summary) setHistory((h) => [...h, { role: "assistant", text: summary }].slice(-6));
+    for (let i = 0; i < intents.length; i++) {
+      const intent = intents[i];
+      const preview = previews[i];
+
+      if (preview.kind === "clarification" || preview.kind === "empty") {
+        newMsgs.push({ id: nextId(), kind: "text", text: preview.message });
+        assistantSummaries.push(preview.message);
+        continue;
+      }
+
+      const summary = intent.summary || undefined;
+      newMsgs.push({ id: nextId(), kind: "preview", preview, status: "pending", summary });
+      if (summary) assistantSummaries.push(summary);
+    }
+
+    setMessages((m) => [...m, ...newMsgs]);
+    if (assistantSummaries.length > 0) {
+      setHistory((h) => [...h, { role: "assistant", text: assistantSummaries.join(" | ") }].slice(-6));
+    }
   }
 
   async function confirm(id: string) {
