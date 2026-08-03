@@ -240,6 +240,8 @@ export async function parseCommandWithGemini(command: string, history: ConsoleTu
   };
 
   let res: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000);
   try {
     res = await fetch(`${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent`, {
       method: "POST",
@@ -248,10 +250,16 @@ export async function parseCommandWithGemini(command: string, history: ConsoleTu
         "x-goog-api-key": apiKey,
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (err) {
     console.error("[ai-console] Gemini fetch threw", err);
+    if (err instanceof Error && err.name === "AbortError") {
+      return { ok: false, error: "The AI service took too long to respond — try again." };
+    }
     return { ok: false, error: "Couldn't reach the AI service — check your connection and try again." };
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!res.ok) {
