@@ -189,7 +189,7 @@ function CartPage() {
     setAutoApplyChecked(true);
     (async () => {
       for (const c of autoCoupons) {
-        const result = await validateCoupon(c.code, user?.id ?? null, items);
+        const result = await validateCoupon(c.code, items);
         if (result.valid) {
           setAppliedCoupon(result);
           toast.success(`"${c.code}" applied automatically — ${result.message}`);
@@ -203,7 +203,7 @@ function CartPage() {
     const target = (code ?? couponInput).trim();
     if (!target) return toast.error("Enter a coupon code");
     setApplying(true);
-    const result = await validateCoupon(target, user?.id ?? null, items);
+    const result = await validateCoupon(target, items);
     setApplying(false);
     if (!result.valid) {
       toast.error(result.message);
@@ -443,7 +443,7 @@ function CartPage() {
     let finalCouponCode: string | null = null;
     let couponId: string | undefined;
     if (appliedCoupon?.valid && appliedCoupon.code) {
-      const recheck = await validateCoupon(appliedCoupon.code, user.id, items);
+      const recheck = await validateCoupon(appliedCoupon.code, items);
       if (!recheck.valid) {
         setPlacing(false);
         toast.error(`Your coupon is no longer valid: ${recheck.message}`);
