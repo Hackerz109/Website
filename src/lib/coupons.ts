@@ -36,21 +36,42 @@ function toValidationItems(items: CartItem[]) {
   }));
 }
 
-/** Runs the real, authoritative check server-side — never trust a client-side total. */
-export async function validateCoupon(
-  code: string,
-  userId: string | null,
-  items: CartItem[],
-): Promise<CouponValidationResult> {
-  const { data, error } = await supabase.rpc("validate_coupon", {
-    p_code: code,
-    p_user_id: userId,
-    p_items: toValidationItems(items),
-  });
-  if (error) {
+/**
+ * Runs the real, authoritative check server-side — never trust a client-side
+ * total. Goes through /api/validate-coupon rather than calling the
+ * validate_coupon() RPC directly for two reasons:
+ *  1. That route can be rate-limited; a direct RPC call (just needs the
+ *     public anon key) can't be, which is what let a scripted caller guess
+ *     coupon codes — including hidden ones — via the RPC's own distinct
+ *     per-reason messages.
+ *  2. The route derives the caller's real user id from their verified
+ *     session token server-side, rather than trusting whatever userId a
+ *     caller passes in — this function used to accept one as a parameter,
+ *     which meant anyone calling it (or the RPC) from devtools could pass
+ *     an arbitrary UUID to dodge "first order only" / per-customer usage
+ *     limits on a coupon they already knew the code for.
+ */
+export async function validateCoupon(code: string, items: CartItem[]): Promise<CouponValidationResult> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    const res = await fetch("/api/validate-coupon", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ code, items: toValidationItems(items) }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { valid: false, message: typeof body?.message === "string" ? body.message : "Couldn't check that coupon right now — please try again." };
+    }
+    return body as CouponValidationResult;
+  } catch {
     return { valid: false, message: "Couldn't check that coupon right now — please try again." };
   }
-  return data as unknown as CouponValidationResult;
 }
 
 /** Coupons that should be proactively surfaced (visible + auto-apply), for suggestions. */

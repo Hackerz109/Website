@@ -74,6 +74,16 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
   push_subscribe: {
     ip: { limit: 20, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
   },
+  // Coupon validation: unlike the scopes above this isn't really about
+  // credential stuffing, it's about stopping a scripted caller from
+  // guessing coupon codes (including hidden ones — see the migration that
+  // revoked direct anon/authenticated access to validate_coupon()). A
+  // genuine shopper never tries more than a handful of codes in a
+  // session, so this can be tight without affecting real use.
+  validate_coupon: {
+    user: { limit: 20, windowMs: 15 * 60_000, lockMs: 30 * 60_000 },
+    ip: { limit: 30, windowMs: 15 * 60_000, lockMs: 30 * 60_000 },
+  },
 };
 
 // Show a captcha this many attempts before the (email) identifier actually
