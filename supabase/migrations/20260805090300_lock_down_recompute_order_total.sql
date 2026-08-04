@@ -1,0 +1,12 @@
+-- recompute_order_total(order_id) is only ever meant to run via the
+-- trg_order_items_recompute trigger (fires automatically when order_items
+-- change) — no client code calls it directly, and there's no legitimate
+-- reason for an end user to force-recompute an order that isn't theirs.
+-- It's well-defended against producing a WRONG number (everything is
+-- resynced from catalog/coupon/delivery source-of-truth, never trusted
+-- client input), but there's still no reason to let any signed-in-or-not
+-- caller trigger it on an arbitrary order_id — e.g. deliberately bumping a
+-- stranger's total right as they're about to pay, if a sale/coupon has
+-- since changed. The trigger's internal call is unaffected (it runs as
+-- the function owner, postgres).
+REVOKE EXECUTE ON FUNCTION public.recompute_order_total(uuid) FROM anon, authenticated;
