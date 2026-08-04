@@ -57,6 +57,7 @@ you confirm) rather than one function that does both:
 
 - `searchProduct()` → `searchProductLines()` (internal to `buildPreview`) — also powers the plain "show/find" command and the low-stock query.
 - `updatePrice()` → `buildPreview()` (kind `"price"`) + `applyPriceRows()`
+- MRP (not in the original brief, added later) → `buildPreview()` (kind `"mrp"`) + `applyMrpRows()`. Same fixed/percent, increase/decrease/set shape as price, just targeting the separate `mrp_cents` column — see "MRP vs price" below.
 - `updateStock()` → `buildPreview()` (kind `"stock"`) + `applyStockRows()`
 - `updateDescription()` → `buildPreview()` (kind `"description"`) + `applyDescriptionRows()`
 - `updateCategory()` → `buildPreview()` (kind `"category"`) + `applyCategoryRows()`
@@ -140,6 +141,19 @@ own preview bubble so you can confirm some and cancel others independently.
 
 Capped at 8 instructions per message — if you list more, only the first 8
 are extracted (ask the rest as a follow-up message).
+
+## MRP vs price
+
+`mrp_cents` is a separate, nullable column from `price_cents` on both
+`products` and `product_variants` (the struck-through "was" price next to a
+discount — see `admin.products.tsx`'s own MRP field and the DB check
+`mrp_cents IS NULL OR mrp_cents >= price_cents`). The console treats it as a
+genuinely separate target:
+
+- "set the price to X" / "increase price by X" → `set_price` / `adjust_price`, writes `price_cents`.
+- "set the MRP to X" / "increase MRP by X" (also recognizes "market price", "list price", "strike-through price") → `set_mrp` / `adjust_mrp`, writes `mrp_cents`.
+- Mentioning both in one message ("set price to ₹400 and MRP to ₹500") produces two separate instructions/previews — see "Multiple instructions" above.
+- A product with no MRP set yet is treated as having no markup (baseline = current price) for a relative `adjust_mrp`, and any computed MRP is floored at the current price so it can never fail that DB check.
 
 ## Known limitations
 
