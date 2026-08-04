@@ -11,10 +11,12 @@ import type { CommandIntent, ConsoleTurn } from "@/lib/aiConsole.server";
 import {
   buildPreview,
   applyPriceRows,
+  applyMrpRows,
   applyStockRows,
   applyDescriptionRows,
   applyCategoryRows,
   priceSummary,
+  mrpSummary,
   stockSummary,
   formatMoney,
   type ConsolePreview,
@@ -42,12 +44,13 @@ const SUGGESTIONS = [
   "Show low stock",
   "Update all Havells products",
   "Increase wire prices by 3%",
+  "Set Havells fan MRP to ₹1500",
   "Increase Havells Lifeline 1mm wire price by ₹50",
   "Add 20 rolls of Havells 1.5mm wire to stock",
   "Set Havells fan stock to 5 and Anchor switch price to ₹120",
 ];
 
-const NEEDS_CONFIRM: ActionableConsolePreview["kind"][] = ["price", "stock", "description", "category"];
+const NEEDS_CONFIRM: ActionableConsolePreview["kind"][] = ["price", "mrp", "stock", "description", "category"];
 
 // One admin message can carry several distinct instructions at once (e.g.
 // "set this product's stock to 1, this one's price to 100, and this to
@@ -169,6 +172,7 @@ function AiConsole() {
 
     let result: { ok: number; failed: number; firstError?: string } | null = null;
     if (preview.kind === "price") result = await applyPriceRows(preview.rows);
+    else if (preview.kind === "mrp") result = await applyMrpRows(preview.rows);
     else if (preview.kind === "stock") result = await applyStockRows(preview.rows);
     else if (preview.kind === "description") result = await applyDescriptionRows(preview.rows);
     else if (preview.kind === "category") result = await applyCategoryRows(preview.rows, preview.newCategoryId);
@@ -348,6 +352,40 @@ function PreviewBody({ preview }: { preview: ActionableConsolePreview }) {
               <span className="break-words">{r.displayName}</span>
               <span className="text-xs text-muted-foreground">
                 {formatMoney(r.oldCents, r.currency)} → <span className="font-medium text-foreground">{formatMoney(r.newCents, r.currency)}</span>
+              </span>
+            </>
+          )}
+        />
+      </div>
+    );
+  }
+
+  if (preview.kind === "mrp") {
+    const s = mrpSummary(preview.rows);
+    const direction = s.newAvgCents >= s.oldAvgCents ? "up" : "down";
+    return (
+      <div>
+        <p className="mb-2 text-muted-foreground">
+          Found <span className="font-medium text-foreground">{s.count}</span> product{s.count === 1 ? "" : "s"}
+        </p>
+        <div className="mb-2 flex items-center gap-2 rounded-md bg-muted px-3 py-2">
+          {direction === "up" ? <TrendingUp className="h-4 w-4 text-emerald-600" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
+          <span>
+            Avg MRP: {s.unsetCount === s.count ? "—" : formatMoney(s.oldAvgCents, s.currency)} → <span className="font-medium">{formatMoney(s.newAvgCents, s.currency)}</span>
+          </span>
+        </div>
+        {s.unsetCount > 0 && (
+          <p className="mb-2 text-xs text-muted-foreground">
+            {s.unsetCount} of these had no MRP set yet — treated as no markup over the current price.
+          </p>
+        )}
+        <RowList
+          rows={preview.rows}
+          render={(r) => (
+            <>
+              <span className="break-words">{r.displayName}</span>
+              <span className="text-xs text-muted-foreground">
+                {r.oldCents === null ? "no MRP" : formatMoney(r.oldCents, r.currency)} → <span className="font-medium text-foreground">{formatMoney(r.newCents, r.currency)}</span>
               </span>
             </>
           )}
