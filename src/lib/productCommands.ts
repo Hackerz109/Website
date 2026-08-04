@@ -276,11 +276,36 @@ export function computeNewStock(oldStock: number, intent: CommandIntent): number
   return Math.max(0, oldStock + signed);
 }
 
+/** MRP is nullable in the DB (no MRP set = no strike-through discount shown)
+ * and is constrained to always be >= the selling price. Both are handled
+ * here rather than left for the write to reject:
+ * - No existing MRP is treated as "no markup yet", i.e. equal to the
+ *   current price, so a relative adjust has a sane baseline instead of
+ *   adjusting from nothing.
+ * - Whatever the target works out to, it's floored at the current price —
+ *   an MRP below the selling price isn't a valid "was" price anyway. */
+export function computeNewMrpCents(oldMrpCents: number | null, oldPriceCents: number, intent: CommandIntent): number {
+  const baseline = oldMrpCents ?? oldPriceCents;
+  let target: number;
+  if (intent.action === "set_mrp") {
+    target = Math.max(0, Math.round((intent.price_value ?? 0) * 100));
+  } else {
+    const magnitude = Math.abs(intent.price_value ?? 0);
+    const deltaCents = intent.price_mode === "percent" ? Math.round(baseline * (magnitude / 100)) : Math.round(magnitude * 100);
+    const signed = intent.price_direction === "decrease" ? -deltaCents : deltaCents;
+    target = Math.max(0, baseline + signed);
+  }
+  return Math.max(target, oldPriceCents);
+}
+
 // ---------------------------------------------------------------------------
 // Preview types
 // ---------------------------------------------------------------------------
 
 export type PriceRow = { productId: string; variantId: string | null; displayName: string; currency: string; oldCents: number; newCents: number };
+// oldCents is nullable here (unlike PriceRow) because MRP itself is
+// nullable in the DB — a product with no MRP set has no "was" price to show.
+export type MrpRow = { productId: string; variantId: string | null; displayName: string; currency: string; oldCents: number | null; newCents: number };
 export type StockRow = { productId: string; variantId: string | null; displayName: string; oldStock: number; newStock: number };
 export type DescriptionRow = { productId: string; displayName: string; oldDescription: string; newDescription: string };
 export type CategoryRow = { productId: string; displayName: string; oldCategoryName: string | null };
@@ -288,6 +313,7 @@ export type SearchRow = { productId: string; variantId: string | null; displayNa
 
 export type ConsolePreview =
   | { kind: "price"; intent: CommandIntent; rows: PriceRow[] }
+  | { kind: "mrp"; intent: CommandIntent; rows: MrpRow[] }
   | { kind: "stock"; intent: CommandIntent; rows: StockRow[] }
   | { kind: "description"; intent: CommandIntent; rows: DescriptionRow[]; newDescription: string }
   | { kind: "category"; intent: CommandIntent; rows: CategoryRow[]; newCategoryId: string; newCategoryName: string }
@@ -349,6 +375,24 @@ export async function buildPreview(intent: CommandIntent): Promise<ConsolePrevie
       newCents: computeNewPriceCents(l.priceCents, intent),
     }));
     return { kind: "price", intent, rows };
+  }
+
+  if (intent.action === "set_mrp" || intent.action === "adjust_mrp") {
+    if (intent.price_value === null || intent.price_value === undefined) {
+      return { kind: "clarification", message: "What MRP or amount should I apply? Try again with a number, e.g. \"set Havells fan MRP to ₹1500\"." };
+    }
+    const result = await searchProductLines(intent.filter);
+    if ("error" in result) return { kind: "empty", message: `Couldn't load products: ${result.error}` };
+    if (result.lines.length === 0) return { kind: "empty", message: "No products matched that — try naming the brand or product more specifically." };
+    const rows: MrpRow[] = result.lines.map((l) => ({
+      productId: l.productId,
+      variantId: l.variantId,
+      displayName: l.displayName,
+      currency: l.currency,
+      oldCents: l.mrpCents,
+      newCents: computeNewMrpCents(l.mrpCents, l.priceCents, intent),
+    }));
+    return { kind: "mrp", intent, rows };
   }
 
   if (intent.action === "set_stock" || intent.action === "adjust_stock") {
@@ -466,6 +510,15 @@ export async function applyPriceRows(rows: PriceRow[]) {
   });
 }
 
+export async function applyMrpRows(rows: MrpRow[]) {
+  return runUpdates(rows, async (row) => {
+    if (row.variantId) {
+      return supabase.from("product_variants").update({ mrp_cents: row.newCents }).eq("id", row.variantId);
+    }
+    return supabase.from("products").update({ mrp_cents: row.newCents }).eq("id", row.productId);
+  });
+}
+
 export async function applyStockRows(rows: StockRow[]) {
   return runUpdates(rows, async (row) => {
     if (row.variantId) {
@@ -495,6 +548,18 @@ export function priceSummary(rows: PriceRow[]) {
   const oldAvgCents = Math.round(rows.reduce((s, r) => s + r.oldCents, 0) / count);
   const newAvgCents = Math.round(rows.reduce((s, r) => s + r.newCents, 0) / count);
   return { count, oldAvgCents, newAvgCents, currency: rows[0].currency };
+}
+
+/** Same as priceSummary, but oldCents can be null (no MRP set yet) — those
+ * rows are excluded from the "old" average rather than treated as ₹0, and
+ * unsetCount tells the UI how many that was so it can say so. */
+export function mrpSummary(rows: MrpRow[]) {
+  const count = rows.length;
+  if (count === 0) return { count, oldAvgCents: 0, newAvgCents: 0, currency: "INR", unsetCount: 0 };
+  const withOld = rows.filter((r): r is MrpRow & { oldCents: number } => r.oldCents !== null);
+  const oldAvgCents = withOld.length > 0 ? Math.round(withOld.reduce((s, r) => s + r.oldCents, 0) / withOld.length) : 0;
+  const newAvgCents = Math.round(rows.reduce((s, r) => s + r.newCents, 0) / count);
+  return { count, oldAvgCents, newAvgCents, currency: rows[0].currency, unsetCount: count - withOld.length };
 }
 
 export function stockSummary(rows: StockRow[]) {

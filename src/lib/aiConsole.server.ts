@@ -35,6 +35,8 @@ const ACTIONS = [
   "low_stock",
   "set_price",
   "adjust_price",
+  "set_mrp",
+  "adjust_mrp",
   "set_stock",
   "adjust_stock",
   "update_description",
@@ -61,10 +63,13 @@ export type CommandFilter = z.infer<typeof CommandFilterSchema>;
 export const CommandIntentSchema = z.object({
   action: z.enum(ACTIONS),
   filter: CommandFilterSchema,
-  // set_price / adjust_price. "none" (rather than null) when the action
-  // isn't a price action — Gemini's schema validator can reject an enum
-  // field that's also marked nullable, so these three fields use an
-  // explicit "none" sentinel instead of null.
+  // set_price/adjust_price AND set_mrp/adjust_mrp reuse these same three
+  // fields — MRP is just a second "target" for the identical fixed/percent,
+  // increase/decrease/set shape, so there's no need for a separate
+  // mrp_mode/mrp_direction/mrp_value trio. "none" (rather than null) when
+  // the action is neither a price nor an mrp action — Gemini's schema
+  // validator can reject an enum field that's also marked nullable, so
+  // these three fields use an explicit "none" sentinel instead of null.
   price_mode: z.enum(["fixed", "percent", "none"]),
   price_direction: z.enum(["increase", "decrease", "set", "none"]),
   price_value: z.number().nullable(),
@@ -171,12 +176,19 @@ Multiple instructions in one message:
 - Cap yourself at 8 items even if the message lists more; extract the first 8 in order.
 - Each array item gets its own preview that the admin reviews and confirms separately, so when a clause is genuinely ambiguous between "one instruction" and "two", prefer splitting it — an extra preview card the admin can cancel is safer than silently merging two different requests together.
 
+MRP vs price — these are two separate database fields, never the same thing:
+- "price" (or "selling price") means what the customer actually pays — use set_price/adjust_price.
+- "MRP" (or "market price", "list price", "strike-through price", "compare-at price", "the price before discount") means the separate struck-through "was" price shown next to a discounted selling price — use set_mrp/adjust_mrp. Never use set_price/adjust_price for an MRP mention, and never use set_mrp/adjust_mrp for a plain "price" mention.
+- If the admin mentions both in the same message ("set the price to ₹400 and MRP to ₹500"), that is two separate instructions — return two separate array items, one price action and one mrp action. Don't merge them into one.
+
 Rules for EACH item in the array:
 - Pick exactly one "action":
   - "search" — admin wants to see/find products, no change requested.
   - "low_stock" — admin wants products below some stock threshold. Default stock_threshold to 10 if the admin didn't give a number.
   - "set_price" — set price to an exact new amount. price_mode "fixed", price_direction "set", price_value = the target rupee amount.
   - "adjust_price" — change price by an amount or percent. price_mode "fixed" (rupees) or "percent". price_direction "increase" or "decrease". price_value = the magnitude (always positive; direction carries the sign).
+  - "set_mrp" — set the MRP to an exact new amount, using the exact same price_mode/price_direction/price_value fields as set_price ("fixed", "set", target amount) — just targeting MRP instead of the selling price.
+  - "adjust_mrp" — change the MRP by an amount or percent, using the exact same price_mode/price_direction/price_value fields as adjust_price — just targeting MRP instead of the selling price.
   - "set_stock" — set stock to an exact number. stock_direction "set", stock_value = target quantity.
   - "adjust_stock" — add or remove units. stock_direction "increase" or "decrease", stock_value = magnitude (always positive).
   - "update_description" — new_description = the requested new text (only if the admin actually dictated or clearly implied new text; otherwise use "unclear" and ask what the new description should say).
@@ -191,7 +203,7 @@ Rules for EACH item in the array:
   - Any field you have no information for must be null (use null for keywords too if none) — EXCEPT price_mode, price_direction, and stock_direction, which are never null: use the literal string "none" for whichever of these don't apply to the chosen action (e.g. a "search" or "update_description" command should have price_mode "none", price_direction "none", stock_direction "none").
 - "summary" is one short plain-English sentence restating THIS item's request, for display to the admin above its own preview — e.g. "Increase Havells wire prices by ₹50" or "Show products with stock below 10".
 - Never invent a specific rupee/percent/quantity value that wasn't stated or clearly implied. If a needed value is missing for one item, use action "unclear" for that item only — don't let it block the other items in the array.
-- Numbers: price_value and stock_value are always positive magnitudes; increase/decrease/set is carried separately in price_direction/stock_direction. Both default to "none" whenever the action isn't a price/stock action.
+- Numbers: price_value and stock_value are always positive magnitudes; increase/decrease/set is carried separately in price_direction/stock_direction. Both default to "none" whenever the action isn't a price, mrp, or stock action.
 - If the admin's entire message is a vague chat message unrelated to product management (greeting, thanks, unrelated question), return a single-item array with action "unclear" and a brief clarification like "I can help with product prices, stock, descriptions, and categories — try a command like 'increase Havells wire prices by 5%'."`;
 
 // ---------------------------------------------------------------------------
