@@ -4,11 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
-
-function sanitize(q: string) {
-  // Strip characters that would break a PostgREST .or() filter string
-  return q.replace(/[%,()]/g, " ").trim();
-}
+import { PRODUCT_SEARCH_SELECT, matchingVariants, rankedProductIds, sortByRank } from "@/lib/productSearch";
 
 export function SearchBar({
   className = "",
@@ -26,45 +22,40 @@ export function SearchBar({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(sanitize(query)), 250);
+    const t = setTimeout(() => setDebounced(query.trim()), 250);
     return () => clearTimeout(t);
   }, [query]);
 
   const { data: results, isFetching } = useQuery({
     queryKey: ["search-preview", debounced],
     queryFn: async () => {
-      const term = `%${debounced}%`;
-
-      const [{ data: matchedCategories }, { data: matchedBrands }, { data: matchedVariants }] = await Promise.all([
-        supabase.from("categories").select("id").ilike("name", term),
-        supabase.from("brands").select("id").ilike("name", term),
-        supabase.from("product_variants").select("id, product_id, name, price_cents").or(`name.ilike.${term},sku.ilike.${term}`).limit(30),
-      ]);
-      const categoryIds = (matchedCategories ?? []).map((c) => c.id);
-      const brandIds = (matchedBrands ?? []).map((b) => b.id);
-      const variantProductIds = [...new Set((matchedVariants ?? []).map((v) => v.product_id))];
-
-      const orParts = [`name.ilike.${term}`, `description.ilike.${term}`];
-      if (categoryIds.length > 0) orParts.push(`category_id.in.(${categoryIds.join(",")})`);
-      if (brandIds.length > 0) orParts.push(`brand_id.in.(${brandIds.join(",")})`);
-      if (variantProductIds.length > 0) orParts.push(`id.in.(${variantProductIds.join(",")})`);
+      // Fuzzy + word-order-independent ranking first (see
+      // src/lib/productSearch.ts), then fetch the top few full rows.
+      const rankedIds = await rankedProductIds(debounced);
+      const topIds = rankedIds.slice(0, 6);
+      if (topIds.length === 0) return { products: [], variantsByProduct: {} };
 
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price_cents, currency, image_url, product_images(url, is_primary, variant_id), product_variants(price_cents, stock), categories(name)")
+        .select(PRODUCT_SEARCH_SELECT)
         .eq("active", true)
-        .or(orParts.join(","))
-        .limit(6);
+        .in("id", topIds);
       if (error) throw error;
 
-      // Group matched variants (the ones whose own name/SKU hit the search
-      // term, not just any variant of a matched product) by their product,
-      // so each result can show exactly which option matched and its price.
+      const products = sortByRank(data ?? [], topIds);
+
+      // Which variant (if any) is the one that actually matched, so the
+      // dropdown can show "↳ 1mm" under "Havells Wire" rather than just
+      // the parent product.
       const variantsByProduct: Record<string, { id: string; name: string; price_cents: number }[]> = {};
-      for (const v of matchedVariants ?? []) {
-        (variantsByProduct[v.product_id] ??= []).push({ id: v.id, name: v.name, price_cents: v.price_cents });
+      for (const p of products) {
+        const matched = matchingVariants(debounced, p.product_variants ?? []);
+        if (matched.length > 0) {
+          variantsByProduct[p.id] = matched.map((v) => ({ id: v.id, name: v.name, price_cents: v.price_cents }));
+        }
       }
-      return { products: data ?? [], variantsByProduct };
+
+      return { products, variantsByProduct };
     },
     enabled: debounced.length > 1,
   });
