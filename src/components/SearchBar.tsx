@@ -51,7 +51,7 @@ export function SearchBar({
 
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, price_cents, currency, image_url, product_images(url, is_primary), product_variants(price_cents, stock), categories(name)")
+        .select("id, name, slug, price_cents, currency, image_url, product_images(url, is_primary, variant_id), product_variants(price_cents, stock), categories(name)")
         .eq("active", true)
         .or(orParts.join(","))
         .limit(6);
@@ -137,8 +137,12 @@ export function SearchBar({
             <>
               <ul>
                 {results.products.map((p) => {
-                  const img = p.product_images?.find((i) => i.is_primary)?.url
-                    ?? p.product_images?.[0]?.url
+                  // Only the shared/universal gallery — a search result has
+                  // no selected variant, so a variant's own primary photo
+                  // (scoped to its own page) shouldn't show here.
+                  const sharedImages = p.product_images?.filter((i) => !i.variant_id) ?? [];
+                  const img = sharedImages.find((i) => i.is_primary)?.url
+                    ?? sharedImages[0]?.url
                     ?? p.image_url;
                   const matched = results.variantsByProduct[p.id] ?? [];
                   const variantPrices = (p.product_variants ?? []).map((v) => v.price_cents);
