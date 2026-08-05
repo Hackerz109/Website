@@ -1037,30 +1037,35 @@ function VariantImagesEditor({
       <p className="mt-1 text-[11px] text-muted-foreground">
         {(!images || images.length === 0)
           ? "None yet — this variant will show the shared images below on its own."
-          : "Star one as primary to lead this variant's gallery. The shared images below still show, added after these."}
+          : "Tap the star to set this variant's primary. The shared images below still show, added after these."}
       </p>
       {images && images.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 grid grid-cols-4 gap-2">
           {images.map((img) => (
-            <div key={img.id} className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border">
-              <img src={img.url} alt="" className="h-full w-full object-cover" />
+            <div key={img.id} className="relative overflow-hidden rounded-lg border">
+              <img src={img.url} alt="" className="aspect-square w-full object-cover" />
               {img.is_primary && (
-                <div className="absolute left-0.5 top-0.5 rounded bg-foreground/90 px-1 py-px text-[8px] font-medium text-background">
-                  ★
+                <div className="absolute left-1 top-1 rounded bg-foreground/90 px-1 py-px text-[8px] font-medium text-background">
+                  Primary
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex divide-x border-t bg-background">
                 <button
                   type="button"
                   disabled={img.is_primary}
                   onClick={() => setPrimary(img)}
                   aria-label="Set as primary for this variant"
-                  className="text-white disabled:text-white/40"
+                  className="flex-1 py-1 text-[11px] disabled:text-muted-foreground hover:bg-secondary/50"
                 >
-                  <Star className="h-4 w-4" />
+                  <Star className="mx-auto h-3 w-3" />
                 </button>
-                <button type="button" onClick={() => deleteImage(img)} aria-label="Delete image" className="text-white">
-                  <Trash2 className="h-4 w-4" />
+                <button
+                  type="button"
+                  onClick={() => deleteImage(img)}
+                  aria-label="Delete image"
+                  className="flex-1 py-1 text-[11px] hover:bg-secondary/50"
+                >
+                  <Trash2 className="mx-auto h-3 w-3" />
                 </button>
               </div>
             </div>
@@ -1315,7 +1320,7 @@ function ImagesEditor({
       <div className="flex items-center justify-between">
         <div>
           <Label>Shared images</Label>
-          <p className="text-xs text-muted-foreground">Universal — shown on every variant's page, added after that variant's own images. Also used for products with no variants.</p>
+          <p className="text-xs text-muted-foreground">Star one as primary to set the thumbnail shown on the collection page, category pages, and search. Also shown on every variant's own page, added after that variant's own images.</p>
         </div>
         <label>
           <input type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} disabled={uploading} />
@@ -1327,7 +1332,7 @@ function ImagesEditor({
       </div>
       {(!images || images.length === 0) && (
         <p className="mt-2 text-xs text-muted-foreground">
-          No shared images uploaded yet — the fallback image URL above will be used.
+          No shared images uploaded yet — the collection/search thumbnail will fall back to one of this product's variant images, or the fallback image URL above if it has none.
         </p>
       )}
       <div className="mt-2 grid grid-cols-3 gap-2">
