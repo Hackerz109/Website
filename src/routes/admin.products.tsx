@@ -923,8 +923,9 @@ function VariantsEditor({
 // separate concept from the shared editor's "Primary", which controls the
 // storefront grid/card thumbnail and is scoped to the shared gallery only.
 // Neither ever touches the other's primary flag; see setPrimary() in both
-// editors, and the variant_id-aware filtering in ProductCard/SearchBar
-// that keeps grid thumbnails from ever picking a variant-specific photo.
+// editors, and the variant_id-aware filtering in ProductCard/SearchBar,
+// which prefers the shared gallery for grid thumbnails and only falls
+// back to a variant's own photo when the product has no shared images.
 function VariantImagesEditor({
   productId,
   variantId,
