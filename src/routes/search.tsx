@@ -5,13 +5,10 @@ import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { SearchBar } from "@/components/SearchBar";
-import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
+import { ProductFilters, type SortOption } from "@/components/ProductFilters";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
-
-function sanitize(q: string) {
-  return q.replace(/[%,()]/g, " ").trim();
-}
+import { PRODUCT_SEARCH_SELECT, matchingVariants, rankedProductIds, sortByRank } from "@/lib/productSearch";
 
 export const Route = createFileRoute("/search")({
   component: SearchPage,
@@ -26,46 +23,64 @@ export const Route = createFileRoute("/search")({
 function SearchPage() {
   const { q, sort, category, brand } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const term = sanitize(q);
+  const term = q.trim();
 
   const { data, isLoading } = useQuery({
     queryKey: ["search-results", term, sort, category, brand],
     queryFn: async () => {
-      const like = `%${term}%`;
-
-      // category/brand are now separate tables, not text columns on products —
-      // resolve any name matches to ids first so they still count as hits.
-      const [{ data: matchedCategories }, { data: matchedBrands }, { data: matchedVariants }] = await Promise.all([
-        supabase.from("categories").select("id").ilike("name", like),
-        supabase.from("brands").select("id").ilike("name", like),
-        supabase.from("product_variants").select("id, product_id, name, price_cents").or(`name.ilike.${like},sku.ilike.${like}`),
-      ]);
-      const categoryIds = (matchedCategories ?? []).map((c) => c.id);
-      const brandIds = (matchedBrands ?? []).map((b) => b.id);
-      const variantProductIds = [...new Set((matchedVariants ?? []).map((v) => v.product_id))];
-
-      const orParts = [`name.ilike.${like}`, `description.ilike.${like}`];
-      if (categoryIds.length > 0) orParts.push(`category_id.in.(${categoryIds.join(",")})`);
-      if (brandIds.length > 0) orParts.push(`brand_id.in.(${brandIds.join(",")})`);
-      if (variantProductIds.length > 0) orParts.push(`id.in.(${variantProductIds.join(",")})`);
+      // Fuzzy + word-order-independent ranking first (see
+      // src/lib/productSearch.ts) — this is what lets "Havells wire 1mm"
+      // find a product literally named "1mm Havells Wire", and lets a
+      // misspelling like "havlls" still find "Havells".
+      const rankedIds = await rankedProductIds(term);
+      if (rankedIds.length === 0) return { products: [], variantsByProduct: {} };
 
       let query = supabase
         .from("products")
-        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock), categories(name, slug), brands(name)")
+        .select(PRODUCT_SEARCH_SELECT)
         .eq("active", true)
-        .or(orParts.join(","));
-      query = applySortAndFilter(query, sort, category, brand);
+        .in("id", rankedIds);
+      if (category) query = query.eq("category_id", category);
+      if (brand) query = query.eq("brand_id", brand);
+
+      switch (sort) {
+        case "price_asc":
+          query = query.order("price_cents", { ascending: true });
+          break;
+        case "price_desc":
+          query = query.order("price_cents", { ascending: false });
+          break;
+        case "name_asc":
+          query = query.order("name", { ascending: true });
+          break;
+        case "newest":
+          query = query.order("created_at", { ascending: false });
+          break;
+        case "featured":
+        default:
+          // Left unordered here on purpose — for a search, "best match"
+          // is more useful than the Featured flag, so this case is
+          // re-sorted by relevance below instead of by DB column.
+          break;
+      }
+
       const { data, error } = await query;
       if (error) throw error;
 
-      // Group matched variants by their product, same reasoning as the
-      // quick-search dropdown: only the ones whose own name/SKU hit the
-      // term, so each product can show exactly which option matched.
+      const products = sort === "featured" ? sortByRank(data ?? [], rankedIds) : (data ?? []);
+
+      // Which variant (if any) is the one that actually matched, so a
+      // product with several options ("1mm", "1.5mm", "2.5mm"...) can
+      // show exactly the one the search term pointed at.
       const variantsByProduct: Record<string, { id: string; name: string; price_cents: number }[]> = {};
-      for (const v of matchedVariants ?? []) {
-        (variantsByProduct[v.product_id] ??= []).push({ id: v.id, name: v.name, price_cents: v.price_cents });
+      for (const p of products) {
+        const matched = matchingVariants(term, p.product_variants ?? []);
+        if (matched.length > 0) {
+          variantsByProduct[p.id] = matched.map((v) => ({ id: v.id, name: v.name, price_cents: v.price_cents }));
+        }
       }
-      return { products: data ?? [], variantsByProduct };
+
+      return { products, variantsByProduct };
     },
     enabled: term.length > 0,
   });
