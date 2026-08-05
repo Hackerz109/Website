@@ -51,7 +51,7 @@ function SearchPage() {
 
       let query = supabase
         .from("products")
-        .select("*, product_images(url, is_primary), product_variants(price_cents, stock), categories(name, slug), brands(name)")
+        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock), categories(name, slug), brands(name)")
         .eq("active", true)
         .or(orParts.join(","));
       query = applySortAndFilter(query, sort, category, brand);

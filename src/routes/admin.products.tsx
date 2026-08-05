@@ -328,6 +328,7 @@ function AdminProducts() {
             mrp_cents: v.mrp_cents,
             stock: v.stock,
             sku: v.sku,
+            specifications: v.specifications,
             sort_order: v.sort_order,
           })
           .select()
@@ -741,7 +742,7 @@ function VariantsEditor({
     },
   });
 
-  const [drafts, setDrafts] = useState<Record<string, { name: string; price: string; mrp: string; stock: string; sku: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { name: string; price: string; mrp: string; stock: string; sku: string; specifications: { key: string; value: string }[] }>>({});
 
   useEffect(() => {
     if (!variants) return;
@@ -753,6 +754,7 @@ function VariantsEditor({
         mrp: v.mrp_cents ? (v.mrp_cents / 100).toString() : "",
         stock: v.stock.toString(),
         sku: v.sku ?? "",
+        specifications: Array.isArray(v.specifications) ? (v.specifications as { key: string; value: string }[]) : [],
       };
     }
     setDrafts(next);
@@ -777,6 +779,7 @@ function VariantsEditor({
         price_cents: product.price_cents,
         mrp_cents: product.mrp_cents,
         stock: product.stock,
+        specifications: product.specifications,
         sort_order: 0,
       });
       if (seedError) return toast.error(seedError.message);
@@ -810,9 +813,11 @@ function VariantsEditor({
       if (mrp_cents < price_cents) return toast.error("Variant MRP can't be lower than the price");
     }
 
+    const cleanSpecs = d.specifications.filter((s) => s.key.trim() || s.value.trim());
+
     const { error } = await supabase
       .from("product_variants")
-      .update({ name: d.name, price_cents, mrp_cents, stock, sku: d.sku || null })
+      .update({ name: d.name, price_cents, mrp_cents, stock, sku: d.sku || null, specifications: cleanSpecs })
       .eq("id", v.id);
     if (error) return toast.error(error.message);
     toast.success("Variant saved");
@@ -847,7 +852,7 @@ function VariantsEditor({
       )}
       <div className="mt-2 space-y-2">
         {(variants ?? []).map((v) => {
-          const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", sku: "" };
+          const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", sku: "", specifications: [] };
           return (
             <div key={v.id} className="rounded-lg border p-3">
               <div className="grid grid-cols-2 gap-2">
@@ -889,6 +894,15 @@ function VariantsEditor({
                 qc={qc}
                 invalidateStoreFront={invalidateStoreFront}
               />
+              <div className="mt-2 rounded-md bg-secondary/30 p-2">
+                <SpecificationsEditor
+                  specs={d.specifications}
+                  onChange={(specs) => setDrafts({ ...drafts, [v.id]: { ...d, specifications: specs } })}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Only for specs that differ from the product's own — anything not listed here still shows the product's value.
+                </p>
+              </div>
               <div className="mt-2 flex justify-end gap-2">
                 <Button size="sm" variant="ghost" onClick={() => deleteVariant(v)}>
                   <Trash2 className="mr-1 h-3 w-3" /> Delete
@@ -904,10 +918,13 @@ function VariantsEditor({
 }
 
 // A compact image manager scoped to one variant, mounted inside its card in
-// VariantsEditor. Deliberately simpler than the shared ImagesEditor above:
-// variant photos are never "primary" (that concept stays product-wide, for
-// the storefront card/grid thumbnail), so upload order via sort_order is
-// all that's needed — no star toggle.
+// VariantsEditor. "Primary" here is scoped to this variant's own gallery
+// only (which of ITS photos leads when this variant is selected) — it's a
+// separate concept from the shared editor's "Primary", which controls the
+// storefront grid/card thumbnail and is scoped to the shared gallery only.
+// Neither ever touches the other's primary flag; see setPrimary() in both
+// editors, and the variant_id-aware filtering in ProductCard/SearchBar
+// that keeps grid thumbnails from ever picking a variant-specific photo.
 function VariantImagesEditor({
   productId,
   variantId,
@@ -969,7 +986,7 @@ function VariantImagesEditor({
         product_id: productId,
         variant_id: variantId,
         url: pub.publicUrl,
-        is_primary: false,
+        is_primary: startCount === 0 && i === 0,
         sort_order: startCount + i,
       });
       if (insErr) toast.error(insErr.message);
@@ -979,12 +996,28 @@ function VariantImagesEditor({
     refresh();
   }
 
+  async function setPrimary(img: ProductImage) {
+    // Scoped to this variant's own images only — .eq("variant_id", ...),
+    // never .eq("product_id", ...) alone, so this can't clear the shared
+    // gallery's primary or another variant's.
+    await supabase.from("product_images").update({ is_primary: false }).eq("variant_id", variantId).neq("id", img.id);
+    const { error } = await supabase.from("product_images").update({ is_primary: true }).eq("id", img.id);
+    if (error) return toast.error(error.message);
+    refresh();
+  }
+
   async function deleteImage(img: ProductImage) {
     if (!confirm("Delete this image?")) return;
     const path = pathFromPublicUrl(img.url);
     if (path) await supabase.storage.from("product-images").remove([path]);
     const { error } = await supabase.from("product_images").delete().eq("id", img.id);
     if (error) return toast.error(error.message);
+    if (img.is_primary) {
+      const remaining = (images ?? []).filter((i) => i.id !== img.id);
+      if (remaining.length > 0) {
+        await supabase.from("product_images").update({ is_primary: true }).eq("id", remaining[0].id);
+      }
+    }
     refresh();
   }
 
@@ -1003,21 +1036,32 @@ function VariantImagesEditor({
       <p className="mt-1 text-[11px] text-muted-foreground">
         {(!images || images.length === 0)
           ? "None yet — this variant will show the shared images below on its own."
-          : "The shared images below will also show, added after these."}
+          : "Star one as primary to lead this variant's gallery. The shared images below still show, added after these."}
       </p>
       {images && images.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {images.map((img) => (
             <div key={img.id} className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border">
               <img src={img.url} alt="" className="h-full w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => deleteImage(img)}
-                aria-label="Delete image"
-                className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {img.is_primary && (
+                <div className="absolute left-0.5 top-0.5 rounded bg-foreground/90 px-1 py-px text-[8px] font-medium text-background">
+                  ★
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                <button
+                  type="button"
+                  disabled={img.is_primary}
+                  onClick={() => setPrimary(img)}
+                  aria-label="Set as primary for this variant"
+                  className="text-white disabled:text-white/40"
+                >
+                  <Star className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => deleteImage(img)} aria-label="Delete image" className="text-white">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1240,7 +1284,11 @@ function ImagesEditor({
   }
 
   async function setPrimary(img: ProductImage) {
-    await supabase.from("product_images").update({ is_primary: false }).eq("product_id", product.id).neq("id", img.id);
+    // Scoped to the shared gallery only — .is("variant_id", null), never a
+    // bare .eq("product_id", ...) — so this can't clear a variant's own
+    // primary flag (variant images can be primary too now, scoped to their
+    // own gallery; see setPrimary() in VariantImagesEditor).
+    await supabase.from("product_images").update({ is_primary: false }).eq("product_id", product.id).is("variant_id", null).neq("id", img.id);
     const { error } = await supabase.from("product_images").update({ is_primary: true }).eq("id", img.id);
     if (error) return toast.error(error.message);
     refresh();

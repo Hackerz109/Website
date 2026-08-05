@@ -24,7 +24,7 @@ function Index() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_images(url, is_primary), product_variants(price_cents, stock), categories(name, slug)")
+        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock), categories(name, slug)")
         .eq("active", true)
         .order("featured", { ascending: false })
         .order("created_at", { ascending: false })
