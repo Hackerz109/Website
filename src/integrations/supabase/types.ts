@@ -1250,6 +1250,15 @@ export type Database = {
           revenue_cents: number
         }[]
       }
+      search_products_ranked: {
+        Args: {
+          p_query: string
+        }
+        Returns: {
+          id: string
+          rank: number
+        }[]
+      }
       haversine_km: {
         Args: {
           lat1: number
