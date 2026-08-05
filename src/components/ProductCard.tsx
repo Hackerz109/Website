@@ -11,13 +11,22 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
 };
 
 export function ProductCard({ product }: { product: Product }) {
-  // A card has no notion of "which variant" — only ever consider the
-  // shared/universal gallery (variant_id null) for the thumbnail, never a
-  // variant's own primary image, even though variant images can be marked
-  // primary too now (that's scoped to that variant's own page/gallery).
-  const images = (product.product_images ?? []).filter((i) => !i.variant_id);
+  // A card has no notion of "which variant" — prefer the shared/universal
+  // gallery (variant_id null) for the thumbnail, the same photo every
+  // variant shows on its own page too. Only when a product has NO shared
+  // images at all (increasingly common now that images can be uploaded
+  // straight to a variant) do we fall back to some variant's photo rather
+  // than showing nothing — any variant's primary/first image is a better
+  // thumbnail than a blank "No image" card.
+  const allImages = product.product_images ?? [];
+  const sharedImages = allImages.filter((i) => !i.variant_id);
+  const variantImages = allImages.filter((i) => i.variant_id);
   const variants = product.product_variants ?? [];
-  const primaryImage = images.find((i) => i.is_primary)?.url ?? images[0]?.url ?? product.image_url;
+  const primaryImage = sharedImages.find((i) => i.is_primary)?.url
+    ?? sharedImages[0]?.url
+    ?? variantImages.find((i) => i.is_primary)?.url
+    ?? variantImages[0]?.url
+    ?? product.image_url;
 
   const outOfStock = variants.length > 0
     ? variants.every((v) => v.stock <= 0)

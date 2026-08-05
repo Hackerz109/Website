@@ -137,12 +137,16 @@ export function SearchBar({
             <>
               <ul>
                 {results.products.map((p) => {
-                  // Only the shared/universal gallery — a search result has
-                  // no selected variant, so a variant's own primary photo
-                  // (scoped to its own page) shouldn't show here.
+                  // Prefer the shared/universal gallery — a search result
+                  // has no selected variant, so a variant's own primary
+                  // photo (scoped to its own page) is a second choice, used
+                  // only when the product has no shared images at all.
                   const sharedImages = p.product_images?.filter((i) => !i.variant_id) ?? [];
+                  const variantImages = p.product_images?.filter((i) => i.variant_id) ?? [];
                   const img = sharedImages.find((i) => i.is_primary)?.url
                     ?? sharedImages[0]?.url
+                    ?? variantImages.find((i) => i.is_primary)?.url
+                    ?? variantImages[0]?.url
                     ?? p.image_url;
                   const matched = results.variantsByProduct[p.id] ?? [];
                   const variantPrices = (p.product_variants ?? []).map((v) => v.price_cents);
