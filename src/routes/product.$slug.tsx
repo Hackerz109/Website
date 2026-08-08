@@ -7,9 +7,11 @@ import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { WarrantyCard } from "@/components/WarrantyCard";
 import { AvailableOffers } from "@/components/AvailableOffers";
+import { BulkPricingTable } from "@/components/BulkPricingTable";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, formatMoney } from "@/stores/cart";
+import { fetchBulkTiers, bestTierFor, tierUnitPriceCents, nextTierHint, describeTierDiscount } from "@/lib/bulkPricing";
 
 export const Route = createFileRoute("/product/$slug")({
   component: ProductPage,
@@ -61,6 +63,17 @@ function ProductPage() {
       return data;
     },
   });
+
+  // Bulk ("buy more, save more") tiers for this product. Fetched
+  // separately from the main product query since it's public catalog data
+  // (see the RLS policy in the migration) and rarely changes, so it's fine
+  // to cache independently.
+  const { data: bulkTiersByProduct } = useQuery({
+    queryKey: ["bulk-tiers", product?.id],
+    queryFn: () => fetchBulkTiers(product ? [product.id] : []),
+    enabled: !!product?.id,
+  });
+  const bulkTiers = product ? bulkTiersByProduct?.[product.id] ?? [] : [];
 
   const variants = [...(product?.product_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order);
   const hasVariants = variants.length > 0;
@@ -184,6 +197,13 @@ function ProductPage() {
     setQtyState((q) => Math.min(Math.max(q + delta, 1), maxQty));
   }
 
+  // Bulk tiers apply against whichever price is actually in force for this
+  // line (the selected variant's price, or the product's own) — same rule
+  // the server enforces in resolve_bulk_unit_price_cents().
+  const activeTier = bestTierFor(bulkTiers, qty);
+  const effectiveUnitPrice = tierUnitPriceCents(price, bulkTiers, qty);
+  const nextTier = nextTierHint(bulkTiers, qty);
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       <StoreHeader />
@@ -276,7 +296,7 @@ function ProductPage() {
               )}
               <h1 className="mt-1 break-words text-3xl font-extrabold tracking-tight">{product.name}</h1>
               <div className="mt-3 flex items-center gap-2">
-                <p className="text-2xl font-bold">{formatMoney(price, product.currency)}</p>
+                <p className="text-2xl font-bold">{formatMoney(effectiveUnitPrice, product.currency)}</p>
                 {hasDiscount && (
                   <>
                     <p className="text-sm text-muted-foreground line-through">{formatMoney(activeMrpCents!, product.currency)}</p>
@@ -284,6 +304,16 @@ function ProductPage() {
                   </>
                 )}
               </div>
+              {activeTier && (
+                <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                    Bulk price applied
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatMoney(price, product.currency)}/unit normally — {describeTierDiscount(activeTier, product.currency)} for {qty}+ units
+                  </span>
+                </p>
+              )}
               <p className="mt-1 text-sm text-muted-foreground">
                 {unlimited
                   ? "In stock"
@@ -349,6 +379,7 @@ function ProductPage() {
 
               <WarrantyCard product={product} />
               <AvailableOffers productId={product.id} categoryId={product.category_id} brandId={product.brand_id} />
+              <BulkPricingTable tiers={bulkTiers} basePriceCents={price} currency={product.currency} currentQty={qty} />
 
               {canAdd && (
                 <div className="mt-6 flex items-center gap-3">
@@ -380,6 +411,18 @@ function ProductPage() {
                     <span className="text-xs text-muted-foreground">{stock} available</span>
                   )}
                 </div>
+              )}
+
+              {canAdd && nextTier && nextTier.unitsNeeded <= maxQty - qty && (
+                <p className="mt-2 text-xs font-medium text-primary">
+                  Add {nextTier.unitsNeeded} more to unlock {describeTierDiscount(nextTier.tier, product.currency)} ({nextTier.tier.min_qty}+ units)
+                </p>
+              )}
+
+              {canAdd && qty > 1 && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Total for {qty}: <span className="font-semibold text-foreground">{formatMoney(effectiveUnitPrice * qty, product.currency)}</span>
+                </p>
               )}
 
               <Button

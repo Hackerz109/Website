@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tansta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, BadgePercent, Mail, MapPin, PackageSearch, Phone, Receipt, Store, StickyNote, Truck, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, BadgePercent, Layers, Mail, MapPin, PackageSearch, Phone, Receipt, Store, StickyNote, Truck, ImagePlus, X } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { Badge } from "@/components/ui/badge";
@@ -233,6 +233,11 @@ function OrderDetailPage() {
                       ({alreadyReturnedQty[it.id]} returned)
                     </span>
                   )}
+                  {it.base_unit_price_cents != null && it.base_unit_price_cents > it.unit_price_cents && (
+                    <span className="ml-1.5 flex items-center gap-1 text-xs text-green-600">
+                      <Layers className="h-3 w-3" /> Bulk price: {formatMoney(it.unit_price_cents)}/unit (was {formatMoney(it.base_unit_price_cents)})
+                    </span>
+                  )}
                 </span>
                 <span className="flex-shrink-0">{formatMoney(it.unit_price_cents * it.quantity)}</span>
               </div>
@@ -245,6 +250,16 @@ function OrderDetailPage() {
               <span className="text-muted-foreground">Subtotal</span>
               <span>{formatMoney(order.subtotal_cents)}</span>
             </div>
+
+            {order.bulk_discount_cents > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5" />
+                  Bulk pricing saved you
+                </span>
+                <span>{formatMoney(order.bulk_discount_cents)}</span>
+              </div>
+            )}
 
             {order.discount_cents > 0 && (
               <div className="flex justify-between text-primary">

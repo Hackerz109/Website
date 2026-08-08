@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet, Home, Building2, PencilLine, CreditCard, Banknote } from "lucide-react";
+import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet, Home, Building2, PencilLine, CreditCard, Banknote, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
@@ -13,8 +13,16 @@ import { Combobox } from "@/components/ui/combobox";
 import { INDIAN_STATES } from "@/lib/indianStates";
 import { INDIAN_CITIES } from "@/lib/indianCities";
 import { LeafletMap } from "@/components/LeafletMap";
-import { useCart, formatMoney } from "@/stores/cart";
+import { useCart, formatMoney, type CartItem } from "@/stores/cart";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchBulkTiers,
+  tierUnitPriceCents,
+  bestTierFor,
+  nextTierHint,
+  describeTierDiscount,
+  type BulkPricingTier,
+} from "@/lib/bulkPricing";
 import { useAuth } from "@/hooks/useAuth";
 import { payForOrder } from "@/lib/razorpay";
 import { validateCoupon, fetchOffersForCart, describeCoupon, type CouponValidationResult, type VisibleCoupon } from "@/lib/coupons";
@@ -136,7 +144,39 @@ function CartPage() {
   const [useWallet, setUseWallet] = useState(false);
   const [walletAmountInput, setWalletAmountInput] = useState("");
 
-  const subtotal = items.reduce((s, i) => s + i.price_cents * i.quantity, 0);
+  // Bulk ("buy more, save more") tiers for every product currently in the
+  // cart, keyed by product id. Re-fetched whenever the *set* of products in
+  // the cart changes — not on every quantity tick, since the tiers
+  // themselves don't depend on quantity, only which price they resolve to.
+  const [bulkTiersByProduct, setBulkTiersByProduct] = useState<Record<string, BulkPricingTier[]>>({});
+  useEffect(() => {
+    if (items.length === 0) {
+      setBulkTiersByProduct({});
+      return;
+    }
+    fetchBulkTiers(items.map((i) => i.id)).then(setBulkTiersByProduct);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => i.id).sort().join(",")]);
+
+  // What a line actually pays per unit right now, given its quantity. This
+  // is only ever a preview — checkout re-derives the same number
+  // server-side from resolve_bulk_unit_price_cents(), which is the number
+  // that's actually charged — but computing it the same way here means the
+  // preview the shopper sees matches what they'll be charged.
+  function effectiveUnitPrice(i: CartItem) {
+    return tierUnitPriceCents(i.price_cents, bulkTiersByProduct[i.id] ?? [], i.quantity);
+  }
+
+  // Cart items with their price_cents swapped for the bulk-tiered price —
+  // this is what should flow into coupon validation, delivery-charge
+  // thresholds, and the order total, so every downstream number (coupon
+  // eligibility, free-shipping threshold, total_cents) is consistent with
+  // what the server will land on, instead of the coupon math being based
+  // on pre-discount totals while the subtotal shown is post-discount.
+  const pricedItems: CartItem[] = items.map((i) => ({ ...i, price_cents: effectiveUnitPrice(i) }));
+
+  const subtotal = pricedItems.reduce((s, i) => s + i.price_cents * i.quantity, 0);
+  const bulkSavings = items.reduce((s, i) => s + (i.price_cents - effectiveUnitPrice(i)) * i.quantity, 0);
   const discount = appliedCoupon?.valid ? appliedCoupon.discount_cents ?? 0 : 0;
 
   useEffect(() => {
@@ -178,7 +218,7 @@ function CartPage() {
       setSuggested([]);
       return;
     }
-    fetchOffersForCart(items, user?.id ?? null).then(setSuggested);
+    fetchOffersForCart(pricedItems, user?.id ?? null).then(setSuggested);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.map((i) => `${i.id}:${i.quantity}`).join(","), user?.id]);
 
@@ -189,7 +229,7 @@ function CartPage() {
     setAutoApplyChecked(true);
     (async () => {
       for (const c of autoCoupons) {
-        const result = await validateCoupon(c.code, items);
+        const result = await validateCoupon(c.code, pricedItems);
         if (result.valid) {
           setAppliedCoupon(result);
           toast.success(`"${c.code}" applied automatically — ${result.message}`);
@@ -203,7 +243,7 @@ function CartPage() {
     const target = (code ?? couponInput).trim();
     if (!target) return toast.error("Enter a coupon code");
     setApplying(true);
-    const result = await validateCoupon(target, items);
+    const result = await validateCoupon(target, pricedItems);
     setApplying(false);
     if (!result.valid) {
       toast.error(result.message);
@@ -443,7 +483,7 @@ function CartPage() {
     let finalCouponCode: string | null = null;
     let couponId: string | undefined;
     if (appliedCoupon?.valid && appliedCoupon.code) {
-      const recheck = await validateCoupon(appliedCoupon.code, items);
+      const recheck = await validateCoupon(appliedCoupon.code, pricedItems);
       if (!recheck.valid) {
         setPlacing(false);
         toast.error(`Your coupon is no longer valid: ${recheck.message}`);
@@ -523,7 +563,12 @@ function CartPage() {
         order_id: order.id,
         product_id: i.id,
         product_name: i.name,
-        unit_price_cents: i.price_cents,
+        // The checkout trigger (recompute_order_total) always overwrites
+        // this with the server-computed bulk-tiered price regardless of
+        // what's sent here — this is just today's best-known price so the
+        // row is accurate from the instant it's created, not a value
+        // anything downstream actually trusts.
+        unit_price_cents: effectiveUnitPrice(i),
         quantity: i.quantity,
         variant_id: i.variantId,
         variant_name: i.variantName,
@@ -622,7 +667,13 @@ function CartPage() {
           <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-3">
             <div className="md:col-span-2 space-y-6">
               <div className="space-y-4">
-                {items.map((i) => (
+                {items.map((i) => {
+                  const tiers = bulkTiersByProduct[i.id] ?? [];
+                  const unitPrice = effectiveUnitPrice(i);
+                  const tier = bestTierFor(tiers, i.quantity);
+                  const next = nextTierHint(tiers, i.quantity);
+                  const cap = i.unlimited ? 99 : i.stock;
+                  return (
                   <div key={`${i.id}::${i.variantId ?? ""}`} className="flex gap-3 rounded-xl border p-4 sm:gap-4">
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-secondary/60">
                       {i.image_url && <img src={i.image_url} alt="" className="h-full w-full object-cover" />}
@@ -630,9 +681,22 @@ function CartPage() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words font-medium">{i.name}</p>
                       {i.sku && <p className="break-words text-xs text-muted-foreground">SKU: {i.sku}</p>}
-                      <p className="text-sm text-muted-foreground">
-                        {formatMoney(i.price_cents)}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                        <span className={tier ? "text-foreground font-medium" : ""}>{formatMoney(unitPrice)}</span>
+                        {tier && (
+                          <>
+                            <span className="line-through">{formatMoney(i.price_cents)}</span>
+                            <span className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold text-green-700">
+                              <Layers className="h-2.5 w-2.5" /> {describeTierDiscount(tier)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {next && next.unitsNeeded <= cap - i.quantity && (
+                        <p className="mt-0.5 text-xs font-medium text-primary">
+                          Add {next.unitsNeeded} more for {describeTierDiscount(next.tier)}
+                        </p>
+                      )}
                       <div className="mt-2 flex items-center gap-1.5">
                         <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => setQty(i.id, i.quantity - 1, i.variantId)}>
                           <Minus className="h-3.5 w-3.5" />
@@ -647,10 +711,11 @@ function CartPage() {
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-sm font-medium">
-                      {formatMoney(i.price_cents * i.quantity)}
+                      {formatMoney(unitPrice * i.quantity)}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Delivery method */}
@@ -909,6 +974,12 @@ function CartPage() {
                   </div>
                 )}
               </div>
+
+              {bulkSavings > 0 && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
+                  <Layers className="h-3.5 w-3.5" /> You're saving {formatMoney(bulkSavings)} with bulk pricing (already reflected in the price below)
+                </div>
+              )}
 
               <div className="border-t pt-4 space-y-1.5">
                 <div className="flex justify-between text-sm">

@@ -20,6 +20,7 @@ import {
   Navigation,
   Share2,
   Copy,
+  Layers,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -321,6 +322,11 @@ function AdminOrderDetailPage() {
                     <p className="text-xs text-muted-foreground">
                       {it.sku && `SKU ${it.sku} · `}Qty {it.quantity} × {formatMoney(it.unit_price_cents, order.currency)}
                     </p>
+                    {it.base_unit_price_cents != null && it.base_unit_price_cents > it.unit_price_cents && (
+                      <p className="flex items-center gap-1 text-xs text-green-700">
+                        <Layers className="h-3 w-3" /> Bulk tier applied — catalog price was {formatMoney(it.base_unit_price_cents, order.currency)}/unit
+                      </p>
+                    )}
                   </div>
                   <p className="font-medium">{formatMoney(it.unit_price_cents * it.quantity, order.currency)}</p>
                 </div>
@@ -378,6 +384,14 @@ function AdminOrderDetailPage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatMoney(order.subtotal_cents, order.currency)}</span>
               </div>
+              {order.bulk_discount_cents > 0 && (
+                <div className="flex justify-between text-green-700">
+                  <span className="flex items-center gap-1">
+                    <Layers className="h-3 w-3" /> Bulk pricing saved
+                  </span>
+                  <span>{formatMoney(order.bulk_discount_cents, order.currency)}</span>
+                </div>
+              )}
               {order.discount_cents > 0 && (
                 <div className="flex justify-between text-green-700">
                   <span className="flex items-center gap-1">

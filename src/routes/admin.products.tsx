@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ChangeEvent } from "react";
-import { Plus, Pencil, Trash2, Star, Upload, Loader2, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Star, Upload, Loader2, Copy, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +30,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { formatMoney } from "@/stores/cart";
 import { TaxonomySelect } from "@/components/TaxonomySelect";
 import { SmartSpecImporter } from "@/components/SmartSpecImporter";
 import type { ParsedSpec } from "@/lib/parseSmartSpecifications";
+import { applyTier, describeTierDiscount, tierRangeLabel, type BulkPricingTier } from "@/lib/bulkPricing";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type Variant = Database["public"]["Tables"]["product_variants"]["Row"];
@@ -136,7 +138,7 @@ function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_variants(price_cents, stock, stock_unlimited), categories(name), brands(name)")
+        .select("*, product_variants(price_cents, stock, stock_unlimited), categories(name), brands(name), bulk_pricing_tiers(min_qty)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -195,6 +197,10 @@ function AdminProducts() {
     qc.invalidateQueries({ queryKey: ["admin-products"] });
     qc.invalidateQueries({ queryKey: ["products", "public"] });
     qc.invalidateQueries({ queryKey: ["product"] });
+  }
+
+  function hasBulkPricing(p: Product & { bulk_pricing_tiers?: { min_qty: number }[] }) {
+    return (p.bulk_pricing_tiers?.length ?? 0) > 0;
   }
 
   function openNew() {
@@ -338,9 +344,10 @@ function AdminProducts() {
         return;
       }
 
-      const [{ data: variants }, { data: images }] = await Promise.all([
+      const [{ data: variants }, { data: images }, { data: bulkTiers }] = await Promise.all([
         supabase.from("product_variants").select("*").eq("product_id", p.id).order("sort_order", { ascending: true }),
         supabase.from("product_images").select("*").eq("product_id", p.id).order("sort_order", { ascending: true }),
+        supabase.from("bulk_pricing_tiers").select("*").eq("product_id", p.id),
       ]);
 
       // Insert variants one at a time (rather than a single bulk insert) so
@@ -383,6 +390,18 @@ function AdminProducts() {
         }));
         const { error: imgErr } = await supabase.from("product_images").insert(imageRows);
         if (imgErr) toast.error(`Images failed to copy: ${imgErr.message}`);
+      }
+
+      if (bulkTiers && bulkTiers.length > 0) {
+        const tierRows = bulkTiers.map((t) => ({
+          product_id: newProduct.id,
+          min_qty: t.min_qty,
+          discount_type: t.discount_type,
+          discount_value: t.discount_value,
+          active: t.active,
+        }));
+        const { error: tierErr } = await supabase.from("bulk_pricing_tiers").insert(tierRows);
+        if (tierErr) toast.error(`Bulk pricing tiers failed to copy: ${tierErr.message}`);
       }
 
       toast.success("Product duplicated — review and save");
@@ -430,6 +449,11 @@ function AdminProducts() {
                     {stockLabel(p)}
                     {(p.product_variants?.length ?? 0) > 0 && ` (${p.product_variants!.length} variants)`}
                   </span>
+                  {hasBulkPricing(p) && (
+                    <Badge variant="secondary" className="gap-1 font-normal">
+                      <Layers className="h-3 w-3" /> Bulk pricing
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -496,7 +520,14 @@ function AdminProducts() {
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>{priceDisplay(p)}</TableCell>
+                <TableCell>
+                  {priceDisplay(p)}
+                  {hasBulkPricing(p) && (
+                    <Badge variant="secondary" className="ml-2 gap-1 font-normal">
+                      <Layers className="h-3 w-3" /> Bulk
+                    </Badge>
+                  )}
+                </TableCell>
                 <TableCell>
                   <span className={isLowStock(p) ? "text-amber-600" : ""}>{stockLabel(p, true)}</span>
                   {(p.product_variants?.length ?? 0) > 0 && (
@@ -756,6 +787,9 @@ function AdminProducts() {
                 <>
                   <VariantsEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
                   <div className="mt-6">
+                    <BulkPricingEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
+                  </div>
+                  <div className="mt-6">
                     <ImagesEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
                   </div>
                 </>
@@ -979,6 +1013,232 @@ function VariantsEditor({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+type BulkTierDraft = { min_qty: string; discount_type: BulkDiscountType; discount_value: string; active: boolean };
+type BulkDiscountType = Database["public"]["Enums"]["bulk_discount_type"];
+
+// "Buy more, save more" tiers, scoped to the product (not per-variant) —
+// the same ladder applies no matter which variant a shopper picks, applied
+// against whichever price is actually in force for that line. See the
+// resolve_bulk_unit_price_cents comment in the migration for why.
+function BulkPricingEditor({
+  product,
+  qc,
+  invalidateStoreFront,
+}: {
+  product: Product;
+  qc: ReturnType<typeof useQueryClient>;
+  invalidateStoreFront: () => void;
+}) {
+  const { data: tiers } = useQuery({
+    queryKey: ["admin-bulk-tiers", product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bulk_pricing_tiers")
+        .select("*")
+        .eq("product_id", product.id)
+        .order("min_qty", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [drafts, setDrafts] = useState<Record<string, BulkTierDraft>>({});
+
+  useEffect(() => {
+    if (!tiers) return;
+    const next: typeof drafts = {};
+    for (const t of tiers) {
+      next[t.id] = {
+        min_qty: t.min_qty.toString(),
+        discount_type: t.discount_type,
+        discount_value: t.discount_type === "percentage" ? t.discount_value.toString() : (t.discount_value / 100).toString(),
+        active: t.active,
+      };
+    }
+    setDrafts(next);
+  }, [tiers]);
+
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ["admin-bulk-tiers", product.id] });
+    invalidateStoreFront();
+  }
+
+  async function addTier() {
+    // Guess a sensible next threshold rather than leaving it at 0 — each
+    // step roughly doubles off the last tier, starting at 5.
+    const last = tiers && tiers.length > 0 ? tiers[tiers.length - 1].min_qty : Math.max(2, 2);
+    const nextMinQty = tiers && tiers.length > 0 ? last * 2 : 5;
+    const { error } = await supabase.from("bulk_pricing_tiers").insert({
+      product_id: product.id,
+      min_qty: nextMinQty,
+      discount_type: "percentage",
+      discount_value: 5,
+      active: true,
+    });
+    if (error) return toast.error(error.message);
+    refresh();
+  }
+
+  function draftToValue(d: BulkTierDraft): { min_qty: number; discount_value: number } | null {
+    const min_qty = parseInt(d.min_qty || "0", 10);
+    if (!Number.isFinite(min_qty) || min_qty < 2) {
+      toast.error("Minimum quantity must be 2 or more");
+      return null;
+    }
+    if (d.discount_type === "percentage") {
+      const pct = parseInt(d.discount_value || "0", 10);
+      if (!Number.isFinite(pct) || pct < 1 || pct > 100) {
+        toast.error("Percentage off must be between 1 and 100");
+        return null;
+      }
+      return { min_qty, discount_value: pct };
+    }
+    const rupees = parseFloat(d.discount_value || "0");
+    if (!Number.isFinite(rupees) || rupees < 0) {
+      toast.error(d.discount_type === "flat_amount" ? "Amount off must be a number" : "Fixed price must be a number");
+      return null;
+    }
+    return { min_qty, discount_value: Math.round(rupees * 100) };
+  }
+
+  async function saveTier(id: string) {
+    const d = drafts[id];
+    if (!d) return;
+    const parsed = draftToValue(d);
+    if (!parsed) return;
+
+    const duplicateMinQty = (tiers ?? []).some((t) => t.id !== id && t.min_qty === parsed.min_qty);
+    if (duplicateMinQty) return toast.error(`Another tier already starts at ${parsed.min_qty} units`);
+
+    const { error } = await supabase
+      .from("bulk_pricing_tiers")
+      .update({
+        min_qty: parsed.min_qty,
+        discount_type: d.discount_type,
+        discount_value: parsed.discount_value,
+        active: d.active,
+      })
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Bulk pricing tier saved");
+    refresh();
+  }
+
+  async function deleteTier(t: BulkPricingTier) {
+    if (!confirm(`Delete the ${t.min_qty}+ unit tier?`)) return;
+    const { error } = await supabase.from("bulk_pricing_tiers").delete().eq("id", t.id);
+    if (error) return toast.error(error.message);
+    refresh();
+  }
+
+  // Preview reference price — the product's own base price. Variants each
+  // apply the same tier ladder to their own price, so this is just an
+  // example, not necessarily what every line will actually charge.
+  const previewBase = product.price_cents;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-1.5">
+          <Layers className="h-3.5 w-3.5" /> Bulk pricing
+        </Label>
+        <Button size="sm" variant="outline" onClick={addTier}>
+          <Plus className="mr-1 h-3 w-3" /> Add tier
+        </Button>
+      </div>
+      {(!tiers || tiers.length === 0) && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          No bulk tiers — everyone pays the regular price no matter the quantity. Add a tier to offer a lower per-unit price at a minimum quantity.
+        </p>
+      )}
+      <div className="mt-2 space-y-2">
+        {(tiers ?? []).map((t) => {
+          const d = drafts[t.id] ?? { min_qty: "", discount_type: "percentage" as BulkDiscountType, discount_value: "", active: true };
+          const previewTier: BulkPricingTier = {
+            ...t,
+            min_qty: parseInt(d.min_qty || "0", 10) || t.min_qty,
+            discount_type: d.discount_type,
+            discount_value: d.discount_type === "percentage"
+              ? parseInt(d.discount_value || "0", 10) || 0
+              : Math.round(parseFloat(d.discount_value || "0") * 100) || 0,
+          };
+          const previewPrice = applyTier(previewBase, previewTier);
+          return (
+            <div key={t.id} className="rounded-lg border p-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs font-normal text-muted-foreground">Buy at least</Label>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={2}
+                      value={d.min_qty}
+                      onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, min_qty: e.target.value } })}
+                    />
+                    <span className="text-xs text-muted-foreground">units</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-normal text-muted-foreground">Discount type</Label>
+                  <Select
+                    value={d.discount_type}
+                    onValueChange={(v: BulkDiscountType) => setDrafts({ ...drafts, [t.id]: { ...d, discount_type: v, discount_value: "" } })}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percentage">% off</SelectItem>
+                      <SelectItem value="flat_amount">₹ off per unit</SelectItem>
+                      <SelectItem value="fixed_price">Fixed price per unit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs font-normal text-muted-foreground">
+                    {d.discount_type === "percentage" ? "Percent off (1–100)" : d.discount_type === "flat_amount" ? "Amount off per unit (₹)" : "Price per unit (₹)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    step={d.discount_type === "percentage" ? 1 : 0.01}
+                    value={d.discount_value}
+                    onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, discount_value: e.target.value } })}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="col-span-2 flex items-center gap-2">
+                  <Switch
+                    checked={d.active}
+                    onCheckedChange={(checked) => setDrafts({ ...drafts, [t.id]: { ...d, active: checked } })}
+                  />
+                  <Label className="text-xs font-normal text-muted-foreground">Active</Label>
+                </div>
+              </div>
+              {previewBase > 0 && (
+                <p className="mt-2 rounded-md bg-secondary/30 px-2 py-1.5 text-xs text-muted-foreground">
+                  Preview at this product's price: <span className="font-medium text-foreground">{formatMoney(previewPrice, product.currency)}/unit</span>{" "}
+                  ({describeTierDiscount({ discount_type: previewTier.discount_type, discount_value: previewTier.discount_value }, product.currency)} of {formatMoney(previewBase, product.currency)})
+                </p>
+              )}
+              <div className="mt-2 flex justify-end gap-2">
+                <Button size="sm" variant="ghost" onClick={() => deleteTier(t)}>
+                  <Trash2 className="mr-1 h-3 w-3" /> Delete
+                </Button>
+                <Button size="sm" onClick={() => saveTier(t.id)}>Save</Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {tiers && tiers.length > 1 && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Ladder preview: {[...tiers].sort((a, b) => a.min_qty - b.min_qty).map((t) => tierRangeLabel(t, tiers)).join(" · ")} units
+        </p>
+      )}
     </div>
   );
 }
