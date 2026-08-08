@@ -5,7 +5,7 @@ import { formatMoney } from "@/stores/cart";
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   product_images?: { url: string; is_primary: boolean; variant_id?: string | null }[];
-  product_variants?: { price_cents: number; stock: number }[];
+  product_variants?: { price_cents: number; stock: number; stock_unlimited?: boolean }[];
   categories?: { name: string } | null;
   brands?: { name: string } | null;
 };
@@ -29,8 +29,8 @@ export function ProductCard({ product }: { product: Product }) {
     ?? product.image_url;
 
   const outOfStock = variants.length > 0
-    ? variants.every((v) => v.stock <= 0)
-    : product.stock <= 0;
+    ? variants.every((v) => !v.stock_unlimited && v.stock <= 0)
+    : !product.stock_unlimited && product.stock <= 0;
 
   let priceLabel: string;
   if (variants.length > 0) {
