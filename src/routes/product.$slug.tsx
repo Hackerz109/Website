@@ -39,6 +39,7 @@ export const Route = createFileRoute("/product/$slug")({
 function ProductPage() {
   const { slug } = Route.useParams();
   const { variant: variantParam } = Route.useSearch();
+  const router = useRouter();
   const add = useCart((s) => s.add);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [variantId, setVariantId] = useState<string | null>(null);
@@ -52,7 +53,7 @@ function ProductPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_images(id, url, is_primary, sort_order, variant_id), product_variants(id, name, price_cents, mrp_cents, stock, sku, sort_order), categories(name, slug), brands(name)")
+        .select("*, product_images(id, url, is_primary, sort_order, variant_id), product_variants(id, name, price_cents, mrp_cents, stock, stock_unlimited, sku, sort_order), categories(name, slug), brands(name)")
         .eq("slug", slug)
         .eq("active", true)
         .maybeSingle();
@@ -152,7 +153,12 @@ function ProductPage() {
 
   const price = hasVariants ? selectedVariant?.price_cents ?? 0 : product?.price_cents ?? 0;
   const stock = hasVariants ? selectedVariant?.stock ?? 0 : product?.stock ?? 0;
-  const canAdd = hasVariants ? !!selectedVariant && stock > 0 : stock > 0;
+  // "Unlimited" always wins over the raw stock number — it's how a
+  // product/variant that should never show as sold out (see the admin
+  // product form) stays purchasable regardless of what `stock` happens
+  // to hold.
+  const unlimited = hasVariants ? selectedVariant?.stock_unlimited ?? false : product?.stock_unlimited ?? false;
+  const canAdd = hasVariants ? !!selectedVariant && (unlimited || stock > 0) : unlimited || stock > 0;
 
   const activeMrpCents = hasVariants ? selectedVariant?.mrp_cents ?? null : product?.mrp_cents ?? null;
   const hasDiscount = !!activeMrpCents && activeMrpCents > price;
@@ -163,23 +169,46 @@ function ProductPage() {
     ? (product!.specifications as { key: string; value: string }[]).filter((s) => s.key || s.value)
     : [];
 
+  // An unlimited item has no real ceiling, but the qty stepper still needs
+  // some cap so the UI (and a stray tap-and-hold) can't run away to an
+  // absurd number.
+  const UNLIMITED_QTY_CAP = 99;
+  const maxQty = unlimited ? UNLIMITED_QTY_CAP : Math.max(stock, 1);
+
   const [qty, setQtyState] = useState(1);
-  // Keep quantity within [1, stock] whenever the selected variant (or its stock) changes
+  // Keep quantity within [1, maxQty] whenever the selected variant (or its stock/unlimited flag) changes
   useEffect(() => {
-    setQtyState((q) => Math.min(Math.max(q, 1), Math.max(stock, 1)));
-  }, [stock]);
+    setQtyState((q) => Math.min(Math.max(q, 1), maxQty));
+  }, [stock, unlimited]);
   function changeQty(delta: number) {
-    setQtyState((q) => Math.min(Math.max(q + delta, 1), Math.max(stock, 1)));
+    setQtyState((q) => Math.min(Math.max(q + delta, 1), maxQty));
   }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       <StoreHeader />
       <div className="mx-auto max-w-5xl px-6 py-8">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            // Go back to wherever the shopper actually came from — the
+            // collection/category/search page with its filters, sort and
+            // scroll position all intact (scrollRestoration in router.tsx
+            // handles restoring the scroll on this pop). Previously this
+            // was a hardcoded Link to "/", which always dropped the
+            // shopper back at the homepage no matter where they'd been
+            // browsing. Only fall back to home when there's genuinely no
+            // in-app history to go back to, e.g. the product page was
+            // opened directly from a shared link in a new tab.
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.history.back();
+            } else {
+              router.navigate({ to: "/" });
+            }
+          }}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
 
         {isLoading ? (
@@ -256,7 +285,13 @@ function ProductPage() {
                 )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {stock > 0 ? `${stock} in stock` : "Sold out"}
+                {unlimited
+                  ? "In stock"
+                  : stock > 0
+                    ? product.show_stock_count
+                      ? `${stock} in stock`
+                      : "In stock"
+                    : "Sold out"}
                 {hasVariants && selectedVariant?.sku ? ` · SKU ${selectedVariant.sku}` : ""}
                 {!hasVariants && product.sku ? ` · SKU ${product.sku}` : ""}
               </p>
@@ -274,7 +309,7 @@ function ProductPage() {
                           setVariantId(v.id);
                           setActiveImage(null);
                         }}
-                        disabled={v.stock <= 0}
+                        disabled={!v.stock_unlimited && v.stock <= 0}
                         className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                           selectedVariant?.id === v.id
                             ? "border-primary bg-primary text-primary-foreground shadow-soft"
@@ -282,7 +317,7 @@ function ProductPage() {
                         }`}
                       >
                         {v.name}
-                        {v.stock <= 0 ? " (sold out)" : ""}
+                        {!v.stock_unlimited && v.stock <= 0 ? " (sold out)" : ""}
                       </button>
                     ))}
                   </div>
@@ -335,13 +370,15 @@ function ProductPage() {
                       size="icon"
                       variant="outline"
                       className="h-9 w-9 rounded-lg"
-                      disabled={qty >= stock}
+                      disabled={qty >= maxQty}
                       onClick={() => changeQty(1)}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
-                  <span className="text-xs text-muted-foreground">{stock} available</span>
+                  {!unlimited && product.show_stock_count && (
+                    <span className="text-xs text-muted-foreground">{stock} available</span>
+                  )}
                 </div>
               )}
 
@@ -358,6 +395,7 @@ function ProductPage() {
                       price_cents: price,
                       image_url: mainImage,
                       stock,
+                      unlimited,
                       variantId: hasVariants ? selectedVariant?.id ?? null : null,
                       variantName: hasVariants ? selectedVariant?.name ?? null : null,
                       sku: hasVariants ? selectedVariant?.sku ?? null : null,

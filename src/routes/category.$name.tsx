@@ -35,7 +35,7 @@ function CategoryPage() {
     queryFn: async () => {
       let query = supabase
         .from("products")
-        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock), categories(name, slug), brands(name)")
+        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug), brands(name)")
         .eq("active", true)
         .eq("category_id", category!.id);
       query = applySortAndFilter(query, sort, null, brand);

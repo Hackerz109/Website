@@ -58,6 +58,8 @@ const empty = {
   mrp: "",
   sku: "",
   stock: "0",
+  stock_unlimited: false,
+  show_stock_count: true,
   image_url: "",
   warranty: "",
   warranty_available: false,
@@ -134,7 +136,7 @@ function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_variants(price_cents, stock), categories(name), brands(name)")
+        .select("*, product_variants(price_cents, stock, stock_unlimited), categories(name), brands(name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -161,10 +163,32 @@ function AdminProducts() {
     return min === max ? formatMoney(min, p.currency) : `${formatMoney(min, p.currency)}–${formatMoney(max, p.currency)}`;
   }
 
-  function stockDisplay(p: Product & { product_variants?: { price_cents: number; stock: number }[] }) {
+  type ProductWithVariants = Product & { product_variants?: { price_cents: number; stock: number; stock_unlimited: boolean }[] };
+
+  // `compact` drops the " in stock" suffix for the table column, which
+  // already has a "Stock" header — the mobile card list keeps the
+  // suffix since it's shown inline next to the price with no header.
+  function stockLabel(p: ProductWithVariants, compact = false) {
     const variants = p.product_variants ?? [];
-    if (variants.length === 0) return p.stock;
-    return variants.reduce((sum, v) => sum + v.stock, 0);
+    const suffix = compact ? "" : " in stock";
+    if (variants.length === 0) {
+      return p.stock_unlimited ? "Unlimited" : `${p.stock}${suffix}`;
+    }
+    if (variants.every((v) => v.stock_unlimited)) return "Unlimited";
+    const limited = variants.filter((v) => !v.stock_unlimited);
+    const sum = limited.reduce((s, v) => s + v.stock, 0);
+    // Some (but not all) variants are unlimited — the number is a floor,
+    // not the whole picture, so flag that with a "+".
+    const plus = limited.length < variants.length ? "+" : "";
+    return `${sum}${plus}${suffix}`;
+  }
+
+  function isLowStock(p: ProductWithVariants) {
+    const variants = p.product_variants ?? [];
+    if (variants.length === 0) return !p.stock_unlimited && p.stock <= 3;
+    if (variants.every((v) => v.stock_unlimited)) return false;
+    const limited = variants.filter((v) => !v.stock_unlimited);
+    return limited.reduce((s, v) => s + v.stock, 0) <= 3;
   }
 
   function invalidateStoreFront() {
@@ -190,6 +214,8 @@ function AdminProducts() {
       mrp: p.mrp_cents ? (p.mrp_cents / 100).toString() : "",
       sku: p.sku ?? "",
       stock: p.stock.toString(),
+      stock_unlimited: p.stock_unlimited,
+      show_stock_count: p.show_stock_count,
       image_url: p.image_url ?? "",
       warranty: p.warranty ?? "",
       warranty_available: p.warranty_available ?? false,
@@ -232,6 +258,8 @@ function AdminProducts() {
       mrp_cents,
       sku: form.sku || null,
       stock,
+      stock_unlimited: form.stock_unlimited,
+      show_stock_count: form.show_stock_count,
       image_url: form.image_url || null,
       warranty: form.warranty || null,
       warranty_available: form.warranty_available,
@@ -287,6 +315,8 @@ function AdminProducts() {
           currency: p.currency,
           sku: p.sku,
           stock: p.stock,
+          stock_unlimited: p.stock_unlimited,
+          show_stock_count: p.show_stock_count,
           image_url: p.image_url,
           warranty: p.warranty,
           warranty_available: p.warranty_available,
@@ -396,8 +426,8 @@ function AdminProducts() {
                 </p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <span className="font-medium">{priceDisplay(p)}</span>
-                  <span className={stockDisplay(p) <= 3 ? "text-amber-600" : "text-muted-foreground"}>
-                    {stockDisplay(p)} in stock
+                  <span className={isLowStock(p) ? "text-amber-600" : "text-muted-foreground"}>
+                    {stockLabel(p)}
                     {(p.product_variants?.length ?? 0) > 0 && ` (${p.product_variants!.length} variants)`}
                   </span>
                 </div>
@@ -468,7 +498,7 @@ function AdminProducts() {
                 </TableCell>
                 <TableCell>{priceDisplay(p)}</TableCell>
                 <TableCell>
-                  <span className={stockDisplay(p) <= 3 ? "text-amber-600" : ""}>{stockDisplay(p)}</span>
+                  <span className={isLowStock(p) ? "text-amber-600" : ""}>{stockLabel(p, true)}</span>
                   {(p.product_variants?.length ?? 0) > 0 && (
                     <span className="ml-1 text-xs text-muted-foreground">
                       ({p.product_variants!.length} variant{p.product_variants!.length !== 1 ? "s" : ""})
@@ -551,7 +581,19 @@ function AdminProducts() {
               </div>
               <div>
                 <Label>Stock</Label>
-                <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+                <Input
+                  type="number"
+                  value={form.stock}
+                  disabled={form.stock_unlimited}
+                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                />
+                <div className="mt-1.5 flex items-center gap-2">
+                  <Switch
+                    checked={form.stock_unlimited}
+                    onCheckedChange={(v) => setForm({ ...form, stock_unlimited: v })}
+                  />
+                  <Label className="text-xs font-normal text-muted-foreground">Unlimited stock (never shows sold out)</Label>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -578,6 +620,20 @@ function AdminProducts() {
             <p className="-mt-2 text-xs text-muted-foreground">
               Price, MRP, stock & SKU above are used only if this product has no variants (see below).
             </p>
+            <div className="rounded-xl border border-border p-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.show_stock_count}
+                  onCheckedChange={(v) => setForm({ ...form, show_stock_count: v })}
+                />
+                <Label>Show stock count to customers</Label>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {form.show_stock_count
+                  ? 'On — the product page shows the exact number left, e.g. "7 in stock."'
+                  : "Off — customers just see In stock / Sold out, no number. Applies across all variants."}
+              </p>
+            </div>
             <div className="rounded-xl border border-border p-4">
               <div className="flex items-center gap-2">
                 <Switch
@@ -742,7 +798,7 @@ function VariantsEditor({
     },
   });
 
-  const [drafts, setDrafts] = useState<Record<string, { name: string; price: string; mrp: string; stock: string; sku: string; specifications: { key: string; value: string }[] }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { name: string; price: string; mrp: string; stock: string; stock_unlimited: boolean; sku: string; specifications: { key: string; value: string }[] }>>({});
 
   useEffect(() => {
     if (!variants) return;
@@ -753,6 +809,7 @@ function VariantsEditor({
         price: (v.price_cents / 100).toString(),
         mrp: v.mrp_cents ? (v.mrp_cents / 100).toString() : "",
         stock: v.stock.toString(),
+        stock_unlimited: v.stock_unlimited,
         sku: v.sku ?? "",
         specifications: Array.isArray(v.specifications) ? (v.specifications as { key: string; value: string }[]) : [],
       };
@@ -779,6 +836,7 @@ function VariantsEditor({
         price_cents: product.price_cents,
         mrp_cents: product.mrp_cents,
         stock: product.stock,
+        stock_unlimited: product.stock_unlimited,
         specifications: product.specifications,
         sort_order: 0,
       });
@@ -817,7 +875,7 @@ function VariantsEditor({
 
     const { error } = await supabase
       .from("product_variants")
-      .update({ name: d.name, price_cents, mrp_cents, stock, sku: d.sku || null, specifications: cleanSpecs })
+      .update({ name: d.name, price_cents, mrp_cents, stock, stock_unlimited: d.stock_unlimited, sku: d.sku || null, specifications: cleanSpecs })
       .eq("id", v.id);
     if (error) return toast.error(error.message);
     toast.success("Variant saved");
@@ -852,7 +910,7 @@ function VariantsEditor({
       )}
       <div className="mt-2 space-y-2">
         {(variants ?? []).map((v) => {
-          const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", sku: "", specifications: [] };
+          const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", stock_unlimited: false, sku: "", specifications: [] };
           return (
             <div key={v.id} className="rounded-lg border p-3">
               <div className="grid grid-cols-2 gap-2">
@@ -880,6 +938,7 @@ function VariantsEditor({
                   type="number"
                   placeholder="Stock"
                   value={d.stock}
+                  disabled={d.stock_unlimited}
                   onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, stock: e.target.value } })}
                 />
                 <Input
@@ -887,6 +946,13 @@ function VariantsEditor({
                   value={d.sku}
                   onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, sku: e.target.value } })}
                 />
+                <div className="col-span-2 flex items-center gap-2">
+                  <Switch
+                    checked={d.stock_unlimited}
+                    onCheckedChange={(checked) => setDrafts({ ...drafts, [v.id]: { ...d, stock_unlimited: checked } })}
+                  />
+                  <Label className="text-xs font-normal text-muted-foreground">Unlimited stock (never shows sold out)</Label>
+                </div>
               </div>
               <VariantImagesEditor
                 productId={product.id}
