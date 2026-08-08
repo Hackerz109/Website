@@ -9,12 +9,20 @@ export type CartItem = {
   image_url: string | null;
   quantity: number;
   stock: number;
+  unlimited: boolean;
   variantId: string | null;
   variantName: string | null;
   sku: string | null;
   category_id: string | null;
   brand_id: string | null;
 };
+
+// Unlimited items have no real ceiling, but the cart still needs some cap
+// to keep quantities sane — matches the cap used on the product page.
+const UNLIMITED_QTY_CAP = 99;
+function qtyCap(item: Pick<CartItem, "stock" | "unlimited">) {
+  return item.unlimited ? UNLIMITED_QTY_CAP : item.stock;
+}
 
 // A cart "line" is identified by product + variant together, since the same
 // product can be in the cart multiple times with different variants.
@@ -42,12 +50,12 @@ export const useCart = create<CartState>()(
             return {
               items: s.items.map((i) =>
                 lineKey(i.id, i.variantId) === key
-                  ? { ...i, quantity: Math.min(i.stock, i.quantity + qty) }
+                  ? { ...i, quantity: Math.min(qtyCap(i), i.quantity + qty) }
                   : i,
               ),
             };
           }
-          return { items: [...s.items, { ...item, quantity: Math.min(item.stock, qty) }] };
+          return { items: [...s.items, { ...item, quantity: Math.min(qtyCap(item), qty) }] };
         }),
       remove: (id, variantId = null) =>
         set((s) => ({
@@ -57,7 +65,7 @@ export const useCart = create<CartState>()(
         set((s) => ({
           items: s.items.map((i) =>
             lineKey(i.id, i.variantId) === lineKey(id, variantId)
-              ? { ...i, quantity: Math.max(1, Math.min(i.stock, qty)) }
+              ? { ...i, quantity: Math.max(1, Math.min(qtyCap(i), qty)) }
               : i,
           ),
         })),
@@ -65,12 +73,18 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "shop-cart",
-      version: 3,
+      version: 4,
       migrate: (persisted: any, version) => {
         if (version < 3 && persisted?.items) {
           persisted.items = persisted.items.map((i: any) => ({
             category_id: null,
             brand_id: null,
+            ...i,
+          }));
+        }
+        if (version < 4 && persisted?.items) {
+          persisted.items = persisted.items.map((i: any) => ({
+            unlimited: false,
             ...i,
           }));
         }
