@@ -795,6 +795,7 @@ export type Database = {
           sku: string | null
           sort_order: number
           stock: number
+          stock_unlimited: boolean
           updated_at: string
         }
         Insert: {
@@ -807,6 +808,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number
           stock?: number
+          stock_unlimited?: boolean
           updated_at?: string
         }
         Update: {
@@ -819,6 +821,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number
           stock?: number
+          stock_unlimited?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -888,6 +891,8 @@ export type Database = {
           sku: string | null
           slug: string
           stock: number
+          show_stock_count: boolean
+          stock_unlimited: boolean
           updated_at: string
           warranty: string | null
           warranty_available: boolean
@@ -914,6 +919,8 @@ export type Database = {
           sku?: string | null
           slug: string
           stock?: number
+          show_stock_count?: boolean
+          stock_unlimited?: boolean
           updated_at?: string
           warranty?: string | null
           warranty_available?: boolean
@@ -940,6 +947,8 @@ export type Database = {
           sku?: string | null
           slug?: string
           stock?: number
+          show_stock_count?: boolean
+          stock_unlimited?: boolean
           updated_at?: string
           warranty?: string | null
           warranty_available?: boolean
