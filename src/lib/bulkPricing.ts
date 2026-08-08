@@ -8,10 +8,13 @@ export type BulkPricingTier = Database["public"]["Tables"]["bulk_pricing_tiers"]
 /**
  * Fetches active bulk pricing tiers for a set of products in one round
  * trip, grouped by product_id and sorted ascending by min_qty (the order
- * they should be listed in a "buy more, save more" table). Safe to call
- * with an empty array. RLS only ever returns active tiers here (this
- * queries as the storefront would) — see the migration for why that's
- * safe to leave public: it's catalog pricing, not a secret code.
+ * they should be listed in a "buy more, save more" table). This includes
+ * tiers for every variant of each product plus any product-level tiers —
+ * use tiersForLine() to narrow down to the one ladder that applies to a
+ * specific line (a given variant, or the bare product). Safe to call with
+ * an empty array. RLS only ever returns active tiers here (this queries as
+ * the storefront would) — see the migration for why that's safe to leave
+ * public: it's catalog pricing, not a secret code.
  */
 export async function fetchBulkTiers(productIds: string[]): Promise<Record<string, BulkPricingTier[]>> {
   const ids = [...new Set(productIds)].filter(Boolean);
@@ -28,6 +31,17 @@ export async function fetchBulkTiers(productIds: string[]): Promise<Record<strin
     (grouped[t.product_id] ??= []).push(t);
   }
   return grouped;
+}
+
+/**
+ * Narrows a product's full tier list (product-level + every variant's own)
+ * down to the one ladder that applies to a specific line: that variant's
+ * tiers if variantId is given, or the product-level tiers (variant_id
+ * NULL) if it isn't. Mirrors the scoping resolve_bulk_unit_price_cents()
+ * applies server-side, so a line never picks up another variant's tiers.
+ */
+export function tiersForLine(allTiersForProduct: BulkPricingTier[], variantId: string | null): BulkPricingTier[] {
+  return allTiersForProduct.filter((t) => t.variant_id === variantId);
 }
 
 /**
