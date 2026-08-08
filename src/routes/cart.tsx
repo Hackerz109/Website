@@ -17,6 +17,7 @@ import { useCart, formatMoney, type CartItem } from "@/stores/cart";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchBulkTiers,
+  tiersForLine,
   tierUnitPriceCents,
   bestTierFor,
   nextTierHint,
@@ -164,7 +165,8 @@ function CartPage() {
   // that's actually charged — but computing it the same way here means the
   // preview the shopper sees matches what they'll be charged.
   function effectiveUnitPrice(i: CartItem) {
-    return tierUnitPriceCents(i.price_cents, bulkTiersByProduct[i.id] ?? [], i.quantity);
+    const tiers = tiersForLine(bulkTiersByProduct[i.id] ?? [], i.variantId ?? null);
+    return tierUnitPriceCents(i.price_cents, tiers, i.quantity);
   }
 
   // Cart items with their price_cents swapped for the bulk-tiered price —
@@ -668,7 +670,7 @@ function CartPage() {
             <div className="md:col-span-2 space-y-6">
               <div className="space-y-4">
                 {items.map((i) => {
-                  const tiers = bulkTiersByProduct[i.id] ?? [];
+                  const tiers = tiersForLine(bulkTiersByProduct[i.id] ?? [], i.variantId ?? null);
                   const unitPrice = effectiveUnitPrice(i);
                   const tier = bestTierFor(tiers, i.quantity);
                   const next = nextTierHint(tiers, i.quantity);

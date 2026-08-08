@@ -11,7 +11,7 @@ import { BulkPricingTable } from "@/components/BulkPricingTable";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, formatMoney } from "@/stores/cart";
-import { fetchBulkTiers, bestTierFor, tierUnitPriceCents, nextTierHint, describeTierDiscount } from "@/lib/bulkPricing";
+import { fetchBulkTiers, tiersForLine, bestTierFor, tierUnitPriceCents, nextTierHint, describeTierDiscount } from "@/lib/bulkPricing";
 
 export const Route = createFileRoute("/product/$slug")({
   component: ProductPage,
@@ -73,11 +73,19 @@ function ProductPage() {
     queryFn: () => fetchBulkTiers(product ? [product.id] : []),
     enabled: !!product?.id,
   });
-  const bulkTiers = product ? bulkTiersByProduct?.[product.id] ?? [] : [];
 
   const variants = [...(product?.product_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order);
   const hasVariants = variants.length > 0;
   const selectedVariant = variants.find((v) => v.id === variantId) ?? variants[0] ?? null;
+
+  // Tiers are scoped to whichever pricing entity is actually selling this
+  // line — the chosen variant's own ladder, or the product-level one when
+  // there are no variants. Mirrors the scoping resolve_bulk_unit_price_cents()
+  // applies server-side (see the migration), so a variant never shows
+  // another variant's — or the bare product's — tiers.
+  const bulkTiers = product
+    ? tiersForLine(bulkTiersByProduct?.[product.id] ?? [], hasVariants ? selectedVariant?.id ?? null : null)
+    : [];
 
   // Every variant shows its own photos first, followed by the product's
   // shared gallery (variant_id null) appended after — shared images are

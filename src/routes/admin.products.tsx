@@ -393,15 +393,23 @@ function AdminProducts() {
       }
 
       if (bulkTiers && bulkTiers.length > 0) {
-        const tierRows = bulkTiers.map((t) => ({
-          product_id: newProduct.id,
-          min_qty: t.min_qty,
-          discount_type: t.discount_type,
-          discount_value: t.discount_value,
-          active: t.active,
-        }));
-        const { error: tierErr } = await supabase.from("bulk_pricing_tiers").insert(tierRows);
-        if (tierErr) toast.error(`Bulk pricing tiers failed to copy: ${tierErr.message}`);
+        const tierRows = bulkTiers
+          // Drop any variant-scoped tier whose source variant failed to
+          // copy above — it has nowhere valid to attach, and silently
+          // reattaching it to the whole product would be wrong.
+          .filter((t) => !t.variant_id || variantIdMap.has(t.variant_id))
+          .map((t) => ({
+            product_id: newProduct.id,
+            variant_id: t.variant_id ? variantIdMap.get(t.variant_id)! : null,
+            min_qty: t.min_qty,
+            discount_type: t.discount_type,
+            discount_value: t.discount_value,
+            active: t.active,
+          }));
+        if (tierRows.length > 0) {
+          const { error: tierErr } = await supabase.from("bulk_pricing_tiers").insert(tierRows);
+          if (tierErr) toast.error(`Bulk pricing tiers failed to copy: ${tierErr.message}`);
+        }
       }
 
       toast.success("Product duplicated — review and save");
@@ -787,9 +795,6 @@ function AdminProducts() {
                 <>
                   <VariantsEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
                   <div className="mt-6">
-                    <BulkPricingEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
-                  </div>
-                  <div className="mt-6">
                     <ImagesEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
                   </div>
                 </>
@@ -853,6 +858,10 @@ function VariantsEditor({
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ["admin-variants", product.id] });
+    // Prefix match — also catches every ["admin-bulk-tiers", product.id, *]
+    // entry, since deleting/adding a variant can change which bulk-tier
+    // ladder is even in scope (see the "Standard" migration above).
+    qc.invalidateQueries({ queryKey: ["admin-bulk-tiers", product.id] });
     invalidateStoreFront();
   }
 
@@ -864,17 +873,41 @@ function VariantsEditor({
       // pricing entirely, which would otherwise hide the price/stock the
       // admin already set on the product itself. Carry that over as a
       // "Standard" option instead of losing it.
-      const { error: seedError } = await supabase.from("product_variants").insert({
-        product_id: product.id,
-        name: "Standard",
-        price_cents: product.price_cents,
-        mrp_cents: product.mrp_cents,
-        stock: product.stock,
-        stock_unlimited: product.stock_unlimited,
-        specifications: product.specifications,
-        sort_order: 0,
-      });
+      const { data: seeded, error: seedError } = await supabase
+        .from("product_variants")
+        .insert({
+          product_id: product.id,
+          name: "Standard",
+          price_cents: product.price_cents,
+          mrp_cents: product.mrp_cents,
+          stock: product.stock,
+          stock_unlimited: product.stock_unlimited,
+          specifications: product.specifications,
+          sort_order: 0,
+        })
+        .select("id")
+        .single();
       if (seedError) return toast.error(seedError.message);
+
+      // Same reasoning for bulk pricing: once this product has variants,
+      // resolve_bulk_unit_price_cents() only matches a line's own variant
+      // — any product-level tiers (variant_id NULL) would otherwise stop
+      // applying to every order from this point on. Move them onto the
+      // new "Standard" variant instead of leaving them stranded.
+      const { data: productTiers } = await supabase
+        .from("bulk_pricing_tiers")
+        .select("*")
+        .eq("product_id", product.id)
+        .is("variant_id", null);
+      if (productTiers && productTiers.length > 0 && seeded) {
+        const { error: moveErr } = await supabase
+          .from("bulk_pricing_tiers")
+          .update({ variant_id: seeded.id })
+          .eq("product_id", product.id)
+          .is("variant_id", null);
+        if (moveErr) toast.error(`Bulk pricing tiers couldn't be moved to "Standard": ${moveErr.message}`);
+        else toast.success(`Moved ${productTiers.length} bulk pricing tier${productTiers.length > 1 ? "s" : ""} onto "Standard"`);
+      }
     }
 
     const { error } = await supabase.from("product_variants").insert({
@@ -938,9 +971,21 @@ function VariantsEditor({
         </Button>
       </div>
       {(!variants || variants.length === 0) && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          No variants — the product's own price & stock will be used.
-        </p>
+        <>
+          <p className="mt-2 text-xs text-muted-foreground">
+            No variants — the product's own price & stock will be used.
+          </p>
+          <div className="mt-3">
+            <BulkPricingEditor
+              product={product}
+              variantId={null}
+              basePriceCents={product.price_cents}
+              currency={product.currency}
+              qc={qc}
+              invalidateStoreFront={invalidateStoreFront}
+            />
+          </div>
+        </>
       )}
       <div className="mt-2 space-y-2">
         {(variants ?? []).map((v) => {
@@ -1003,6 +1048,15 @@ function VariantsEditor({
                   Only for specs that differ from the product's own — anything not listed here still shows the product's value.
                 </p>
               </div>
+              <BulkPricingEditor
+                product={product}
+                variantId={v.id}
+                basePriceCents={v.price_cents}
+                currency={product.currency}
+                qc={qc}
+                invalidateStoreFront={invalidateStoreFront}
+                compact
+              />
               <div className="mt-2 flex justify-end gap-2">
                 <Button size="sm" variant="ghost" onClick={() => deleteVariant(v)}>
                   <Trash2 className="mr-1 h-3 w-3" /> Delete
@@ -1020,31 +1074,49 @@ function VariantsEditor({
 type BulkTierDraft = { min_qty: string; discount_type: BulkDiscountType; discount_value: string; active: boolean };
 type BulkDiscountType = Database["public"]["Enums"]["bulk_discount_type"];
 
-// "Buy more, save more" tiers, scoped to the product (not per-variant) —
-// the same ladder applies no matter which variant a shopper picks, applied
-// against whichever price is actually in force for that line. See the
-// resolve_bulk_unit_price_cents comment in the migration for why.
+// "Buy more, save more" tiers, scoped to one pricing entity at a time:
+// either a single variant (variantId set — each variant manages its own
+// ladder, since variants on one product can sit at very different price
+// points) or the product itself (variantId null, only meaningful while the
+// product has no variants). See the resolve_bulk_unit_price_cents comment
+// in the migration for how the server keeps this scoping airtight.
 function BulkPricingEditor({
   product,
+  variantId,
+  basePriceCents,
+  currency,
   qc,
   invalidateStoreFront,
+  compact,
 }: {
   product: Product;
+  variantId: string | null;
+  basePriceCents: number;
+  currency: string;
   qc: ReturnType<typeof useQueryClient>;
   invalidateStoreFront: () => void;
+  compact?: boolean;
 }) {
+  const queryKey = ["admin-bulk-tiers", product.id, variantId ?? "base"];
   const { data: tiers } = useQuery({
-    queryKey: ["admin-bulk-tiers", product.id],
+    queryKey,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bulk_pricing_tiers")
-        .select("*")
-        .eq("product_id", product.id)
-        .order("min_qty", { ascending: true });
+      let q = supabase.from("bulk_pricing_tiers").select("*").eq("product_id", product.id);
+      q = variantId ? q.eq("variant_id", variantId) : q.is("variant_id", null);
+      const { data, error } = await q.order("min_qty", { ascending: true });
       if (error) throw error;
       return data;
     },
   });
+
+  // Collapsed by default when nested in a variant card (compact) unless it
+  // already has tiers set, so a product with many variants doesn't turn
+  // into a wall of empty forms — but never collapsed for the product-level
+  // editor, which already lives behind its own dialog section.
+  const [open, setOpen] = useState(!compact);
+  useEffect(() => {
+    if (compact && tiers && tiers.length > 0) setOpen(true);
+  }, [compact, tiers]);
 
   const [drafts, setDrafts] = useState<Record<string, BulkTierDraft>>({});
 
@@ -1063,7 +1135,7 @@ function BulkPricingEditor({
   }, [tiers]);
 
   function refresh() {
-    qc.invalidateQueries({ queryKey: ["admin-bulk-tiers", product.id] });
+    qc.invalidateQueries({ queryKey });
     invalidateStoreFront();
   }
 
@@ -1074,12 +1146,14 @@ function BulkPricingEditor({
     const nextMinQty = tiers && tiers.length > 0 ? last * 2 : 5;
     const { error } = await supabase.from("bulk_pricing_tiers").insert({
       product_id: product.id,
+      variant_id: variantId,
       min_qty: nextMinQty,
       discount_type: "percentage",
       discount_value: 5,
       active: true,
     });
     if (error) return toast.error(error.message);
+    setOpen(true);
     refresh();
   }
 
@@ -1135,109 +1209,124 @@ function BulkPricingEditor({
     refresh();
   }
 
-  // Preview reference price — the product's own base price. Variants each
-  // apply the same tier ladder to their own price, so this is just an
-  // example, not necessarily what every line will actually charge.
-  const previewBase = product.price_cents;
+  const tierCount = tiers?.length ?? 0;
 
   return (
-    <div>
+    <div className={compact ? "mt-2 rounded-md bg-secondary/30 p-2" : undefined}>
       <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-1.5">
-          <Layers className="h-3.5 w-3.5" /> Bulk pricing
-        </Label>
-        <Button size="sm" variant="outline" onClick={addTier}>
-          <Plus className="mr-1 h-3 w-3" /> Add tier
-        </Button>
+        {compact ? (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            Bulk pricing{tierCount > 0 ? ` (${tierCount})` : ""}
+            <span className="text-muted-foreground/70">{open ? "▲" : "▼"}</span>
+          </button>
+        ) : (
+          <Label className="flex items-center gap-1.5">
+            <Layers className="h-3.5 w-3.5" /> Bulk pricing
+          </Label>
+        )}
+        {open && (
+          <Button size="sm" variant="outline" onClick={addTier}>
+            <Plus className="mr-1 h-3 w-3" /> Add tier
+          </Button>
+        )}
       </div>
-      {(!tiers || tiers.length === 0) && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          No bulk tiers — everyone pays the regular price no matter the quantity. Add a tier to offer a lower per-unit price at a minimum quantity.
-        </p>
-      )}
-      <div className="mt-2 space-y-2">
-        {(tiers ?? []).map((t) => {
-          const d = drafts[t.id] ?? { min_qty: "", discount_type: "percentage" as BulkDiscountType, discount_value: "", active: true };
-          const previewTier: BulkPricingTier = {
-            ...t,
-            min_qty: parseInt(d.min_qty || "0", 10) || t.min_qty,
-            discount_type: d.discount_type,
-            discount_value: d.discount_type === "percentage"
-              ? parseInt(d.discount_value || "0", 10) || 0
-              : Math.round(parseFloat(d.discount_value || "0") * 100) || 0,
-          };
-          const previewPrice = applyTier(previewBase, previewTier);
-          return (
-            <div key={t.id} className="rounded-lg border p-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs font-normal text-muted-foreground">Buy at least</Label>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <Input
-                      type="number"
-                      min={2}
-                      value={d.min_qty}
-                      onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, min_qty: e.target.value } })}
-                    />
-                    <span className="text-xs text-muted-foreground">units</span>
+      {open && (
+        <>
+          {tierCount === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              No bulk tiers — everyone pays the regular price no matter the quantity. Add a tier to offer a lower per-unit price at a minimum quantity.
+            </p>
+          )}
+          <div className="mt-2 space-y-2">
+            {(tiers ?? []).map((t) => {
+              const d = drafts[t.id] ?? { min_qty: "", discount_type: "percentage" as BulkDiscountType, discount_value: "", active: true };
+              const previewTier: BulkPricingTier = {
+                ...t,
+                min_qty: parseInt(d.min_qty || "0", 10) || t.min_qty,
+                discount_type: d.discount_type,
+                discount_value: d.discount_type === "percentage"
+                  ? parseInt(d.discount_value || "0", 10) || 0
+                  : Math.round(parseFloat(d.discount_value || "0") * 100) || 0,
+              };
+              const previewPrice = applyTier(basePriceCents, previewTier);
+              return (
+                <div key={t.id} className="rounded-lg border bg-background p-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs font-normal text-muted-foreground">Buy at least</Label>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={2}
+                          value={d.min_qty}
+                          onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, min_qty: e.target.value } })}
+                        />
+                        <span className="text-xs text-muted-foreground">units</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-normal text-muted-foreground">Discount type</Label>
+                      <Select
+                        value={d.discount_type}
+                        onValueChange={(v: BulkDiscountType) => setDrafts({ ...drafts, [t.id]: { ...d, discount_type: v, discount_value: "" } })}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">% off</SelectItem>
+                          <SelectItem value="flat_amount">₹ off per unit</SelectItem>
+                          <SelectItem value="fixed_price">Fixed price per unit</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-xs font-normal text-muted-foreground">
+                        {d.discount_type === "percentage" ? "Percent off (1–100)" : d.discount_type === "flat_amount" ? "Amount off per unit (₹)" : "Price per unit (₹)"}
+                      </Label>
+                      <Input
+                        type="number"
+                        step={d.discount_type === "percentage" ? 1 : 0.01}
+                        value={d.discount_value}
+                        onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, discount_value: e.target.value } })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="col-span-2 flex items-center gap-2">
+                      <Switch
+                        checked={d.active}
+                        onCheckedChange={(checked) => setDrafts({ ...drafts, [t.id]: { ...d, active: checked } })}
+                      />
+                      <Label className="text-xs font-normal text-muted-foreground">Active</Label>
+                    </div>
+                  </div>
+                  {basePriceCents > 0 && (
+                    <p className="mt-2 rounded-md bg-secondary/30 px-2 py-1.5 text-xs text-muted-foreground">
+                      Preview: <span className="font-medium text-foreground">{formatMoney(previewPrice, currency)}/unit</span>{" "}
+                      ({describeTierDiscount({ discount_type: previewTier.discount_type, discount_value: previewTier.discount_value }, currency)} of {formatMoney(basePriceCents, currency)})
+                    </p>
+                  )}
+                  <div className="mt-2 flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => deleteTier(t)}>
+                      <Trash2 className="mr-1 h-3 w-3" /> Delete
+                    </Button>
+                    <Button size="sm" onClick={() => saveTier(t.id)}>Save</Button>
                   </div>
                 </div>
-                <div>
-                  <Label className="text-xs font-normal text-muted-foreground">Discount type</Label>
-                  <Select
-                    value={d.discount_type}
-                    onValueChange={(v: BulkDiscountType) => setDrafts({ ...drafts, [t.id]: { ...d, discount_type: v, discount_value: "" } })}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="percentage">% off</SelectItem>
-                      <SelectItem value="flat_amount">₹ off per unit</SelectItem>
-                      <SelectItem value="fixed_price">Fixed price per unit</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-xs font-normal text-muted-foreground">
-                    {d.discount_type === "percentage" ? "Percent off (1–100)" : d.discount_type === "flat_amount" ? "Amount off per unit (₹)" : "Price per unit (₹)"}
-                  </Label>
-                  <Input
-                    type="number"
-                    step={d.discount_type === "percentage" ? 1 : 0.01}
-                    value={d.discount_value}
-                    onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, discount_value: e.target.value } })}
-                    className="mt-1"
-                  />
-                </div>
-                <div className="col-span-2 flex items-center gap-2">
-                  <Switch
-                    checked={d.active}
-                    onCheckedChange={(checked) => setDrafts({ ...drafts, [t.id]: { ...d, active: checked } })}
-                  />
-                  <Label className="text-xs font-normal text-muted-foreground">Active</Label>
-                </div>
-              </div>
-              {previewBase > 0 && (
-                <p className="mt-2 rounded-md bg-secondary/30 px-2 py-1.5 text-xs text-muted-foreground">
-                  Preview at this product's price: <span className="font-medium text-foreground">{formatMoney(previewPrice, product.currency)}/unit</span>{" "}
-                  ({describeTierDiscount({ discount_type: previewTier.discount_type, discount_value: previewTier.discount_value }, product.currency)} of {formatMoney(previewBase, product.currency)})
-                </p>
-              )}
-              <div className="mt-2 flex justify-end gap-2">
-                <Button size="sm" variant="ghost" onClick={() => deleteTier(t)}>
-                  <Trash2 className="mr-1 h-3 w-3" /> Delete
-                </Button>
-                <Button size="sm" onClick={() => saveTier(t.id)}>Save</Button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {tiers && tiers.length > 1 && (
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Ladder preview: {[...tiers].sort((a, b) => a.min_qty - b.min_qty).map((t) => tierRangeLabel(t, tiers)).join(" · ")} units
-        </p>
+              );
+            })}
+          </div>
+          {tiers && tiers.length > 1 && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Ladder preview: {[...tiers].sort((a, b) => a.min_qty - b.min_qty).map((t) => tierRangeLabel(t, tiers)).join(" · ")} units
+            </p>
+          )}
+        </>
       )}
     </div>
   );
