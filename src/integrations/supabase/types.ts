@@ -844,6 +844,7 @@ export type Database = {
         Row: {
           id: string
           product_id: string
+          variant_id: string | null
           min_qty: number
           discount_type: Database["public"]["Enums"]["bulk_discount_type"]
           discount_value: number
@@ -854,6 +855,7 @@ export type Database = {
         Insert: {
           id?: string
           product_id: string
+          variant_id?: string | null
           min_qty: number
           discount_type?: Database["public"]["Enums"]["bulk_discount_type"]
           discount_value: number
@@ -864,6 +866,7 @@ export type Database = {
         Update: {
           id?: string
           product_id?: string
+          variant_id?: string | null
           min_qty?: number
           discount_type?: Database["public"]["Enums"]["bulk_discount_type"]
           discount_value?: number
@@ -877,6 +880,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bulk_pricing_tiers_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
