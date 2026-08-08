@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 /** Shared select so the header preview and the full results page return identically-shaped products. */
 export const PRODUCT_SEARCH_SELECT =
-  "*, product_images(url, is_primary, variant_id), product_variants(id, name, sku, price_cents, stock), categories(name, slug), brands(name)";
+  "*, product_images(url, is_primary, variant_id), product_variants(id, name, sku, price_cents, stock, stock_unlimited), categories(name, slug), brands(name)";
 
 export function sanitizeSearchQuery(q: string) {
   // Strip characters that would break a PostgREST filter string if this
