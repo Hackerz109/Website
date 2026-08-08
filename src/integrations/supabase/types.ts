@@ -24,6 +24,7 @@ export type Database = {
           quantity: number
           sku: string | null
           unit_price_cents: number
+          base_unit_price_cents: number | null
           variant_id: string | null
           variant_name: string | null
         }
@@ -36,6 +37,7 @@ export type Database = {
           quantity: number
           sku?: string | null
           unit_price_cents: number
+          base_unit_price_cents?: number | null
           variant_id?: string | null
           variant_name?: string | null
         }
@@ -48,6 +50,7 @@ export type Database = {
           quantity?: number
           sku?: string | null
           unit_price_cents?: number
+          base_unit_price_cents?: number | null
           variant_id?: string | null
           variant_name?: string | null
         }
@@ -83,6 +86,7 @@ export type Database = {
           customer_email: string
           customer_name: string | null
           discount_cents: number
+          bulk_discount_cents: number
           id: string
           notes: string | null
           paid_at: string | null
@@ -124,6 +128,7 @@ export type Database = {
           customer_email: string
           customer_name?: string | null
           discount_cents?: number
+          bulk_discount_cents?: number
           id?: string
           notes?: string | null
           paid_at?: string | null
@@ -165,6 +170,7 @@ export type Database = {
           customer_email?: string
           customer_name?: string | null
           discount_cents?: number
+          bulk_discount_cents?: number
           id?: string
           notes?: string | null
           paid_at?: string | null
@@ -834,6 +840,47 @@ export type Database = {
           },
         ]
       }
+      bulk_pricing_tiers: {
+        Row: {
+          id: string
+          product_id: string
+          min_qty: number
+          discount_type: Database["public"]["Enums"]["bulk_discount_type"]
+          discount_value: number
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          min_qty: number
+          discount_type?: Database["public"]["Enums"]["bulk_discount_type"]
+          discount_value: number
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          min_qty?: number
+          discount_type?: Database["public"]["Enums"]["bulk_discount_type"]
+          discount_value?: number
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_pricing_tiers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brands: {
         Row: {
           created_at: string
@@ -1472,6 +1519,7 @@ export type Database = {
       coupon_discount_type: "percentage" | "fixed" | "free_shipping"
       coupon_visibility: "visible" | "hidden" | "auto_apply"
       coupon_customer_type: "any" | "new" | "existing"
+      bulk_discount_type: "percentage" | "flat_amount" | "fixed_price"
       support_ticket_status: "open" | "resolved"
       support_sender_role: "customer" | "admin"
     }
@@ -1630,6 +1678,7 @@ export const Constants = {
       coupon_discount_type: ["percentage", "fixed", "free_shipping"],
       coupon_visibility: ["visible", "hidden", "auto_apply"],
       coupon_customer_type: ["any", "new", "existing"],
+      bulk_discount_type: ["percentage", "flat_amount", "fixed_price"],
       fulfillment_type: ["delivery", "pickup"],
       delivery_charge_type: ["flat", "distance"],
       return_status: [
