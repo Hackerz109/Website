@@ -1,11 +1,12 @@
 -- Bulk / quantity discount pricing ("buy more, save more")
 --
--- Tiers are defined at the PRODUCT level (not per-variant) — the same tier
--- ladder applies no matter which variant a shopper picks, applied against
--- whichever price is actually active for that line (the variant's own
--- price_cents if the product has variants, otherwise the product's own
--- price_cents). That keeps setup to one place per product instead of
--- duplicating the same tiers across every variant.
+-- Tiers are scoped per PRICING ENTITY: when a product has variants, each
+-- variant carries its own tier ladder (variant_id set) — since variants on
+-- the same product can sit at very different price points, one shared
+-- percentage/flat ladder wouldn't make sense for all of them. Products
+-- with no variants use a product-level ladder instead (variant_id NULL).
+-- This mirrors exactly how price_cents itself already works: variant price
+-- overrides product price when variants exist.
 --
 -- Enforcement follows the exact pattern already established in
 -- 20260724120000_secure_order_pricing_integrity.sql: resolve_bulk_unit_price_cents()
@@ -19,22 +20,56 @@ CREATE TYPE public.bulk_discount_type AS ENUM ('percentage', 'flat_amount', 'fix
 CREATE TABLE public.bulk_pricing_tiers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  -- NULL = a product-level tier (only meaningful while the product has no
+  -- variants). Set = a tier scoped to that one variant's own price.
+  variant_id UUID REFERENCES public.product_variants(id) ON DELETE CASCADE,
   min_qty INTEGER NOT NULL CHECK (min_qty >= 2),
   discount_type public.bulk_discount_type NOT NULL DEFAULT 'percentage',
   -- percentage: whole number 1-100 (% off the unit's catalog price).
   -- flat_amount: cents off the unit's catalog price.
   -- fixed_price: the resulting unit price itself, in cents, at this tier.
-  discount_value INTEGER NOT NULL CHECK (discount_value >= 0),
+  discount_value INTEGER NOT NULL CHECK (discount_value >= 0 AND (discount_type <> 'percentage' OR discount_value <= 100)),
   active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (product_id, min_qty)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE public.bulk_pricing_tiers IS
-  'Quantity-break pricing per product. resolve_bulk_unit_price_cents() picks the highest min_qty tier a given quantity clears, so tiers do not need to be contiguous.';
+  'Quantity-break pricing, scoped per variant (or per product when there are no variants). resolve_bulk_unit_price_cents() picks the highest min_qty tier a given quantity clears, so tiers do not need to be contiguous.';
+
+-- NULLs don't collide in a plain UNIQUE constraint, so product-level ladders
+-- (variant_id IS NULL) and variant-level ladders each get their own partial
+-- unique index instead of one shared UNIQUE(product_id, variant_id, min_qty).
+CREATE UNIQUE INDEX bulk_pricing_tiers_product_level_uq
+  ON public.bulk_pricing_tiers (product_id, min_qty) WHERE variant_id IS NULL;
+CREATE UNIQUE INDEX bulk_pricing_tiers_variant_level_uq
+  ON public.bulk_pricing_tiers (variant_id, min_qty) WHERE variant_id IS NOT NULL;
 
 CREATE INDEX bulk_pricing_tiers_product_idx ON public.bulk_pricing_tiers (product_id);
+
+-- Belt-and-braces data integrity: a tier's variant_id (when set) must
+-- actually belong to the product_id on the same row. Only admins can write
+-- here at all (see RLS below), but this stops a stray admin-UI bug from
+-- silently attaching a tier to the wrong product's variant.
+CREATE OR REPLACE FUNCTION public.enforce_bulk_tier_variant_matches_product()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.variant_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.product_variants WHERE id = NEW.variant_id AND product_id = NEW.product_id
+  ) THEN
+    RAISE EXCEPTION 'bulk_pricing_tiers.variant_id does not belong to bulk_pricing_tiers.product_id';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER bulk_pricing_tiers_variant_matches_product
+  BEFORE INSERT OR UPDATE ON public.bulk_pricing_tiers
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_bulk_tier_variant_matches_product();
 
 CREATE TRIGGER bulk_pricing_tiers_touch_updated_at BEFORE UPDATE ON public.bulk_pricing_tiers
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -72,16 +107,17 @@ COMMENT ON COLUMN public.order_items.base_unit_price_cents IS
   'The catalog unit price before any bulk-quantity discount was applied. NULL when no bulk tier applied to this line — unit_price_cents alone is then the catalog price.';
 
 -- ------------------------------------------------------------------------
--- The tier resolver. Given a product, the catalog unit price that's
--- actually in force for a line (variant price or product price — resolved
--- by the caller), and the quantity being bought, returns what that
--- quantity pays per unit. Only ever called from trusted server contexts
--- (recompute_order_total below), never exposed to anon/authenticated —
--- same reasoning as recompute_order_total itself: nothing here needs a
--- guessable secret, but the price math must never be client-influenced.
+-- The tier resolver. Given a product (+ variant, if the line has one), the
+-- catalog unit price that's actually in force for a line (resolved by the
+-- caller), and the quantity being bought, returns what that quantity pays
+-- per unit. Only ever called from trusted server contexts (recompute_order_total
+-- below), never exposed to anon/authenticated — same reasoning as
+-- recompute_order_total itself: nothing here needs a guessable secret, but
+-- the price math must never be client-influenced.
 -- ------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.resolve_bulk_unit_price_cents(
   p_product_id UUID,
+  p_variant_id UUID,
   p_base_price_cents INTEGER,
   p_quantity INTEGER
 )
@@ -100,10 +136,16 @@ BEGIN
     RETURN GREATEST(0, COALESCE(p_base_price_cents, 0));
   END IF;
 
-  -- Best tier = the highest min_qty this quantity still clears. Tiers
+  -- Tiers are scoped to the exact same pricing entity the line is priced
+  -- from: that variant's own ladder if the line has a variant, or the
+  -- product-level ladder (variant_id IS NULL) if it doesn't. A tier set on
+  -- one variant never leaks onto a different variant or the bare product.
+  -- Best tier = the highest min_qty this quantity still clears — tiers
   -- don't need to be contiguous (e.g. only 5 and 20 defined is fine).
   SELECT * INTO t FROM public.bulk_pricing_tiers
-    WHERE product_id = p_product_id AND active = true AND min_qty <= p_quantity
+    WHERE product_id = p_product_id
+      AND variant_id IS NOT DISTINCT FROM p_variant_id
+      AND active = true AND min_qty <= p_quantity
     ORDER BY min_qty DESC
     LIMIT 1;
 
@@ -132,8 +174,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.resolve_bulk_unit_price_cents(UUID, INTEGER, INTEGER) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.resolve_bulk_unit_price_cents(UUID, INTEGER, INTEGER) TO service_role;
+REVOKE ALL ON FUNCTION public.resolve_bulk_unit_price_cents(UUID, UUID, INTEGER, INTEGER) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.resolve_bulk_unit_price_cents(UUID, UUID, INTEGER, INTEGER) TO service_role;
 
 -- ------------------------------------------------------------------------
 -- recompute_order_total(): unchanged shape, now bulk-tier-aware. The
@@ -191,7 +233,7 @@ BEGIN
 
     v_tiered_price := v_catalog_price;
     IF v_item.product_id IS NOT NULL THEN
-      v_tiered_price := public.resolve_bulk_unit_price_cents(v_item.product_id, v_catalog_price, v_item.quantity);
+      v_tiered_price := public.resolve_bulk_unit_price_cents(v_item.product_id, v_item.variant_id, v_catalog_price, v_item.quantity);
     END IF;
 
     v_bulk_discount := v_bulk_discount + GREATEST(0, v_catalog_price - v_tiered_price) * v_item.quantity;
