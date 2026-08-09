@@ -22,6 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import {
   Table,
   TableBody,
@@ -582,10 +584,21 @@ function AdminProducts() {
           <DialogHeader>
             <DialogTitle>{editing ? "Edit product" : "Add product"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Tabs defaultValue="details" className="w-full">
+            <div className="overflow-x-auto pb-1">
+              <TabsList className="w-max">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="warranty">Warranty</TabsTrigger>
+                <TabsTrigger value="specs">Specs</TabsTrigger>
+                <TabsTrigger value="variants">Variants</TabsTrigger>
+                <TabsTrigger value="images">Photos</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="details" className="space-y-4">
+              <div>
+                <Label>Name</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div>
               <Label>Slug (URL)</Label>
@@ -657,7 +670,7 @@ function AdminProducts() {
               </div>
             </div>
             <p className="-mt-2 text-xs text-muted-foreground">
-              Price, MRP, stock & SKU above are used only if this product has no variants (see below).
+              Price, MRP, stock & SKU above are used only if this product has no variants — see the Variants tab.
             </p>
             <div className="rounded-xl border border-border p-4">
               <div className="flex items-center gap-2">
@@ -673,6 +686,22 @@ function AdminProducts() {
                   : "Off — customers just see In stock / Sold out, no number. Applies across all variants."}
               </p>
             </div>
+            <div>
+              <Label>Fallback image URL</Label>
+              <Input value={form.image_url} placeholder="https://…" onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+              <p className="mt-1 text-xs text-muted-foreground">Used only if no images are uploaded in the Photos tab.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
+              <Label>Active (visible in store)</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={form.featured} onCheckedChange={(v) => setForm({ ...form, featured: v })} />
+              <Label>Featured</Label>
+            </div>
+            </TabsContent>
+
+            <TabsContent value="warranty" className="space-y-4">
             <div className="rounded-xl border border-border p-4">
               <div className="flex items-center gap-2">
                 <Switch
@@ -772,39 +801,38 @@ function AdminProducts() {
                 rows={2}
               />
             </div>
+            </TabsContent>
+
+            <TabsContent value="specs" className="space-y-4">
             <SpecificationsEditor
               specs={form.specifications}
               onChange={(specs) => setForm({ ...form, specifications: specs })}
             />
-            <div>
-              <Label>Fallback image URL</Label>
-              <Input value={form.image_url} placeholder="https://…" onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
-              <p className="mt-1 text-xs text-muted-foreground">Used only if no images are uploaded below.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
-              <Label>Active (visible in store)</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={form.featured} onCheckedChange={(v) => setForm({ ...form, featured: v })} />
-              <Label>Featured</Label>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              These are the product's own specs. If this product has variants, each variant can override just the specs that differ — set those from the Variants tab.
+            </p>
+            </TabsContent>
 
-            <div className="border-t pt-4">
+            <TabsContent value="variants" className="space-y-4">
               {editing ? (
-                <>
-                  <VariantsEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
-                  <div className="mt-6">
-                    <ImagesEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
-                  </div>
-                </>
+                <VariantsEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
               ) : (
                 <p className="rounded-lg bg-secondary/50 p-3 text-sm text-muted-foreground">
-                  Save the product first, then variants and images can be added here.
+                  Save the product first, then variants can be added here.
                 </p>
               )}
-            </div>
-          </div>
+            </TabsContent>
+
+            <TabsContent value="images" className="space-y-4">
+              {editing ? (
+                <ImagesEditor product={editing} qc={qc} invalidateStoreFront={invalidateStoreFront} />
+              ) : (
+                <p className="rounded-lg bg-secondary/50 p-3 text-sm text-muted-foreground">
+                  Save the product first, then photos can be added here.
+                </p>
+              )}
+            </TabsContent>
+          </Tabs>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
             <Button onClick={save} disabled={saving}>Save details</Button>
@@ -838,6 +866,10 @@ function VariantsEditor({
   });
 
   const [drafts, setDrafts] = useState<Record<string, { name: string; price: string; mrp: string; stock: string; stock_unlimited: boolean; sku: string; specifications: { key: string; value: string }[] }>>({});
+  // Which variant's card is expanded — only one at a time, so editing a
+  // product with several variants doesn't turn into one huge scroll of
+  // fields all shown at once.
+  const [openId, setOpenId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!variants) return;
@@ -910,17 +942,22 @@ function VariantsEditor({
       }
     }
 
-    const { error } = await supabase.from("product_variants").insert({
-      product_id: product.id,
-      name: "New variant",
-      price_cents: product.price_cents,
-      stock: 0,
-      sort_order: isFirstVariant ? 1 : variants?.length ?? 0,
-    });
+    const { data: newVariant, error } = await supabase
+      .from("product_variants")
+      .insert({
+        product_id: product.id,
+        name: "New variant",
+        price_cents: product.price_cents,
+        stock: 0,
+        sort_order: isFirstVariant ? 1 : variants?.length ?? 0,
+      })
+      .select("id")
+      .single();
     if (error) return toast.error(error.message);
     if (isFirstVariant) {
       toast.success("Added \"Standard\" (your existing price & stock) plus a new variant to edit");
     }
+    if (newVariant) setOpenId(newVariant.id);
     refresh();
   }
 
@@ -987,86 +1024,116 @@ function VariantsEditor({
           </div>
         </>
       )}
-      <div className="mt-2 space-y-2">
-        {(variants ?? []).map((v) => {
-          const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", stock_unlimited: false, sku: "", specifications: [] };
-          return (
-            <div key={v.id} className="rounded-lg border p-3">
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  placeholder="Variant name (e.g. 1.5 sq.mm)"
-                  value={d.name}
-                  onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, name: e.target.value } })}
-                  className="col-span-2"
-                />
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Price"
-                  value={d.price}
-                  onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, price: e.target.value } })}
-                />
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="MRP (optional)"
-                  value={d.mrp}
-                  onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, mrp: e.target.value } })}
-                />
-                <Input
-                  type="number"
-                  placeholder="Stock"
-                  value={d.stock}
-                  disabled={d.stock_unlimited}
-                  onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, stock: e.target.value } })}
-                />
-                <Input
-                  placeholder="SKU (optional)"
-                  value={d.sku}
-                  onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, sku: e.target.value } })}
-                />
-                <div className="col-span-2 flex items-center gap-2">
-                  <Switch
-                    checked={d.stock_unlimited}
-                    onCheckedChange={(checked) => setDrafts({ ...drafts, [v.id]: { ...d, stock_unlimited: checked } })}
-                  />
-                  <Label className="text-xs font-normal text-muted-foreground">Unlimited stock (never shows sold out)</Label>
-                </div>
-              </div>
-              <VariantImagesEditor
-                productId={product.id}
-                variantId={v.id}
-                qc={qc}
-                invalidateStoreFront={invalidateStoreFront}
-              />
-              <div className="mt-2 rounded-md bg-secondary/30 p-2">
-                <SpecificationsEditor
-                  specs={d.specifications}
-                  onChange={(specs) => setDrafts({ ...drafts, [v.id]: { ...d, specifications: specs } })}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Only for specs that differ from the product's own — anything not listed here still shows the product's value.
-                </p>
-              </div>
-              <BulkPricingEditor
-                product={product}
-                variantId={v.id}
-                basePriceCents={v.price_cents}
-                currency={product.currency}
-                qc={qc}
-                invalidateStoreFront={invalidateStoreFront}
-                compact
-              />
-              <div className="mt-2 flex justify-end gap-2">
-                <Button size="sm" variant="ghost" onClick={() => deleteVariant(v)}>
-                  <Trash2 className="mr-1 h-3 w-3" /> Delete
-                </Button>
-                <Button size="sm" onClick={() => saveVariant(v)}>Save</Button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {variants && variants.length > 0 && (
+        <Accordion
+          type="single"
+          collapsible
+          value={openId}
+          onValueChange={(v) => setOpenId(v || undefined)}
+          className="mt-2"
+        >
+          {variants.map((v) => {
+            const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", stock_unlimited: false, sku: "", specifications: [] };
+            const priceLabel = d.price ? formatMoney(Math.round(parseFloat(d.price) * 100 || 0), product.currency) : "—";
+            const stockText = d.stock_unlimited ? "Unlimited" : `${d.stock || 0} in stock`;
+            return (
+              <AccordionItem key={v.id} value={v.id} className="mb-2 rounded-lg border px-3">
+                <AccordionTrigger className="py-3 hover:no-underline">
+                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2 pr-2 text-left">
+                    <span className="min-w-0 truncate font-medium">{d.name || "Untitled variant"}</span>
+                    <span className="flex-shrink-0 text-xs text-muted-foreground">
+                      {priceLabel} · {stockText}
+                    </span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 pb-1">
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground">Name & pricing</Label>
+                      <div className="mt-1.5 grid grid-cols-2 gap-2">
+                        <Input
+                          placeholder="Variant name (e.g. 1.5 sq.mm)"
+                          value={d.name}
+                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, name: e.target.value } })}
+                          className="col-span-2"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Price"
+                          value={d.price}
+                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, price: e.target.value } })}
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="MRP (optional)"
+                          value={d.mrp}
+                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, mrp: e.target.value } })}
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Stock"
+                          value={d.stock}
+                          disabled={d.stock_unlimited}
+                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, stock: e.target.value } })}
+                        />
+                        <Input
+                          placeholder="SKU (optional)"
+                          value={d.sku}
+                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, sku: e.target.value } })}
+                        />
+                        <div className="col-span-2 flex items-center gap-2">
+                          <Switch
+                            checked={d.stock_unlimited}
+                            onCheckedChange={(checked) => setDrafts({ ...drafts, [v.id]: { ...d, stock_unlimited: checked } })}
+                          />
+                          <Label className="text-xs font-normal text-muted-foreground">Unlimited stock (never shows sold out)</Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <VariantImagesEditor
+                      productId={product.id}
+                      variantId={v.id}
+                      qc={qc}
+                      invalidateStoreFront={invalidateStoreFront}
+                    />
+
+                    <div className="rounded-md bg-secondary/30 p-2">
+                      <p className="text-xs font-medium text-muted-foreground">Specifications</p>
+                      <SpecificationsEditor
+                        specs={d.specifications}
+                        onChange={(specs) => setDrafts({ ...drafts, [v.id]: { ...d, specifications: specs } })}
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Only for specs that differ from the product's own — anything not listed here still shows the product's value.
+                      </p>
+                    </div>
+
+                    <BulkPricingEditor
+                      product={product}
+                      variantId={v.id}
+                      basePriceCents={v.price_cents}
+                      currency={product.currency}
+                      qc={qc}
+                      invalidateStoreFront={invalidateStoreFront}
+                      compact
+                    />
+
+                    <div className="flex justify-end gap-2 border-t pt-3">
+                      <Button size="sm" variant="ghost" onClick={() => deleteVariant(v)}>
+                        <Trash2 className="mr-1 h-3 w-3" /> Delete
+                      </Button>
+                      <Button size="sm" onClick={() => saveVariant(v)}>Save</Button>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+      )}
     </div>
   );
 }
