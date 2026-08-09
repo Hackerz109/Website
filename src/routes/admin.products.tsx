@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Drawer, DrawerContent, DrawerHeader, DrawerFooter, DrawerTitle } from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Table,
   TableBody,
@@ -129,6 +131,7 @@ function validateImageFiles(files: File[]): string | null {
 
 function AdminProducts() {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(empty);
@@ -579,19 +582,16 @@ function AdminProducts() {
         </Table>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit product" : "Add product"}</DialogTitle>
-          </DialogHeader>
+      {(() => {
+        const formBody = (
           <Tabs defaultValue="details" className="w-full">
-            <div className="overflow-x-auto pb-1">
-              <TabsList className="w-max">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="warranty">Warranty</TabsTrigger>
-                <TabsTrigger value="specs">Specs</TabsTrigger>
-                <TabsTrigger value="variants">Variants</TabsTrigger>
-                <TabsTrigger value="images">Photos</TabsTrigger>
+            <div className="sticky top-0 z-10 -mx-1 overflow-x-auto bg-background px-1 pb-2">
+              <TabsList className="h-10 w-max">
+                <TabsTrigger value="details" className="px-4 py-2">Details</TabsTrigger>
+                <TabsTrigger value="warranty" className="px-4 py-2">Warranty</TabsTrigger>
+                <TabsTrigger value="specs" className="px-4 py-2">Specs</TabsTrigger>
+                <TabsTrigger value="variants" className="px-4 py-2">Variants</TabsTrigger>
+                <TabsTrigger value="images" className="px-4 py-2">Photos</TabsTrigger>
               </TabsList>
             </div>
 
@@ -629,12 +629,13 @@ function AdminProducts() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>Price (INR)</Label>
-                <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+                <Input type="number" inputMode="decimal" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               </div>
               <div>
                 <Label>Stock</Label>
                 <Input
                   type="number"
+                  inputMode="numeric"
                   value={form.stock}
                   disabled={form.stock_unlimited}
                   onChange={(e) => setForm({ ...form, stock: e.target.value })}
@@ -653,6 +654,7 @@ function AdminProducts() {
                 <Label>MRP (INR)</Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
                   placeholder="Optional"
                   value={form.mrp}
@@ -833,12 +835,35 @@ function AdminProducts() {
               )}
             </TabsContent>
           </Tabs>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={save} disabled={saving}>Save details</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        );
+        return isMobile ? (
+          <Drawer open={open} onOpenChange={setOpen}>
+            <DrawerContent className="flex max-h-[92vh] flex-col">
+              <DrawerHeader className="border-b text-left">
+                <DrawerTitle>{editing ? "Edit product" : "Add product"}</DrawerTitle>
+              </DrawerHeader>
+              <div className="flex-1 overflow-y-auto px-4 py-4">{formBody}</div>
+              <DrawerFooter className="flex-row justify-end gap-2 border-t">
+                <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
+                <Button onClick={save} disabled={saving}>Save details</Button>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+              <DialogHeader className="border-b px-6 py-4">
+                <DialogTitle>{editing ? "Edit product" : "Add product"}</DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto px-6 py-4">{formBody}</div>
+              <DialogFooter className="border-t px-6 py-4">
+                <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
+                <Button onClick={save} disabled={saving}>Save details</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
     </div>
   );
 }
@@ -1050,40 +1075,62 @@ function VariantsEditor({
                   <div className="space-y-4 pb-1">
                     <div>
                       <Label className="text-xs font-semibold text-muted-foreground">Name & pricing</Label>
-                      <div className="mt-1.5 grid grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Variant name (e.g. 1.5 sq.mm)"
-                          value={d.name}
-                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, name: e.target.value } })}
-                          className="col-span-2"
-                        />
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Price"
-                          value={d.price}
-                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, price: e.target.value } })}
-                        />
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="MRP (optional)"
-                          value={d.mrp}
-                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, mrp: e.target.value } })}
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Stock"
-                          value={d.stock}
-                          disabled={d.stock_unlimited}
-                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, stock: e.target.value } })}
-                        />
-                        <Input
-                          placeholder="SKU (optional)"
-                          value={d.sku}
-                          onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, sku: e.target.value } })}
-                        />
-                        <div className="col-span-2 flex items-center gap-2">
+                      <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-3">
+                        <div className="col-span-2">
+                          <Label className="text-xs font-normal text-muted-foreground">Variant name</Label>
+                          <Input
+                            placeholder="e.g. 1.5 sq.mm"
+                            value={d.name}
+                            onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, name: e.target.value } })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-normal text-muted-foreground">Price</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={d.price}
+                            onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, price: e.target.value } })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-normal text-muted-foreground">MRP (optional)</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={d.mrp}
+                            onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, mrp: e.target.value } })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-normal text-muted-foreground">Stock</Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={d.stock}
+                            disabled={d.stock_unlimited}
+                            onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, stock: e.target.value } })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-normal text-muted-foreground">SKU (optional)</Label>
+                          <Input
+                            placeholder="Optional"
+                            value={d.sku}
+                            onChange={(e) => setDrafts({ ...drafts, [v.id]: { ...d, sku: e.target.value } })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-center gap-2 pt-1">
                           <Switch
                             checked={d.stock_unlimited}
                             onCheckedChange={(checked) => setDrafts({ ...drafts, [v.id]: { ...d, stock_unlimited: checked } })}
@@ -1329,6 +1376,7 @@ function BulkPricingEditor({
                       <div className="mt-1 flex items-center gap-1.5">
                         <Input
                           type="number"
+                          inputMode="numeric"
                           min={2}
                           value={d.min_qty}
                           onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, min_qty: e.target.value } })}
@@ -1358,6 +1406,7 @@ function BulkPricingEditor({
                       </Label>
                       <Input
                         type="number"
+                        inputMode="decimal"
                         step={d.discount_type === "percentage" ? 1 : 0.01}
                         value={d.discount_value}
                         onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, discount_value: e.target.value } })}
@@ -1522,7 +1571,7 @@ function VariantImagesEditor({
           : "Tap the star to set this variant's primary. The shared images below still show, added after these."}
       </p>
       {images && images.length > 0 && (
-        <div className="mt-2 grid grid-cols-4 gap-2">
+        <div className="mt-2 grid grid-cols-3 gap-2">
           {images.map((img) => (
             <div key={img.id} className="relative overflow-hidden rounded-lg border">
               <img src={img.url} alt="" className="aspect-square w-full object-cover" />
