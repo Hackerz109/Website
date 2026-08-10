@@ -12,7 +12,9 @@ import { Analytics, type BeforeSendEvent } from "@vercel/analytics/react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { trackClientError } from "../lib/analytics-tracker";
 import { Toaster } from "../components/ui/sonner";
+import { AnalyticsTracker } from "../components/AnalyticsTracker";
 import { useIdleLogout } from "../hooks/useIdleLogout";
 import { useRememberMeGuard } from "../hooks/useRememberMeGuard";
 
@@ -62,6 +64,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    trackClientError(error.message || "Unknown error", error.stack, window.location.pathname, undefined);
   }, [error]);
 
   return (
@@ -205,6 +208,7 @@ function AppShell() {
       <Outlet />
       <Toaster position="top-center" richColors />
       <Analytics beforeSend={redactSensitiveParams} />
+      <AnalyticsTracker />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet, Users, Search, Sparkles, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, LogOut, ExternalLink, Tags, Ticket, MapPinned, RotateCcw, Wallet, Users, Search, Sparkles, MessageCircle, BarChart3 } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { Button } from "@/components/ui/button";
 import { AdminSearchBar } from "@/components/AdminSearchBar";
@@ -47,6 +47,7 @@ function AdminLayout() {
 
   const nav = [
     { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+    { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { to: "/admin/search", label: "Search", icon: Search },
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/products", label: "Products", icon: Package },
