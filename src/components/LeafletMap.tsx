@@ -32,6 +32,12 @@ interface LeafletMapProps {
   fitToContent?: boolean;
 }
 
+function safeTooltipContent(text: string): HTMLSpanElement {
+  const el = document.createElement("span");
+  el.textContent = text;
+  return el;
+}
+
 function pinIcon(L: typeof import("leaflet"), color: string) {
   return L.divIcon({
     className: "",
@@ -41,10 +47,6 @@ function pinIcon(L: typeof import("leaflet"), color: string) {
   });
 }
 
-/** Thin imperative wrapper around Leaflet + OpenStreetMap tiles (no API key
- * required). Uses raw Leaflet rather than react-leaflet so it has zero
- * dependency on the app's React version — this project is on React 19 and
- * react-leaflet's peer range is a moving target. */
 export function LeafletMap({
   center,
   zoom = 13,
@@ -60,8 +62,6 @@ export function LeafletMap({
   const layerGroupRef = useRef<import("leaflet").LayerGroup | null>(null);
   const [ready, setReady] = useState(false);
 
-  // Latest callback/data refs so the (stable, mount-once) map effect and
-  // async Leaflet import always see current values without re-running.
   const clickHandlerRef = useRef(onMapClick);
   clickHandlerRef.current = onMapClick;
   const markersRef = useRef(markers);
@@ -69,7 +69,6 @@ export function LeafletMap({
   const circlesRef = useRef(circles);
   circlesRef.current = circles;
 
-  // Mount the map once.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     let cancelled = false;
@@ -95,13 +94,9 @@ export function LeafletMap({
       mapRef.current = null;
       layerGroupRef.current = null;
     };
-    // Intentionally mount once — center/zoom drift after mount is handled
-    // by the recenter effect below, not by tearing the map down.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // (Re)draw markers/circles: on first mount-completion, and whenever the
-  // marker/circle props change thereafter.
   useEffect(() => {
     const map = mapRef.current;
     const group = layerGroupRef.current;
@@ -119,7 +114,7 @@ export function LeafletMap({
           fillOpacity: 0.08,
           weight: 1.5,
         })
-          .bindTooltip(c.label || `${c.radiusKm} km zone`)
+          .bindTooltip(safeTooltipContent(c.label || `${c.radiusKm} km zone`))
           .addTo(group);
         bounds.push([c.lat, c.lng]);
       }
@@ -129,7 +124,7 @@ export function LeafletMap({
           icon: pinIcon(L, m.color || "#2454e5"),
           draggable: !!m.draggable,
         }).addTo(group);
-        if (m.label) marker.bindTooltip(m.label);
+        if (m.label) marker.bindTooltip(safeTooltipContent(m.label));
         if (m.draggable && m.onDragEnd) {
           marker.on("dragend", () => {
             const pos = marker.getLatLng();
@@ -149,8 +144,6 @@ export function LeafletMap({
     });
   }, [ready, markers, circles, fitToContent]);
 
-  // Recenter imperatively when the caller-provided center changes (e.g.
-  // after a successful geolocation lookup) without remounting the map.
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     mapRef.current.setView([center.lat, center.lng], mapRef.current.getZoom());
