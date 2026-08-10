@@ -29,6 +29,15 @@
 // api.support-notify for the same reason as above.
 //
 // MANUALLY CORRECTED AGAIN on 2026-08-01: added the new /collections route.
+//
+// MANUALLY CORRECTED AGAIN on 2026-08-11: added the entire /admin/analytics
+// section (layout route + index/users/geographic/traffic/business/errors/
+// realtime/alerts/reports children), which existed on disk in src/routes
+// but had never been added here, so the whole section was unreachable in
+// any build that skips the regeneration step. Registered the children as
+// true children of AdminAnalyticsRoute (not flattened under AdminRoute
+// like the other admin.*.$id routes), since admin.analytics.tsx renders
+// them through its own <Outlet />.
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
@@ -58,6 +67,16 @@ import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminDeliveryRouteImport } from './routes/admin.delivery'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as AdminAnalyticsIndexRouteImport } from './routes/admin.analytics.index'
+import { Route as AdminAnalyticsUsersRouteImport } from './routes/admin.analytics.users'
+import { Route as AdminAnalyticsGeographicRouteImport } from './routes/admin.analytics.geographic'
+import { Route as AdminAnalyticsTrafficRouteImport } from './routes/admin.analytics.traffic'
+import { Route as AdminAnalyticsBusinessRouteImport } from './routes/admin.analytics.business'
+import { Route as AdminAnalyticsErrorsRouteImport } from './routes/admin.analytics.errors'
+import { Route as AdminAnalyticsRealtimeRouteImport } from './routes/admin.analytics.realtime'
+import { Route as AdminAnalyticsAlertsRouteImport } from './routes/admin.analytics.alerts'
+import { Route as AdminAnalyticsReportsRouteImport } from './routes/admin.analytics.reports'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api.whatsapp-webhook'
 import { Route as ApiGeocodeRouteImport } from './routes/api.geocode'
 import { Route as ApiRateLimitRouteImport } from './routes/api.rate-limit'
@@ -218,6 +237,56 @@ const AdminCouponsRoute = AdminCouponsRouteImport.update({
   path: '/coupons',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAnalyticsIndexRoute = AdminAnalyticsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsUsersRoute = AdminAnalyticsUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsGeographicRoute = AdminAnalyticsGeographicRouteImport.update({
+  id: '/geographic',
+  path: '/geographic',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsTrafficRoute = AdminAnalyticsTrafficRouteImport.update({
+  id: '/traffic',
+  path: '/traffic',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsBusinessRoute = AdminAnalyticsBusinessRouteImport.update({
+  id: '/business',
+  path: '/business',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsErrorsRoute = AdminAnalyticsErrorsRouteImport.update({
+  id: '/errors',
+  path: '/errors',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsRealtimeRoute = AdminAnalyticsRealtimeRouteImport.update({
+  id: '/realtime',
+  path: '/realtime',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsAlertsRoute = AdminAnalyticsAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
+const AdminAnalyticsReportsRoute = AdminAnalyticsReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminAnalyticsRoute,
+} as any)
 const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   id: '/api/whatsapp-webhook',
   path: '/api/whatsapp-webhook',
@@ -362,11 +431,21 @@ export interface FileRoutesByFullPath {
   '/admin/returns': typeof AdminReturnsRoute
   '/admin/taxonomy': typeof AdminTaxonomyRoute
   '/admin/wallet': typeof AdminWalletRoute
+  '/admin/analytics': typeof AdminAnalyticsRouteWithChildren
   '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/$id/track': typeof OrdersIdTrackRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/analytics/users': typeof AdminAnalyticsUsersRoute
+  '/admin/analytics/geographic': typeof AdminAnalyticsGeographicRoute
+  '/admin/analytics/traffic': typeof AdminAnalyticsTrafficRoute
+  '/admin/analytics/business': typeof AdminAnalyticsBusinessRoute
+  '/admin/analytics/errors': typeof AdminAnalyticsErrorsRoute
+  '/admin/analytics/realtime': typeof AdminAnalyticsRealtimeRoute
+  '/admin/analytics/alerts': typeof AdminAnalyticsAlertsRoute
+  '/admin/analytics/reports': typeof AdminAnalyticsReportsRoute
+  '/admin/analytics/': typeof AdminAnalyticsIndexRoute
   '/api/create-razorpay-order': typeof ApiCreateRazorpayOrderRoute
   '/api/razorpay-webhook': typeof ApiRazorpayWebhookRoute
   '/api/refund-razorpay-payment': typeof ApiRefundRazorpayPaymentRoute
@@ -414,11 +493,20 @@ export interface FileRoutesByTo {
   '/admin/returns': typeof AdminReturnsRoute
   '/admin/taxonomy': typeof AdminTaxonomyRoute
   '/admin/wallet': typeof AdminWalletRoute
+  '/admin/analytics': typeof AdminAnalyticsIndexRoute
   '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/$id/track': typeof OrdersIdTrackRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/analytics/users': typeof AdminAnalyticsUsersRoute
+  '/admin/analytics/geographic': typeof AdminAnalyticsGeographicRoute
+  '/admin/analytics/traffic': typeof AdminAnalyticsTrafficRoute
+  '/admin/analytics/business': typeof AdminAnalyticsBusinessRoute
+  '/admin/analytics/errors': typeof AdminAnalyticsErrorsRoute
+  '/admin/analytics/realtime': typeof AdminAnalyticsRealtimeRoute
+  '/admin/analytics/alerts': typeof AdminAnalyticsAlertsRoute
+  '/admin/analytics/reports': typeof AdminAnalyticsReportsRoute
   '/api/create-razorpay-order': typeof ApiCreateRazorpayOrderRoute
   '/api/razorpay-webhook': typeof ApiRazorpayWebhookRoute
   '/api/refund-razorpay-payment': typeof ApiRefundRazorpayPaymentRoute
@@ -468,11 +556,21 @@ export interface FileRoutesById {
   '/admin/returns': typeof AdminReturnsRoute
   '/admin/taxonomy': typeof AdminTaxonomyRoute
   '/admin/wallet': typeof AdminWalletRoute
+  '/admin/analytics': typeof AdminAnalyticsRouteWithChildren
   '/category/$name': typeof CategoryNameRoute
   '/product/$slug': typeof ProductSlugRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/$id/track': typeof OrdersIdTrackRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/analytics/users': typeof AdminAnalyticsUsersRoute
+  '/admin/analytics/geographic': typeof AdminAnalyticsGeographicRoute
+  '/admin/analytics/traffic': typeof AdminAnalyticsTrafficRoute
+  '/admin/analytics/business': typeof AdminAnalyticsBusinessRoute
+  '/admin/analytics/errors': typeof AdminAnalyticsErrorsRoute
+  '/admin/analytics/realtime': typeof AdminAnalyticsRealtimeRoute
+  '/admin/analytics/alerts': typeof AdminAnalyticsAlertsRoute
+  '/admin/analytics/reports': typeof AdminAnalyticsReportsRoute
+  '/admin/analytics/': typeof AdminAnalyticsIndexRoute
   '/api/create-razorpay-order': typeof ApiCreateRazorpayOrderRoute
   '/api/razorpay-webhook': typeof ApiRazorpayWebhookRoute
   '/api/refund-razorpay-payment': typeof ApiRefundRazorpayPaymentRoute
@@ -523,11 +621,21 @@ export interface FileRouteTypes {
     | '/admin/returns'
     | '/admin/taxonomy'
     | '/admin/wallet'
+    | '/admin/analytics'
     | '/category/$name'
     | '/product/$slug'
     | '/orders/$id'
     | '/orders/$id/track'
     | '/admin/'
+    | '/admin/analytics/users'
+    | '/admin/analytics/geographic'
+    | '/admin/analytics/traffic'
+    | '/admin/analytics/business'
+    | '/admin/analytics/errors'
+    | '/admin/analytics/realtime'
+    | '/admin/analytics/alerts'
+    | '/admin/analytics/reports'
+    | '/admin/analytics/'
     | '/api/create-razorpay-order'
     | '/api/razorpay-webhook'
     | '/api/refund-razorpay-payment'
@@ -575,11 +683,20 @@ export interface FileRouteTypes {
     | '/admin/returns'
     | '/admin/taxonomy'
     | '/admin/wallet'
+    | '/admin/analytics'
     | '/category/$name'
     | '/product/$slug'
     | '/orders/$id'
     | '/orders/$id/track'
     | '/admin'
+    | '/admin/analytics/users'
+    | '/admin/analytics/geographic'
+    | '/admin/analytics/traffic'
+    | '/admin/analytics/business'
+    | '/admin/analytics/errors'
+    | '/admin/analytics/realtime'
+    | '/admin/analytics/alerts'
+    | '/admin/analytics/reports'
     | '/api/create-razorpay-order'
     | '/api/razorpay-webhook'
     | '/api/refund-razorpay-payment'
@@ -628,11 +745,21 @@ export interface FileRouteTypes {
     | '/admin/returns'
     | '/admin/taxonomy'
     | '/admin/wallet'
+    | '/admin/analytics'
     | '/category/$name'
     | '/product/$slug'
     | '/orders/$id'
     | '/orders/$id/track'
     | '/admin/'
+    | '/admin/analytics/users'
+    | '/admin/analytics/geographic'
+    | '/admin/analytics/traffic'
+    | '/admin/analytics/business'
+    | '/admin/analytics/errors'
+    | '/admin/analytics/realtime'
+    | '/admin/analytics/alerts'
+    | '/admin/analytics/reports'
+    | '/admin/analytics/'
     | '/api/create-razorpay-order'
     | '/api/razorpay-webhook'
     | '/api/refund-razorpay-payment'
@@ -1027,6 +1154,34 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminAnalyticsRouteChildren {
+  AdminAnalyticsIndexRoute: typeof AdminAnalyticsIndexRoute
+  AdminAnalyticsUsersRoute: typeof AdminAnalyticsUsersRoute
+  AdminAnalyticsGeographicRoute: typeof AdminAnalyticsGeographicRoute
+  AdminAnalyticsTrafficRoute: typeof AdminAnalyticsTrafficRoute
+  AdminAnalyticsBusinessRoute: typeof AdminAnalyticsBusinessRoute
+  AdminAnalyticsErrorsRoute: typeof AdminAnalyticsErrorsRoute
+  AdminAnalyticsRealtimeRoute: typeof AdminAnalyticsRealtimeRoute
+  AdminAnalyticsAlertsRoute: typeof AdminAnalyticsAlertsRoute
+  AdminAnalyticsReportsRoute: typeof AdminAnalyticsReportsRoute
+}
+
+const AdminAnalyticsRouteChildren: AdminAnalyticsRouteChildren = {
+  AdminAnalyticsIndexRoute: AdminAnalyticsIndexRoute,
+  AdminAnalyticsUsersRoute: AdminAnalyticsUsersRoute,
+  AdminAnalyticsGeographicRoute: AdminAnalyticsGeographicRoute,
+  AdminAnalyticsTrafficRoute: AdminAnalyticsTrafficRoute,
+  AdminAnalyticsBusinessRoute: AdminAnalyticsBusinessRoute,
+  AdminAnalyticsErrorsRoute: AdminAnalyticsErrorsRoute,
+  AdminAnalyticsRealtimeRoute: AdminAnalyticsRealtimeRoute,
+  AdminAnalyticsAlertsRoute: AdminAnalyticsAlertsRoute,
+  AdminAnalyticsReportsRoute: AdminAnalyticsReportsRoute,
+}
+
+const AdminAnalyticsRouteWithChildren = AdminAnalyticsRoute._addFileChildren(
+  AdminAnalyticsRouteChildren,
+)
+
 interface AdminRouteChildren {
   AdminCouponsRoute: typeof AdminCouponsRoute
   AdminDeliveryRoute: typeof AdminDeliveryRoute
@@ -1041,6 +1196,7 @@ interface AdminRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminSupportIdRoute: typeof AdminSupportIdRoute
+  AdminAnalyticsRoute: typeof AdminAnalyticsRouteWithChildren
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -1057,6 +1213,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminSupportIdRoute: AdminSupportIdRoute,
+  AdminAnalyticsRoute: AdminAnalyticsRouteWithChildren,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
