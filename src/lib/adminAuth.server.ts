@@ -4,11 +4,16 @@
 // unlike every other route in this app — need to accept calls that aren't
 // triggered by a browser at all.
 
+import crypto from "node:crypto";
+
 export function isCronRequest(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
   const authHeader = request.headers.get("authorization") || "";
-  return authHeader === `Bearer ${secret}`;
+  const expected = `Bearer ${secret}`;
+  const expectedBuf = Buffer.from(expected);
+  const gotBuf = Buffer.from(authHeader);
+  return expectedBuf.length === gotBuf.length && crypto.timingSafeEqual(expectedBuf, gotBuf);
 }
 
 export async function isAdminRequest(request: Request): Promise<boolean> {
@@ -35,7 +40,6 @@ export async function isAdminRequest(request: Request): Promise<boolean> {
   }
 }
 
-/** True if the request is either a valid cron call or a verified admin. */
 export async function isCronOrAdminRequest(request: Request): Promise<boolean> {
   if (isCronRequest(request)) return true;
   return isAdminRequest(request);
