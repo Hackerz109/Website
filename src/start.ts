@@ -3,19 +3,22 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
-// Headers with no known downside for this app — they don't touch framing
-// (X-Frame-Options/CSP frame-ancestors are deliberately left out: this repo
-// is Lovable-connected, and Lovable's live editor preview may render the
-// app in an iframe from its own origin, which those headers would block.
-// Add X-Frame-Options: SAMEORIGIN yourself once you've confirmed it doesn't
-// break that preview — see the security summary for details).
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
-  // Only features this app never uses. geolocation is deliberately left
-  // alone — the delivery-address flow relies on it.
   "Permissions-Policy": "camera=(), microphone=(), usb=(), payment=()",
+  "Content-Security-Policy-Report-Only": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://challenges.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.supabase.co",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://checkout.razorpay.com https://challenges.cloudflare.com",
+    "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com https://challenges.cloudflare.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join("; "),
 };
 
 function withSecurityHeaders(response: Response): Response {
