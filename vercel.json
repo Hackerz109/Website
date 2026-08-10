@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/analytics-alerts-check", "schedule": "*/15 * * * *" },
+    { "path": "/api/analytics-reports-run", "schedule": "0 3 * * *" }
+  ]
+}
