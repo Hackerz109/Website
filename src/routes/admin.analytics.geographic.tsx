@@ -17,7 +17,9 @@ function GeographicAnalytics() {
   const { start, end } = searchToResolvedRange(search);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["analytics-geo", start.toISOString(), end.toISOString()],
+    // See admin.analytics.index.tsx for why this is keyed on the raw search
+    // params rather than the resolved (and constantly-recomputed) start/end.
+    queryKey: ["analytics-geo", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchGeoStats(start, end),
   });
 

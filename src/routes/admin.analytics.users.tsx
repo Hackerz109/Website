@@ -22,7 +22,9 @@ function UserAnalytics() {
   const compare = (search.compare ?? "on") === "on";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["analytics-users", start.toISOString(), end.toISOString()],
+    // See admin.analytics.index.tsx for why this is keyed on the raw search
+    // params rather than the resolved (and constantly-recomputed) start/end.
+    queryKey: ["analytics-users", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchUserStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
   });

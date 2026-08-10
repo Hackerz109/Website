@@ -33,7 +33,9 @@ function TrafficAnalytics() {
   const [filters, setFilters] = useState<TrafficFilters>({});
 
   const { data, isLoading } = useQuery({
-    queryKey: ["analytics-traffic", start.toISOString(), end.toISOString(), filters],
+    // See admin.analytics.index.tsx for why this is keyed on the raw search
+    // params rather than the resolved (and constantly-recomputed) start/end.
+    queryKey: ["analytics-traffic", search.preset ?? "30d", search.from ?? null, search.to ?? null, filters],
     queryFn: () => fetchTrafficStats(start, end, prevStart, prevEnd, filters),
     refetchInterval: 60_000,
   });

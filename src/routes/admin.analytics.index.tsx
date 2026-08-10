@@ -37,7 +37,13 @@ function ExecutiveOverview() {
   const compare = (search.compare ?? "on") === "on";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["analytics-overview", start.toISOString(), end.toISOString()],
+    // Keyed on the *search params*, not the resolved start/end timestamps.
+    // For preset ranges (today/7d/30d/90d), resolveDateRange() computes
+    // `end` from `new Date()` on every render, so a timestamp-based key
+    // changed by a few milliseconds on every re-render — React Query saw
+    // that as a brand new query every time, so it never finished loading.
+    // Custom ranges use a fixed picked date, which is why those "worked".
+    queryKey: ["analytics-overview", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchOverviewStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
   });

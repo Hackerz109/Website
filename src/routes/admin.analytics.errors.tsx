@@ -24,7 +24,9 @@ function ErrorAnalytics() {
   const { start, end } = searchToResolvedRange(search);
   const queryClient = useQueryClient();
 
-  const queryKey = ["analytics-errors", start.toISOString(), end.toISOString()];
+  // See admin.analytics.index.tsx for why this is keyed on the raw search
+  // params rather than the resolved (and constantly-recomputed) start/end.
+  const queryKey = ["analytics-errors", search.preset ?? "30d", search.from ?? null, search.to ?? null];
   const { data, isLoading } = useQuery({
     queryKey,
     queryFn: () => fetchErrorStats(start, end),

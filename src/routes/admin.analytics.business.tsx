@@ -16,7 +16,9 @@ function BusinessAnalytics() {
   const compare = (search.compare ?? "on") === "on";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["analytics-business", start.toISOString(), end.toISOString()],
+    // See admin.analytics.index.tsx for why this is keyed on the raw search
+    // params rather than the resolved (and constantly-recomputed) start/end.
+    queryKey: ["analytics-business", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchBusinessStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
   });
