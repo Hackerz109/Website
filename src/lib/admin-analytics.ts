@@ -381,4 +381,10 @@ export async function sendReportNow(reportId: string): Promise<void> {
     body: JSON.stringify({ report_id: reportId }),
   });
   if (!res.ok) throw new Error("Failed to send report");
+  // A 200 here only means the endpoint ran — it previously didn't mean the
+  // report itself sent. Check the actual result so a report that failed
+  // partway (or wasn't found) doesn't show a false "Report sent" toast.
+  const result = (await res.json()) as { ran: string[]; errors: string[] };
+  if (result.errors.includes(reportId)) throw new Error("Report failed while sending — check the recipient list");
+  if (!result.ran.includes(reportId)) throw new Error("Report could not be found");
 }

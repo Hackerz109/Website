@@ -10,12 +10,14 @@ type ReportRow = { id: string; name: string; report_type: string; frequency: str
 export async function runDueReports(p_report_id?: string): Promise<{ ran: string[]; errors: string[] }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  let query = supabaseAdmin
-    .from("analytics_scheduled_reports")
-    .select("id, name, report_type, frequency, recipients")
-    .eq("enabled", true);
+  // The cron/due-report path only ever runs enabled reports. The manual
+  // "send test now" path (p_report_id set) intentionally ignores `enabled`
+  // — testing a report you haven't turned on yet is the whole point of a
+  // test send, and silently matching zero rows here is what let the client
+  // show a false "Report sent" toast for a disabled report.
+  let query = supabaseAdmin.from("analytics_scheduled_reports").select("id, name, report_type, frequency, recipients");
 
-  query = p_report_id ? query.eq("id", p_report_id) : query.lte("next_run_at", new Date().toISOString());
+  query = p_report_id ? query.eq("id", p_report_id) : query.eq("enabled", true).lte("next_run_at", new Date().toISOString());
 
   const { data: reports, error } = await query;
   if (error) throw error;
