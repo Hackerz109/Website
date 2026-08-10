@@ -74,6 +74,15 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
   push_subscribe: {
     ip: { limit: 20, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
   },
+  // Analytics telemetry: fires on every route change / error for every
+  // visitor, so limits are generous — this is about capping a scripted
+  // flood, not slowing down real browsing.
+  analytics_track: {
+    ip: { limit: 600, windowMs: 10 * 60_000, lockMs: 5 * 60_000 },
+  },
+  analytics_error: {
+    ip: { limit: 100, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
+  },
   // Coupon validation: unlike the scopes above this isn't really about
   // credential stuffing, it's about stopping a scripted caller from
   // guessing coupon codes (including hidden ones — see the migration that
