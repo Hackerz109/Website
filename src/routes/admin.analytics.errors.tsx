@@ -31,6 +31,7 @@ function ErrorAnalytics() {
     queryKey,
     queryFn: () => fetchErrorStats(start, end),
     refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 
   const resolveMutation = useMutation({

@@ -26,6 +26,7 @@ function RealtimeAnalytics() {
     queryKey,
     queryFn: fetchRealtimeSnapshot,
     refetchInterval: 10_000,
+    staleTime: 10_000,
   });
 
   // Best-effort instant refresh on new orders/errors, on top of the 10s

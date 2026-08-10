@@ -46,6 +46,7 @@ function ExecutiveOverview() {
     queryKey: ["analytics-overview", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchOverviewStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 
   const c = data?.current;

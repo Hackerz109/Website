@@ -21,6 +21,8 @@ function GeographicAnalytics() {
     // params rather than the resolved (and constantly-recomputed) start/end.
     queryKey: ["analytics-geo", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchGeoStats(start, end),
+    refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 
   const customerMapPoints: GeoMapPoint[] = (data?.customers_by_state ?? [])
