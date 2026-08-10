@@ -1,10 +1,3 @@
-// No export library is in package.json (no xlsx/jspdf), and there's no
-// network access to add one mid-task, so these lean on formats the browser
-// and Excel already understand natively rather than shipping a binary
-// writer: CSV/JSON need nothing at all, "Excel" is an HTML table saved with
-// a .xls extension (Excel opens this natively), and "PDF" is the browser's
-// own print-to-PDF against a print-styled document.
-
 function downloadFile(filename: string, content: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -25,7 +18,8 @@ export function toCSV(rows: Record<string, unknown>[]): string {
   if (rows.length === 0) return "";
   const headers = Object.keys(rows[0]);
   const cell = (v: unknown) => {
-    const s = v == null ? "" : String(v);
+    let s = v == null ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = [headers.join(","), ...rows.map((r) => headers.map((h) => cell(r[h])).join(","))];
