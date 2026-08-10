@@ -335,7 +335,33 @@ export async function evaluateAlertsNow(): Promise<{ ok: boolean; triggered_coun
 }
 
 // ============================================================
-// 9. Reports & Exports
+// 9. Data retention
+// ============================================================
+export interface PurgeTableSummary {
+  deleted: number;
+  more_remaining: boolean;
+}
+export interface PurgeSummary {
+  analytics_events: PurgeTableSummary;
+  error_logs: PurgeTableSummary;
+  analytics_sessions: PurgeTableSummary;
+  ran_at: string;
+}
+
+/** Runs the retention purge immediately (the "Run cleanup now" button), authenticated with the caller's own session. */
+export async function purgeAnalyticsDataNow(): Promise<{ ok: boolean; summary: PurgeSummary }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  const res = await fetch("/api/analytics-cleanup", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error("Failed to run cleanup");
+  return res.json();
+}
+
+// ============================================================
+// 10. Reports & Exports
 // ============================================================
 export interface ScheduledReport {
   id: string;
