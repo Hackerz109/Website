@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ChangeEvent } from "react";
-import { Plus, Pencil, Trash2, Star, Upload, Loader2, Copy, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Star, Upload, Loader2, Copy, Layers, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import { Drawer, DrawerContent, DrawerHeader, DrawerFooter, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -895,6 +896,9 @@ function VariantsEditor({
   // product with several variants doesn't turn into one huge scroll of
   // fields all shown at once.
   const [openId, setOpenId] = useState<string | undefined>(undefined);
+  // Which variant is mid-reorder — disables both arrows on it briefly so a
+  // fast double-tap can't fire two overlapping swaps.
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!variants) return;
@@ -1024,6 +1028,32 @@ function VariantsEditor({
     refresh();
   }
 
+  async function moveVariant(v: Variant, direction: -1 | 1) {
+    if (!variants) return;
+    const idx = variants.findIndex((x) => x.id === v.id);
+    const swapIdx = idx + direction;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= variants.length) return;
+
+    const reordered = [...variants];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+
+    setReorderingId(v.id);
+    // Re-number everyone sequentially from the new order, rather than just
+    // swapping the two touched rows' sort_order values — this self-heals
+    // any duplicate/gapped sort_order left over from older data instead of
+    // assuming the existing values were already clean.
+    for (let i = 0; i < reordered.length; i++) {
+      if (reordered[i].sort_order === i) continue;
+      const { error } = await supabase.from("product_variants").update({ sort_order: i }).eq("id", reordered[i].id);
+      if (error) {
+        toast.error(error.message);
+        break;
+      }
+    }
+    setReorderingId(null);
+    refresh();
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -1057,22 +1087,52 @@ function VariantsEditor({
           onValueChange={(v) => setOpenId(v || undefined)}
           className="mt-2"
         >
-          {variants.map((v) => {
+          {variants.map((v, idx) => {
             const d = drafts[v.id] ?? { name: "", price: "", mrp: "", stock: "", stock_unlimited: false, sku: "", specifications: [] };
             const priceLabel = d.price ? formatMoney(Math.round(parseFloat(d.price) * 100 || 0), product.currency) : "—";
             const stockText = d.stock_unlimited ? "Unlimited" : `${d.stock || 0} in stock`;
+            const isReordering = reorderingId !== null;
             return (
-              <AccordionItem key={v.id} value={v.id} className="mb-2 rounded-lg border px-3">
-                <AccordionTrigger className="py-3 hover:no-underline">
-                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2 pr-2 text-left">
-                    <span className="min-w-0 truncate font-medium">{d.name || "Untitled variant"}</span>
-                    <span className="flex-shrink-0 text-xs text-muted-foreground">
-                      {priceLabel} · {stockText}
-                    </span>
+              <AccordionItem key={v.id} value={v.id} className="mb-2 rounded-lg border">
+                <AccordionPrimitive.Header className="flex items-stretch">
+                  <div className="flex flex-shrink-0 flex-col justify-center gap-0.5 border-r px-1.5 py-1">
+                    <button
+                      type="button"
+                      disabled={idx === 0 || isReordering}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveVariant(v, -1);
+                      }}
+                      className="flex h-6 w-7 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
+                      aria-label={`Move ${v.name || "variant"} up`}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === variants.length - 1 || isReordering}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveVariant(v, 1);
+                      }}
+                      className="flex h-6 w-7 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
+                      aria-label={`Move ${v.name || "variant"} down`}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                </AccordionTrigger>
+                  <AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center justify-between gap-2 px-3 py-3 text-left text-sm font-medium transition-all hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2 pr-1">
+                      <span className="min-w-0 truncate font-medium">{d.name || "Untitled variant"}</span>
+                      <span className="flex-shrink-0 text-xs text-muted-foreground">
+                        {priceLabel} · {stockText}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200" />
+                  </AccordionPrimitive.Trigger>
+                </AccordionPrimitive.Header>
                 <AccordionContent>
-                  <div className="space-y-4 pb-1">
+                  <div className="space-y-4 px-3 pb-1">
                     <div>
                       <Label className="text-xs font-semibold text-muted-foreground">Name & pricing</Label>
                       <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-3">
