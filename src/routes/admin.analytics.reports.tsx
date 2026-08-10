@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, useLocation } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Send, FileDown } from "lucide-react";
+import { Plus, Trash2, Send, FileDown, Eraser } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
   updateScheduledReport,
   deleteScheduledReport,
   sendReportNow,
+  purgeAnalyticsDataNow,
   fetchOverviewStats,
   fetchUserStats,
   fetchGeoStats,
@@ -23,6 +24,7 @@ import {
   fetchBusinessStats,
   fetchErrorStats,
   type ScheduledReport,
+  type PurgeSummary,
 } from "@/lib/admin-analytics";
 import { exportCSV, exportJSON, exportExcel, exportPDF } from "@/lib/admin-analytics-export";
 import { searchToResolvedRange, type AnalyticsSearch } from "@/lib/analytics-dateRange";
@@ -200,6 +202,20 @@ function ReportsExports() {
     onError: () => toast.error("Couldn't send that report — check the recipient list"),
   });
 
+  // Not persisted anywhere — this is only the result of the button click
+  // below, held in memory for this page view. The daily cron run's summary
+  // lives in Vercel's cron logs instead (see api.analytics-cleanup.ts).
+  const [purgeSummary, setPurgeSummary] = useState<PurgeSummary | null>(null);
+  const purgeMutation = useMutation({
+    mutationFn: purgeAnalyticsDataNow,
+    onSuccess: ({ summary }) => {
+      setPurgeSummary(summary);
+      const total = summary.analytics_events.deleted + summary.error_logs.deleted + summary.analytics_sessions.deleted;
+      toast.success(total > 0 ? `Cleanup ran — ${total.toLocaleString()} old rows deleted` : "Cleanup ran — nothing old to delete");
+    },
+    onError: () => toast.error("Couldn't run cleanup right now"),
+  });
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border bg-card p-5 shadow-soft">
@@ -221,6 +237,52 @@ function ReportsExports() {
             <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
           </Button>
         </div>
+      </div>
+
+      <div className="rounded-xl border bg-card p-5 shadow-soft">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Data retention</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Events &amp; errors older than 60 days and sessions older than 90 days are purged automatically
+              once a day. Use this to run it early.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => purgeMutation.mutate()}
+            disabled={purgeMutation.isPending}
+          >
+            <Eraser className="h-3.5 w-3.5" /> Run cleanup now
+          </Button>
+        </div>
+        {purgeSummary && (
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Events</p>
+              <p className="font-medium">
+                {purgeSummary.analytics_events.deleted.toLocaleString()} deleted
+                {purgeSummary.analytics_events.more_remaining ? " · more pending" : ""}
+              </p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Errors</p>
+              <p className="font-medium">
+                {purgeSummary.error_logs.deleted.toLocaleString()} deleted
+                {purgeSummary.error_logs.more_remaining ? " · more pending" : ""}
+              </p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Sessions</p>
+              <p className="font-medium">
+                {purgeSummary.analytics_sessions.deleted.toLocaleString()} deleted
+                {purgeSummary.analytics_sessions.more_remaining ? " · more pending" : ""}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border bg-card shadow-soft">
