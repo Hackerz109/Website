@@ -46,6 +46,10 @@ function ExecutiveOverview() {
     queryKey: ["analytics-overview", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchOverviewStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
+    // A mounting/re-rendering observer only needs a network round trip if the
+    // cached data is actually older than this. Without it (default staleTime: 0),
+    // any repeated mount of this component — for whatever reason — re-fetches
+    // immediately instead of reusing what's already in the shared QueryClient cache.
     staleTime: 60_000,
   });
 
