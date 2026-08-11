@@ -38,6 +38,13 @@
 // true children of AdminAnalyticsRoute (not flattened under AdminRoute
 // like the other admin.*.$id routes), since admin.analytics.tsx renders
 // them through its own <Outlet />.
+//
+// MANUALLY CORRECTED AGAIN same day (2026-08-11): the pass above only
+// added the admin *pages*, not the five api.analytics-*.ts server routes
+// they depend on (alerts-check, cleanup, error, reports-run, track) —
+// those existed on disk too but were still missing here, so every
+// analytics API call was 404ing even though the pages themselves loaded.
+// Added as flat root-level routes, same pattern as api.support-notify.
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
@@ -97,6 +104,11 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminUsersIdRouteImport } from './routes/admin.users.$id'
 import { Route as AdminOrdersIdRouteImport } from './routes/admin.orders.$id'
 import { Route as ApiSupportNotifyRouteImport } from './routes/api.support-notify'
+import { Route as ApiAnalyticsAlertsCheckRouteImport } from './routes/api.analytics-alerts-check'
+import { Route as ApiAnalyticsCleanupRouteImport } from './routes/api.analytics-cleanup'
+import { Route as ApiAnalyticsErrorRouteImport } from './routes/api.analytics-error'
+import { Route as ApiAnalyticsReportsRunRouteImport } from './routes/api.analytics-reports-run'
+import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics-track'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as SupportIdRouteImport } from './routes/support.$id'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
@@ -387,6 +399,31 @@ const ApiSupportNotifyRoute = ApiSupportNotifyRouteImport.update({
   path: '/api/support-notify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAnalyticsAlertsCheckRoute = ApiAnalyticsAlertsCheckRouteImport.update({
+  id: '/api/analytics-alerts-check',
+  path: '/api/analytics-alerts-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnalyticsCleanupRoute = ApiAnalyticsCleanupRouteImport.update({
+  id: '/api/analytics-cleanup',
+  path: '/api/analytics-cleanup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnalyticsErrorRoute = ApiAnalyticsErrorRouteImport.update({
+  id: '/api/analytics-error',
+  path: '/api/analytics-error',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnalyticsReportsRunRoute = ApiAnalyticsReportsRunRouteImport.update({
+  id: '/api/analytics-reports-run',
+  path: '/api/analytics-reports-run',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
+  id: '/api/analytics-track',
+  path: '/api/analytics-track',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SupportRoute = SupportRouteImport.update({
   id: '/support',
   path: '/support',
@@ -470,6 +507,11 @@ export interface FileRoutesByFullPath {
   '/support/$id': typeof SupportIdRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/support/$id': typeof AdminSupportIdRoute
+  '/api/analytics-alerts-check': typeof ApiAnalyticsAlertsCheckRoute
+  '/api/analytics-cleanup': typeof ApiAnalyticsCleanupRoute
+  '/api/analytics-error': typeof ApiAnalyticsErrorRoute
+  '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
+  '/api/analytics-track': typeof ApiAnalyticsTrackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -531,6 +573,11 @@ export interface FileRoutesByTo {
   '/support/$id': typeof SupportIdRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/support/$id': typeof AdminSupportIdRoute
+  '/api/analytics-alerts-check': typeof ApiAnalyticsAlertsCheckRoute
+  '/api/analytics-cleanup': typeof ApiAnalyticsCleanupRoute
+  '/api/analytics-error': typeof ApiAnalyticsErrorRoute
+  '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
+  '/api/analytics-track': typeof ApiAnalyticsTrackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -595,6 +642,11 @@ export interface FileRoutesById {
   '/support/$id': typeof SupportIdRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/support/$id': typeof AdminSupportIdRoute
+  '/api/analytics-alerts-check': typeof ApiAnalyticsAlertsCheckRoute
+  '/api/analytics-cleanup': typeof ApiAnalyticsCleanupRoute
+  '/api/analytics-error': typeof ApiAnalyticsErrorRoute
+  '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
+  '/api/analytics-track': typeof ApiAnalyticsTrackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -660,6 +712,11 @@ export interface FileRouteTypes {
     | '/support/$id'
     | '/admin/support'
     | '/admin/support/$id'
+    | '/api/analytics-alerts-check'
+    | '/api/analytics-cleanup'
+    | '/api/analytics-error'
+    | '/api/analytics-reports-run'
+    | '/api/analytics-track'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -721,6 +778,11 @@ export interface FileRouteTypes {
     | '/support/$id'
     | '/admin/support'
     | '/admin/support/$id'
+    | '/api/analytics-alerts-check'
+    | '/api/analytics-cleanup'
+    | '/api/analytics-error'
+    | '/api/analytics-reports-run'
+    | '/api/analytics-track'
   id:
     | '__root__'
     | '/'
@@ -784,6 +846,11 @@ export interface FileRouteTypes {
     | '/support/$id'
     | '/admin/support'
     | '/admin/support/$id'
+    | '/api/analytics-alerts-check'
+    | '/api/analytics-cleanup'
+    | '/api/analytics-error'
+    | '/api/analytics-reports-run'
+    | '/api/analytics-track'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -825,6 +892,11 @@ export interface RootRouteChildren {
   ApiSupportNotifyRoute: typeof ApiSupportNotifyRoute
   SupportRoute: typeof SupportRoute
   SupportIdRoute: typeof SupportIdRoute
+  ApiAnalyticsAlertsCheckRoute: typeof ApiAnalyticsAlertsCheckRoute
+  ApiAnalyticsCleanupRoute: typeof ApiAnalyticsCleanupRoute
+  ApiAnalyticsErrorRoute: typeof ApiAnalyticsErrorRoute
+  ApiAnalyticsReportsRunRoute: typeof ApiAnalyticsReportsRunRoute
+  ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1123,6 +1195,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSupportNotifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/analytics-alerts-check': {
+      id: '/api/analytics-alerts-check'
+      path: '/api/analytics-alerts-check'
+      fullPath: '/api/analytics-alerts-check'
+      preLoaderRoute: typeof ApiAnalyticsAlertsCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analytics-cleanup': {
+      id: '/api/analytics-cleanup'
+      path: '/api/analytics-cleanup'
+      fullPath: '/api/analytics-cleanup'
+      preLoaderRoute: typeof ApiAnalyticsCleanupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analytics-error': {
+      id: '/api/analytics-error'
+      path: '/api/analytics-error'
+      fullPath: '/api/analytics-error'
+      preLoaderRoute: typeof ApiAnalyticsErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analytics-reports-run': {
+      id: '/api/analytics-reports-run'
+      path: '/api/analytics-reports-run'
+      fullPath: '/api/analytics-reports-run'
+      preLoaderRoute: typeof ApiAnalyticsReportsRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analytics-track': {
+      id: '/api/analytics-track'
+      path: '/api/analytics-track'
+      fullPath: '/api/analytics-track'
+      preLoaderRoute: typeof ApiAnalyticsTrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/support': {
       id: '/support'
       path: '/support'
@@ -1257,6 +1364,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSupportNotifyRoute: ApiSupportNotifyRoute,
   SupportRoute: SupportRoute,
   SupportIdRoute: SupportIdRoute,
+  ApiAnalyticsAlertsCheckRoute: ApiAnalyticsAlertsCheckRoute,
+  ApiAnalyticsCleanupRoute: ApiAnalyticsCleanupRoute,
+  ApiAnalyticsErrorRoute: ApiAnalyticsErrorRoute,
+  ApiAnalyticsReportsRunRoute: ApiAnalyticsReportsRunRoute,
+  ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
