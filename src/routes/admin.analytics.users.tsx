@@ -27,7 +27,6 @@ function UserAnalytics() {
     queryKey: ["analytics-users", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchUserStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
-    staleTime: 60_000,
   });
 
   const trendNewReg = compare && data ? { current: data.new_registrations, previous: data.new_registrations_prev } : undefined;

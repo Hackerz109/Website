@@ -31,9 +31,6 @@ const HEALTH_META: Record<string, { label: string; className: string }> = {
 };
 
 function ExecutiveOverview() {
-  // TEMP DEBUG — remove once the loop is found. Prints on every render.
-  console.log("[DEBUG] ExecutiveOverview render @", performance.now().toFixed(0));
-
   const search = useLocation().search as AnalyticsSearch;
   const range = searchToResolvedRange(search);
   const { start, end, prevStart, prevEnd, label } = range;
@@ -47,17 +44,8 @@ function ExecutiveOverview() {
     // that as a brand new query every time, so it never finished loading.
     // Custom ranges use a fixed picked date, which is why those "worked".
     queryKey: ["analytics-overview", search.preset ?? "30d", search.from ?? null, search.to ?? null],
-    queryFn: () => {
-      // TEMP DEBUG — remove once the loop is found.
-      console.log("[DEBUG] queryFn actually firing @", performance.now().toFixed(0), "end=", end.toISOString());
-      return fetchOverviewStats(start, end, prevStart, prevEnd);
-    },
+    queryFn: () => fetchOverviewStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
-    // A mounting/re-rendering observer only needs a network round trip if the
-    // cached data is actually older than this. Without it (default staleTime: 0),
-    // any repeated mount of this component — for whatever reason — re-fetches
-    // immediately instead of reusing what's already in the shared QueryClient cache.
-    staleTime: 60_000,
   });
 
   const c = data?.current;

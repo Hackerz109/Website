@@ -21,7 +21,6 @@ function BusinessAnalytics() {
     queryKey: ["analytics-business", search.preset ?? "30d", search.from ?? null, search.to ?? null],
     queryFn: () => fetchBusinessStats(start, end, prevStart, prevEnd),
     refetchInterval: 60_000,
-    staleTime: 60_000,
   });
 
   const trend = (curr: number | undefined, prev: number | undefined, invert = false) =>

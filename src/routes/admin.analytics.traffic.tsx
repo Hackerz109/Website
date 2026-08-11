@@ -38,7 +38,6 @@ function TrafficAnalytics() {
     queryKey: ["analytics-traffic", search.preset ?? "30d", search.from ?? null, search.to ?? null, filters],
     queryFn: () => fetchTrafficStats(start, end, prevStart, prevEnd, filters),
     refetchInterval: 60_000,
-    staleTime: 60_000,
   });
 
   const hasFilters = Object.values(filters).some(Boolean);
