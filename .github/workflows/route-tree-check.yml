@@ -1,0 +1,35 @@
+name: Route Tree Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify every route file is registered in routeTree.gen.ts
+        run: |
+          missing=0
+          while IFS= read -r -d '' f; do
+            base=$(basename "$f")
+            base="${base%.tsx}"
+            base="${base%.ts}"
+            if [ "$base" = "__root" ]; then
+              continue
+            fi
+            if ! grep -qF "routes/${base}'" src/routeTree.gen.ts; then
+              echo "::error::Missing from routeTree.gen.ts: src/routes/${base}"
+              missing=1
+            fi
+          done < <(find src/routes -type f \( -name "*.ts" -o -name "*.tsx" \) -print0)
+
+          if [ "$missing" -eq 1 ]; then
+            echo ""
+            echo "One or more route files have no matching entry in src/routeTree.gen.ts."
+            echo "TanStack's auto-regeneration didn't pick them up -- they'll 404 in production even though the deploy succeeds."
+            exit 1
+          fi
+
+          echo "All route files are registered in routeTree.gen.ts."
