@@ -113,6 +113,12 @@ import { Route as SupportRouteImport } from './routes/support'
 import { Route as SupportIdRouteImport } from './routes/support.$id'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSupportIdRouteImport } from './routes/admin.support.$id'
+import { Route as AdminAiConsoleRouteImport } from './routes/admin.ai-console'
+import { Route as AdminSearchRouteImport } from './routes/admin.search'
+import { Route as ApiAiConsoleRouteImport } from './routes/api.ai-console'
+import { Route as ApiValidateCouponRouteImport } from './routes/api.validate-coupon'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
@@ -424,6 +430,36 @@ const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
   path: '/api/analytics-track',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAiConsoleRoute = AdminAiConsoleRouteImport.update({
+  id: '/ai-console',
+  path: '/ai-console',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSearchRoute = AdminSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiAiConsoleRoute = ApiAiConsoleRouteImport.update({
+  id: '/api/ai-console',
+  path: '/api/ai-console',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiValidateCouponRoute = ApiValidateCouponRouteImport.update({
+  id: '/api/validate-coupon',
+  path: '/api/validate-coupon',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SupportRoute = SupportRouteImport.update({
   id: '/support',
   path: '/support',
@@ -512,6 +548,12 @@ export interface FileRoutesByFullPath {
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
+  '/admin/ai-console': typeof AdminAiConsoleRoute
+  '/admin/search': typeof AdminSearchRoute
+  '/api/ai-console': typeof ApiAiConsoleRoute
+  '/api/validate-coupon': typeof ApiValidateCouponRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -578,6 +620,12 @@ export interface FileRoutesByTo {
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
+  '/admin/ai-console': typeof AdminAiConsoleRoute
+  '/admin/search': typeof AdminSearchRoute
+  '/api/ai-console': typeof ApiAiConsoleRoute
+  '/api/validate-coupon': typeof ApiValidateCouponRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -647,6 +695,12 @@ export interface FileRoutesById {
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
+  '/admin/ai-console': typeof AdminAiConsoleRoute
+  '/admin/search': typeof AdminSearchRoute
+  '/api/ai-console': typeof ApiAiConsoleRoute
+  '/api/validate-coupon': typeof ApiValidateCouponRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -717,6 +771,12 @@ export interface FileRouteTypes {
     | '/api/analytics-error'
     | '/api/analytics-reports-run'
     | '/api/analytics-track'
+    | '/admin/ai-console'
+    | '/admin/search'
+    | '/api/ai-console'
+    | '/api/validate-coupon'
+    | '/forgot-password'
+    | '/reset-password'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -783,6 +843,12 @@ export interface FileRouteTypes {
     | '/api/analytics-error'
     | '/api/analytics-reports-run'
     | '/api/analytics-track'
+    | '/admin/ai-console'
+    | '/admin/search'
+    | '/api/ai-console'
+    | '/api/validate-coupon'
+    | '/forgot-password'
+    | '/reset-password'
   id:
     | '__root__'
     | '/'
@@ -851,6 +917,12 @@ export interface FileRouteTypes {
     | '/api/analytics-error'
     | '/api/analytics-reports-run'
     | '/api/analytics-track'
+    | '/admin/ai-console'
+    | '/admin/search'
+    | '/api/ai-console'
+    | '/api/validate-coupon'
+    | '/forgot-password'
+    | '/reset-password'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -897,6 +969,10 @@ export interface RootRouteChildren {
   ApiAnalyticsErrorRoute: typeof ApiAnalyticsErrorRoute
   ApiAnalyticsReportsRunRoute: typeof ApiAnalyticsReportsRunRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
+  ApiAiConsoleRoute: typeof ApiAiConsoleRoute
+  ApiValidateCouponRoute: typeof ApiValidateCouponRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1230,6 +1306,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAnalyticsTrackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/ai-console': {
+      id: '/admin/ai-console'
+      path: '/ai-console'
+      fullPath: '/admin/ai-console'
+      preLoaderRoute: typeof AdminAiConsoleRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/search': {
+      id: '/admin/search'
+      path: '/search'
+      fullPath: '/admin/search'
+      preLoaderRoute: typeof AdminSearchRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/ai-console': {
+      id: '/api/ai-console'
+      path: '/api/ai-console'
+      fullPath: '/api/ai-console'
+      preLoaderRoute: typeof ApiAiConsoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/validate-coupon': {
+      id: '/api/validate-coupon'
+      path: '/api/validate-coupon'
+      fullPath: '/api/validate-coupon'
+      preLoaderRoute: typeof ApiValidateCouponRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/support': {
       id: '/support'
       path: '/support'
@@ -1304,6 +1422,8 @@ interface AdminRouteChildren {
   AdminSupportRoute: typeof AdminSupportRoute
   AdminSupportIdRoute: typeof AdminSupportIdRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRouteWithChildren
+  AdminAiConsoleRoute: typeof AdminAiConsoleRoute
+  AdminSearchRoute: typeof AdminSearchRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -1321,6 +1441,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSupportRoute: AdminSupportRoute,
   AdminSupportIdRoute: AdminSupportIdRoute,
   AdminAnalyticsRoute: AdminAnalyticsRouteWithChildren,
+  AdminAiConsoleRoute: AdminAiConsoleRoute,
+  AdminSearchRoute: AdminSearchRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -1369,6 +1491,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAnalyticsErrorRoute: ApiAnalyticsErrorRoute,
   ApiAnalyticsReportsRunRoute: ApiAnalyticsReportsRunRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
+  ApiAiConsoleRoute: ApiAiConsoleRoute,
+  ApiValidateCouponRoute: ApiValidateCouponRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
