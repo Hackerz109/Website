@@ -34,6 +34,7 @@ const METRIC_LABELS: Record<AlertMetric, string> = {
   api_traffic: "Checkout / API activity",
   system_errors: "System errors",
   refunds: "Refunds",
+  slow_pageviews_pct: "Slow pageviews (poor LCP) %",
 };
 const CONDITION_LABELS: Record<AlertCondition, string> = {
   above: "is above",

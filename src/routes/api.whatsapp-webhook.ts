@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import crypto from "node:crypto";
 import { formatMoney } from "@/stores/cart";
+import { logServerError } from "@/lib/errorLog.server";
 
 // Type-only reference — erased at compile time, so this does NOT pull the
 // service-role client (or its secret key) into the client bundle. The real
@@ -31,11 +32,24 @@ export const Route = createFileRoute("/api/whatsapp-webhook")({
         const appSecret = process.env.WHATSAPP_APP_SECRET;
         if (!appSecret) {
           console.error("[whatsapp-webhook] WHATSAPP_APP_SECRET is not set — refusing all requests");
+          await logServerError({
+            errorType: "api",
+            severity: "critical",
+            message: "WhatsApp webhook received but WHATSAPP_APP_SECRET is not configured — every webhook is being rejected",
+            path: "/api/whatsapp-webhook",
+          });
           return new Response("Server not configured", { status: 500 });
         }
         const signature = request.headers.get("x-hub-signature-256");
         if (!isValidSignature(rawBody, signature, appSecret)) {
           console.warn("[whatsapp-webhook] rejected request with invalid signature");
+          await logServerError({
+            errorType: "api",
+            severity: "warning",
+            message: "WhatsApp webhook rejected: invalid signature",
+            path: "/api/whatsapp-webhook",
+            statusCode: 401,
+          });
           return new Response("Invalid signature", { status: 401 });
         }
 
@@ -54,6 +68,13 @@ export const Route = createFileRoute("/api/whatsapp-webhook")({
         } catch (err) {
           // Never let a processing error cause Meta to retry-storm us; log and 200 anyway.
           console.error("[whatsapp-webhook] handler error", err);
+          await logServerError({
+            errorType: "api",
+            severity: "error",
+            message: "WhatsApp webhook processing failed",
+            error: err,
+            path: "/api/whatsapp-webhook",
+          });
         }
 
         return new Response("OK", { status: 200 });

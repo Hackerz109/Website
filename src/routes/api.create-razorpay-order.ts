@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { logServerError } from "@/lib/errorLog.server";
 
 export const Route = createFileRoute("/api/create-razorpay-order")({
   server: {
@@ -40,6 +41,12 @@ export const Route = createFileRoute("/api/create-razorpay-order")({
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
         if (!keyId || !keySecret) {
           console.error("[create-razorpay-order] missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET");
+          await logServerError({
+            errorType: "api",
+            severity: "critical",
+            message: "Checkout started but RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET are not configured — no one can pay right now",
+            path: "/api/create-razorpay-order",
+          });
           return json({ error: "Payments are not configured yet" }, 500);
         }
 
@@ -60,6 +67,14 @@ export const Route = createFileRoute("/api/create-razorpay-order")({
         if (!rzpRes.ok) {
           const errText = await rzpRes.text();
           console.error("[create-razorpay-order] Razorpay API error", rzpRes.status, errText);
+          await logServerError({
+            errorType: "api",
+            severity: "error",
+            message: `Razorpay declined order creation for order ${order.id}`,
+            error: errText.slice(0, 500),
+            path: "/api/create-razorpay-order",
+            statusCode: rzpRes.status,
+          });
           return json({ error: "Could not start payment" }, 502);
         }
         const rzpOrder = await rzpRes.json();
@@ -73,6 +88,16 @@ export const Route = createFileRoute("/api/create-razorpay-order")({
           .eq("id", order.id);
         if (updateErr) {
           console.error("[create-razorpay-order] failed to save razorpay_order_id", updateErr);
+          // Gateway order exists but our order row doesn't point at it yet
+          // — verify-razorpay-payment will reject the eventual payment with
+          // an order mismatch unless this is caught and retried.
+          await logServerError({
+            errorType: "database",
+            severity: "critical",
+            message: `Razorpay order ${rzpOrder.id} created but failed to save onto order ${order.id}`,
+            error: updateErr,
+            path: "/api/create-razorpay-order",
+          });
           return json({ error: "Could not start payment" }, 500);
         }
 

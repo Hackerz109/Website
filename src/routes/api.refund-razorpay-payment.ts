@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { logServerError } from "@/lib/errorLog.server";
 
 // Admin-only: refunds a return request to the customer's original payment
 // method via the Razorpay Refunds API, then records the outcome through
@@ -58,6 +59,12 @@ export const Route = createFileRoute("/api/refund-razorpay-payment")({
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
         if (!keyId || !keySecret) {
           console.error("[refund-razorpay-payment] missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET");
+          await logServerError({
+            errorType: "api",
+            severity: "critical",
+            message: "Refund attempted but RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET are not configured — every refund is failing",
+            path: "/api/refund-razorpay-payment",
+          });
           return json({ error: "Payments are not configured yet" }, 500);
         }
 
@@ -78,6 +85,14 @@ export const Route = createFileRoute("/api/refund-razorpay-payment")({
         if (!rzpRes.ok) {
           const errText = await rzpRes.text();
           console.error("[refund-razorpay-payment] Razorpay API error", rzpRes.status, errText);
+          await logServerError({
+            errorType: "api",
+            severity: "error",
+            message: `Razorpay declined refund for return ${ret.id}`,
+            error: errText.slice(0, 500),
+            path: "/api/refund-razorpay-payment",
+            statusCode: rzpRes.status,
+          });
           return json({ error: "The payment gateway declined this refund" }, 502);
         }
         const rzpRefund = await rzpRes.json();
@@ -89,6 +104,15 @@ export const Route = createFileRoute("/api/refund-razorpay-payment")({
         });
         if (rpcErr) {
           console.error("[refund-razorpay-payment] gateway refund succeeded but record-keeping failed", rpcErr);
+          // The highest-stakes failure mode in this whole flow: money has
+          // already left via the gateway and the DB doesn't know it yet.
+          await logServerError({
+            errorType: "database",
+            severity: "critical",
+            message: `Gateway refund ${rzpRefund.id} succeeded but admin_process_refund failed for return ${ret.id}`,
+            error: rpcErr,
+            path: "/api/refund-razorpay-payment",
+          });
           return json({ error: "Refund was issued but couldn't be recorded — contact support with refund id " + rzpRefund.id }, 500);
         }
 

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import type { Database } from "@/integrations/supabase/types";
+import { logServerError } from "@/lib/errorLog.server";
 
 export const Route = createFileRoute("/api/verify-razorpay-payment")({
   server: {
@@ -42,6 +43,12 @@ export const Route = createFileRoute("/api/verify-razorpay-payment")({
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
         if (!keySecret) {
           console.error("[verify-razorpay-payment] missing RAZORPAY_KEY_SECRET");
+          await logServerError({
+            errorType: "api",
+            severity: "critical",
+            message: "Payment verification called but RAZORPAY_KEY_SECRET is not configured — every verification is failing",
+            path: "/api/verify-razorpay-payment",
+          });
           return json({ error: "Payments are not configured yet" }, 500);
         }
 
@@ -55,6 +62,16 @@ export const Route = createFileRoute("/api/verify-razorpay-payment")({
         const validSignature = expectedBuf.length === gotBuf.length && crypto.timingSafeEqual(expectedBuf, gotBuf);
         if (!validSignature) {
           console.warn("[verify-razorpay-payment] signature mismatch for order", orderId);
+          // Never log the signature values themselves — just that a
+          // mismatch happened and for which order, which is enough to spot
+          // either a Razorpay-side issue or a tampered request.
+          await logServerError({
+            errorType: "api",
+            severity: "warning",
+            message: `Payment signature mismatch for order ${orderId}`,
+            path: "/api/verify-razorpay-payment",
+            statusCode: 400,
+          });
           return json({ error: "Invalid signature" }, 400);
         }
 
@@ -70,6 +87,16 @@ export const Route = createFileRoute("/api/verify-razorpay-payment")({
             .eq("id", order.id);
           if (updateErr) {
             console.error("[verify-razorpay-payment] failed to mark order paid", updateErr);
+            // The gateway confirmed the charge but our own DB update
+            // failed — money moved and the order doesn't reflect it yet.
+            // The webhook is a backstop for this, but it's worth paging on.
+            await logServerError({
+              errorType: "database",
+              severity: "critical",
+              message: `Verified payment but failed to mark order ${order.id} as paid`,
+              error: updateErr,
+              path: "/api/verify-razorpay-payment",
+            });
             return json({ error: "Could not confirm payment" }, 500);
           }
         }
@@ -82,6 +109,13 @@ export const Route = createFileRoute("/api/verify-razorpay-payment")({
           await notifyPaymentPaid(order.id);
         } catch (err) {
           console.error("[verify-razorpay-payment] notify error", err);
+          await logServerError({
+            errorType: "job",
+            severity: "warning",
+            message: `Payment-confirmation notification failed for order ${order.id}`,
+            error: err,
+            path: "/api/verify-razorpay-payment",
+          });
         }
 
         return json({ ok: true });

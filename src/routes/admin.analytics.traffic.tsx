@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, useLocation } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Eye, Layers, Clock, ArrowDownUp, X } from "lucide-react";
+import { Users, Eye, Layers, Clock, ArrowDownUp, X, Gauge, Activity, Timer, AlertTriangle } from "lucide-react";
 import { StatCard } from "@/components/analytics/StatCard";
 import { ChartCard, TrendAreaChart, SimpleBarList, DonutBreakdown } from "@/components/analytics/Charts";
 import { ExportMenu } from "@/components/analytics/ExportMenu";
@@ -17,6 +17,21 @@ function formatDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   const mins = Math.floor(seconds / 60);
   return `${mins}m ${Math.round(seconds % 60)}s`;
+}
+
+function formatMs(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined) return "—";
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`;
+}
+
+// Standard Core Web Vitals thresholds (not project-specific).
+function lcpRating(ms: number | null | undefined): string | undefined {
+  if (ms === null || ms === undefined) return undefined;
+  return ms <= 2500 ? "Good" : ms <= 4000 ? "Needs improvement" : "Poor";
+}
+function clsRating(cls: number | null | undefined): string | undefined {
+  if (cls === null || cls === undefined) return undefined;
+  return cls <= 0.1 ? "Good" : cls <= 0.25 ? "Needs improvement" : "Poor";
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -54,6 +69,10 @@ function TrafficAnalytics() {
         { metric: "Page views", value: data.page_views },
         { metric: "Bounce rate", value: `${data.bounce_rate_pct}%` },
         { metric: "Avg. session duration", value: formatDuration(data.avg_session_duration_seconds) },
+        { metric: "Avg. LCP (page load)", value: formatMs(data.performance?.avg_lcp_ms) },
+        { metric: "Avg. CLS (layout shift)", value: data.performance?.avg_cls ?? "—" },
+        { metric: "Avg. TTFB", value: formatMs(data.performance?.avg_ttfb_ms) },
+        { metric: "Slow pageviews (poor LCP)", value: data.performance?.poor_lcp_pct != null ? `${data.performance.poor_lcp_pct}%` : "—" },
       ]
     : [];
 
@@ -122,6 +141,39 @@ function TrafficAnalytics() {
           ]}
         />
       </ChartCard>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-medium text-foreground">Page performance</h3>
+          {!isLoading && data?.performance && data.performance.samples === 0 && (
+            <span className="text-xs text-muted-foreground">No performance data in this range yet</span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard
+            icon={Gauge}
+            label="Avg. load (LCP)"
+            value={formatMs(data?.performance?.avg_lcp_ms)}
+            sub={lcpRating(data?.performance?.avg_lcp_ms)}
+            loading={isLoading}
+          />
+          <StatCard
+            icon={Activity}
+            label="Avg. layout shift"
+            value={data?.performance?.avg_cls?.toString() ?? "—"}
+            sub={clsRating(data?.performance?.avg_cls)}
+            loading={isLoading}
+          />
+          <StatCard icon={Timer} label="Avg. server response" value={formatMs(data?.performance?.avg_ttfb_ms)} loading={isLoading} />
+          <StatCard
+            icon={AlertTriangle}
+            label="Slow pageviews"
+            value={data?.performance?.poor_lcp_pct != null ? `${data.performance.poor_lcp_pct}%` : "—"}
+            sub="Poor LCP (>4s)"
+            loading={isLoading}
+          />
+        </div>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard title="Traffic sources">
