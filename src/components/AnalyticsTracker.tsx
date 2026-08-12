@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { trackPageview, trackClientError } from "@/lib/analytics-tracker";
+import { installFetchMonitoring, handleResourceErrorEvent, handleOffline, handleOnline } from "@/lib/network-monitor";
+import { installPerformanceTracking } from "@/lib/performance-tracker";
 
 /** Renders nothing — mounted once in AppShell alongside the other ambient providers. */
 export function AnalyticsTracker() {
@@ -30,6 +32,28 @@ export function AnalyticsTracker() {
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Network/resource/performance monitoring — installed once for the whole
+  // app lifetime, same as the JS-error listeners above. fetch monitoring
+  // and performance capture are one-way installs (each guarded by its own
+  // module-level flag, since undoing a wrapped fetch() isn't something you
+  // can cleanly do on unmount); the resource-error and connectivity
+  // listeners follow the exact add/remove pattern used above.
+  useEffect(() => {
+    installFetchMonitoring();
+    installPerformanceTracking();
+
+    // Capture phase is required here — see the comment in network-monitor.ts.
+    window.addEventListener("error", handleResourceErrorEvent, true);
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("error", handleResourceErrorEvent, true);
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
