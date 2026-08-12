@@ -159,8 +159,11 @@ async function gatherSections(
       p_start: iso(start), p_end: iso(end), p_prev_start: iso(prevStart), p_prev_end: iso(prevEnd),
       p_device: null, p_browser: null, p_source: null, p_country: null,
     });
-    const t = data as Record<string, number> | null;
+    const t = data as Record<string, number> & {
+      performance?: { avg_lcp_ms: number | null; avg_ttfb_ms: number | null; poor_lcp_pct: number | null };
+    } | null;
     if (t) {
+      const perf = t.performance;
       sections.push({
         title: "Traffic",
         rows: [
@@ -169,6 +172,8 @@ async function gatherSections(
           ["Page views", String(t.page_views ?? 0)],
           ["Bounce rate", `${t.bounce_rate_pct ?? 0}%`],
           ["Avg. session duration", `${Math.round((t.avg_session_duration_seconds ?? 0) / 60)} min`],
+          ["Avg. page load (LCP)", perf?.avg_lcp_ms != null ? `${perf.avg_lcp_ms}ms` : "—"],
+          ["Slow pageviews (poor LCP)", perf?.poor_lcp_pct != null ? `${perf.poor_lcp_pct}%` : "—"],
         ],
       });
     }

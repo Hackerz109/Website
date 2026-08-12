@@ -101,6 +101,19 @@ export interface TrafficFilters {
   country?: string | null;
 }
 
+export interface TrafficPerformanceStats {
+  samples: number;
+  avg_lcp_ms: number | null;
+  avg_cls: number | null;
+  avg_fcp_ms: number | null;
+  avg_ttfb_ms: number | null;
+  avg_load_ms: number | null;
+  /** % of measured pageviews with LCP over the "poor" Core Web Vitals threshold (4000ms). */
+  poor_lcp_pct: number | null;
+  /** % of measured pageviews with CLS over the "poor" Core Web Vitals threshold (0.25). */
+  poor_cls_pct: number | null;
+}
+
 export interface TrafficStats {
   total_visitors: number;
   unique_visitors: number;
@@ -115,6 +128,7 @@ export interface TrafficStats {
   entry_pages: { path: string; sessions: number }[];
   exit_pages: { path: string; sessions: number }[];
   daily_trend: { date: string; sessions: number; visitors: number; page_views: number }[];
+  performance: TrafficPerformanceStats;
   error?: string;
 }
 
@@ -253,7 +267,7 @@ export async function fetchRealtimeSnapshot(): Promise<RealtimeSnapshot> {
 // ============================================================
 export type AlertMetric =
   | "traffic" | "error_rate" | "revenue" | "failed_transactions"
-  | "new_registrations" | "api_traffic" | "system_errors" | "refunds";
+  | "new_registrations" | "api_traffic" | "system_errors" | "refunds" | "slow_pageviews_pct";
 export type AlertCondition = "above" | "below" | "spike_pct" | "drop_pct";
 export type AlertSeverity = "critical" | "warning" | "info";
 

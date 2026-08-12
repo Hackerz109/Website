@@ -83,6 +83,11 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
   analytics_error: {
     ip: { limit: 100, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
   },
+  // One beacon per pageview (sent on visibilitychange, same cadence as
+  // analytics_track), so the same generous per-IP allowance applies.
+  analytics_vitals: {
+    ip: { limit: 600, windowMs: 10 * 60_000, lockMs: 5 * 60_000 },
+  },
   // Coupon validation: unlike the scopes above this isn't really about
   // credential stuffing, it's about stopping a scripted caller from
   // guessing coupon codes (including hidden ones — see the migration that
