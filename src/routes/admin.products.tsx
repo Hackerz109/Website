@@ -118,13 +118,25 @@ function pathFromPublicUrl(url: string) {
 
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
+// Raster types the browser can safely decode via <img>/canvas and that
+// standardizeProductImage can re-encode to JPEG. Deliberately excludes
+// image/svg+xml — an SVG is XML, not pixels, and some contexts (direct
+// navigation to the storage URL, an <object>/<iframe> embed) will run
+// any script it contains rather than just display it.
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+// A file below this doesn't mean it's genuinely that size — this is a
+// decompression-bomb guard, not a dimension check. Something claiming to
+// be, say, a 40000x40000 PNG can be a tiny file on disk yet blow up to
+// gigabytes of raw pixels the moment a <canvas> decodes it, hanging or
+// crashing the admin's own browser tab during upload.
+const MAX_IMAGE_SIDE_PX = 8000;
 
 // Shared by the product-level and per-variant uploaders so a stray huge
 // file or an accidental non-image can't hang image processing or get
 // uploaded with the wrong content type.
 function validateImageFiles(files: File[]): string | null {
   for (const f of files) {
-    if (!f.type.startsWith("image/")) return `"${f.name}" isn't an image file.`;
+    if (!ALLOWED_IMAGE_TYPES.has(f.type)) return `"${f.name}" isn't a supported image type (JPEG, PNG, WebP, or GIF).`;
     if (f.size > MAX_IMAGE_BYTES) return `"${f.name}" is over ${MAX_IMAGE_MB}MB.`;
   }
   return null;
@@ -144,12 +156,30 @@ function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_variants(price_cents, stock, stock_unlimited), categories(name), brands(name), bulk_pricing_tiers(min_qty)")
+        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name), brands(name), bulk_pricing_tiers(min_qty)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+
+  // Same precedence the storefront's ProductCard uses: the shared gallery's
+  // primary (or first) photo, then a variant's own photo, then the legacy
+  // "Fallback image URL" field. The list query only pulled `image_url`
+  // before, so every product with photos uploaded through the Photos tab
+  // (the normal way now) rendered no thumbnail at all here, even though
+  // customers see one fine on the storefront.
+  function adminThumbnail(p: Product & { product_images?: { url: string; is_primary: boolean; variant_id?: string | null }[] }) {
+    const allImages = p.product_images ?? [];
+    const sharedImages = allImages.filter((i) => !i.variant_id);
+    const variantImages = allImages.filter((i) => i.variant_id);
+    return sharedImages.find((i) => i.is_primary)?.url
+      ?? sharedImages[0]?.url
+      ?? variantImages.find((i) => i.is_primary)?.url
+      ?? variantImages[0]?.url
+      ?? p.image_url
+      ?? null;
+  }
 
   const { edit: editId } = Route.useSearch();
   const navigate = useNavigate();
@@ -443,11 +473,17 @@ function AdminProducts() {
 
       {/* Mobile: card list */}
       <div className="space-y-3 md:hidden">
-        {(products ?? []).map((p) => (
+        {(products ?? []).map((p) => {
+          const thumb = adminThumbnail(p);
+          return (
           <div key={p.id} className="rounded-xl border p-4">
             <div className="flex items-start gap-3">
               <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-secondary/60">
-                {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+                {thumb ? (
+                  <img src={thumb} alt="" className="h-full w-full object-contain" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[9px] font-medium text-muted-foreground">No image</div>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1 font-medium">
@@ -495,7 +531,8 @@ function AdminProducts() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
         {(products ?? []).length === 0 && (
           <div className="rounded-xl border py-12 text-center text-sm text-muted-foreground">
             No products yet — tap "Add product" to create your first one.
@@ -516,12 +553,18 @@ function AdminProducts() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(products ?? []).map((p) => (
+            {(products ?? []).map((p) => {
+              const thumb = adminThumbnail(p);
+              return (
               <TableRow key={p.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 overflow-hidden rounded bg-secondary/60">
-                      {p.image_url && <img src={p.image_url} alt="" className="h-full w-full object-cover" />}
+                      {thumb ? (
+                        <img src={thumb} alt="" className="h-full w-full object-contain" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[8px] font-medium text-muted-foreground">No image</div>
+                      )}
                     </div>
                     <div>
                       <p className="flex items-center gap-1 font-medium">
@@ -571,7 +614,8 @@ function AdminProducts() {
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
             {(products ?? []).length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
@@ -1558,11 +1602,18 @@ function VariantImagesEditor({
     const startCount = images?.length ?? 0;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      let uploadBlob: Blob = file;
+      let uploadBlob: Blob;
       try {
         uploadBlob = await standardizeProductImage(file);
       } catch (err) {
-        console.error("Image processing failed, uploading original file instead", err);
+        // Falling back to uploading the original file here used to defeat
+        // the whole point of standardizeProductImage: a file the browser
+        // can't genuinely decode as an image (mislabeled MIME type, a
+        // corrupt file, a decompression bomb) would silently go up as-is
+        // instead of being rejected. Skip it and tell the admin why.
+        console.error("Image processing failed", err);
+        toast.error(`"${file.name}" couldn't be processed as an image and was skipped.`);
+        continue;
       }
       const cleanName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.[a-zA-Z0-9]+$/, "") + ".jpg";
       const path = `${productId}/variants/${variantId}/${crypto.randomUUID()}-${cleanName}`;
@@ -1693,6 +1744,9 @@ async function standardizeProductImage(file: File, maxSide = 1600): Promise<Blob
   const img = await loadImageElement(file);
   const srcW = img.naturalWidth;
   const srcH = img.naturalHeight;
+  if (srcW > MAX_IMAGE_SIDE_PX || srcH > MAX_IMAGE_SIDE_PX) {
+    throw new Error(`Image is ${srcW}×${srcH}px — over the ${MAX_IMAGE_SIDE_PX}px limit per side.`);
+  }
 
   // Scan a small downscaled copy to find the actual product's bounding box
   // (ignoring white/transparent background padding baked into the source photo)
@@ -1850,11 +1904,15 @@ function ImagesEditor({
     const startCount = images?.length ?? 0;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      let uploadBlob: Blob = file;
+      let uploadBlob: Blob;
       try {
         uploadBlob = await standardizeProductImage(file);
       } catch (err) {
-        console.error("Image processing failed, uploading original file instead", err);
+        // See the matching comment in the variant uploader above: never
+        // fall back to uploading the raw original on processing failure.
+        console.error("Image processing failed", err);
+        toast.error(`"${file.name}" couldn't be processed as an image and was skipped.`);
+        continue;
       }
       const cleanName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_").replace(/\.[a-zA-Z0-9]+$/, "") + ".jpg";
       const path = `${product.id}/${crypto.randomUUID()}-${cleanName}`;
