@@ -59,10 +59,16 @@ export function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-all duration-500 ease-out group-hover:shadow-soft-lg group-hover:ring-1 group-hover:ring-copper/30">
         {primaryImage ? (
+          // object-contain, not object-cover: matches the product detail
+          // page's own choice (see product.$slug.tsx) to never crop into
+          // the product. A forced square + cover was cutting off parts of
+          // any photo that wasn't already square — this letterboxes
+          // instead, on the same card background, so the whole product is
+          // always visible here too.
           <img
             src={primaryImage}
             alt={product.name}
-            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+            className="h-full w-full object-contain transition-transform duration-700 ease-out group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-secondary">
