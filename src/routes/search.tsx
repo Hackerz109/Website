@@ -110,7 +110,12 @@ function SearchPage() {
   const products = data?.products ?? [];
   const variantsByProduct = data?.variantsByProduct ?? {};
   const topBrand = data?.topBrand ?? null;
-  const shownIds = products.map((p) => p.id);
+  // Products come straight from the "id" UUID column, so this is always
+  // UUID-shaped already — this filter is just a defensive backstop so the
+  // raw string built below can never carry anything else, even if this
+  // code gets refactored later to include a value that isn't DB-sourced.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const shownIds = products.map((p) => p.id).filter((id) => UUID_RE.test(id));
 
   const { data: moreFromBrand } = useQuery({
     queryKey: ["search-more-from-brand", topBrand?.id, shownIds.join(",")],
