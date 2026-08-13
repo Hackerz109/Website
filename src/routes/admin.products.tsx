@@ -116,6 +116,31 @@ function pathFromPublicUrl(url: string) {
   return idx >= 0 ? url.slice(idx + marker.length) : null;
 }
 
+// Removes storage objects for the given image URLs, but only the ones no
+// remaining product_images row still points at. Belt-and-suspenders for
+// products duplicated before duplicate() started giving copies their own
+// storage files — those older copies still share a file with the original,
+// so an unconditional remove() here would delete the original's image too.
+// Call this AFTER the corresponding product_images row(s) have already been
+// deleted, so the count reflects only other, still-live references.
+async function removeOrphanedStorageObjects(urls: (string | null | undefined)[]) {
+  const uniqueUrls = Array.from(new Set(urls.filter((u): u is string => !!u)));
+  const orphanedPaths: string[] = [];
+  for (const url of uniqueUrls) {
+    const { count } = await supabase
+      .from("product_images")
+      .select("id", { count: "exact", head: true })
+      .eq("url", url);
+    if (!count) {
+      const path = pathFromPublicUrl(url);
+      if (path) orphanedPaths.push(path);
+    }
+  }
+  if (orphanedPaths.length > 0) {
+    await supabase.storage.from("product-images").remove(orphanedPaths);
+  }
+}
+
 const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 // Raster types the browser can safely decode via <img>/canvas and that
@@ -414,18 +439,46 @@ function AdminProducts() {
       }
 
       if (images && images.length > 0) {
-        // Reuses the same storage URL rather than re-uploading the file —
-        // the image itself doesn't change, so both products can safely
-        // point at the same object in the product-images bucket.
-        const imageRows = images.map((img) => ({
-          product_id: newProduct.id,
-          variant_id: img.variant_id ? variantIdMap.get(img.variant_id) ?? null : null,
-          url: img.url,
-          is_primary: img.is_primary,
-          sort_order: img.sort_order,
-        }));
-        const { error: imgErr } = await supabase.from("product_images").insert(imageRows);
-        if (imgErr) toast.error(`Images failed to copy: ${imgErr.message}`);
+        // Each image gets its own storage object via a server-side copy —
+        // NOT just a new row pointing at the original file. Two products
+        // must never share a storage object: deleting an image on the copy
+        // has to be able to remove its file without touching the original.
+        const imageRows: {
+          product_id: string;
+          variant_id: string | null;
+          url: string;
+          is_primary: boolean;
+          sort_order: number;
+        }[] = [];
+        for (const img of images) {
+          const newVariantId = img.variant_id ? variantIdMap.get(img.variant_id) ?? null : null;
+          const srcPath = pathFromPublicUrl(img.url);
+          let newUrl = img.url;
+          if (srcPath) {
+            const ext = srcPath.includes(".") ? srcPath.slice(srcPath.lastIndexOf(".")) : "";
+            const destPath = `${newProduct.id}/${crypto.randomUUID()}${ext}`;
+            const { error: copyErr } = await supabase.storage.from("product-images").copy(srcPath, destPath);
+            if (copyErr) {
+              // Falling back to the original URL here would recreate the
+              // shared-file bug for just this image, so skip it instead of
+              // silently reintroducing the thing this fix exists to prevent.
+              toast.error(`Couldn't copy "${srcPath}" — this image was skipped on the duplicate.`);
+              continue;
+            }
+            newUrl = supabase.storage.from("product-images").getPublicUrl(destPath).data.publicUrl;
+          }
+          imageRows.push({
+            product_id: newProduct.id,
+            variant_id: newVariantId,
+            url: newUrl,
+            is_primary: img.is_primary,
+            sort_order: img.sort_order,
+          });
+        }
+        if (imageRows.length > 0) {
+          const { error: imgErr } = await supabase.from("product_images").insert(imageRows);
+          if (imgErr) toast.error(`Images failed to copy: ${imgErr.message}`);
+        }
       }
 
       if (bulkTiers && bulkTiers.length > 0) {
@@ -1061,14 +1114,14 @@ function VariantsEditor({
 
   async function deleteVariant(v: Variant) {
     if (!confirm(`Delete variant "${v.name}"? This also removes any images added just for it.`)) return;
-    // Cascade takes care of the product_images rows themselves, but not the
-    // underlying storage files — Postgres can't reach into Supabase Storage,
-    // so clean those up here first.
     const { data: imgs } = await supabase.from("product_images").select("url").eq("variant_id", v.id);
-    const paths = (imgs ?? []).map((i) => pathFromPublicUrl(i.url)).filter((p): p is string => !!p);
-    if (paths.length > 0) await supabase.storage.from("product-images").remove(paths);
     const { error } = await supabase.from("product_variants").delete().eq("id", v.id);
     if (error) return toast.error(error.message);
+    // Cascade takes care of the product_images rows themselves, but not the
+    // underlying storage files — Postgres can't reach into Supabase Storage,
+    // so clean those up here, skipping any file another product/variant
+    // (e.g. a duplicate) still references.
+    await removeOrphanedStorageObjects((imgs ?? []).map((i) => i.url));
     refresh();
   }
 
@@ -1651,10 +1704,11 @@ function VariantImagesEditor({
 
   async function deleteImage(img: ProductImage) {
     if (!confirm("Delete this image?")) return;
-    const path = pathFromPublicUrl(img.url);
-    if (path) await supabase.storage.from("product-images").remove([path]);
     const { error } = await supabase.from("product_images").delete().eq("id", img.id);
     if (error) return toast.error(error.message);
+    // Only removes the storage file if no other product_images row (e.g. on
+    // a duplicated product) still points at it — see removeOrphanedStorageObjects.
+    await removeOrphanedStorageObjects([img.url]);
     if (img.is_primary) {
       const remaining = (images ?? []).filter((i) => i.id !== img.id);
       if (remaining.length > 0) {
@@ -1951,10 +2005,11 @@ function ImagesEditor({
 
   async function deleteImage(img: ProductImage) {
     if (!confirm("Delete this image?")) return;
-    const path = pathFromPublicUrl(img.url);
-    if (path) await supabase.storage.from("product-images").remove([path]);
     const { error } = await supabase.from("product_images").delete().eq("id", img.id);
     if (error) return toast.error(error.message);
+    // Only removes the storage file if no other product_images row (e.g. on
+    // a duplicated product) still points at it — see removeOrphanedStorageObjects.
+    await removeOrphanedStorageObjects([img.url]);
     if (img.is_primary) {
       const remaining = (images ?? []).filter((i) => i.id !== img.id);
       if (remaining.length > 0) {
