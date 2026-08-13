@@ -8,7 +8,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { ProductFilters, type SortOption } from "@/components/ProductFilters";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
-import { PRODUCT_SEARCH_SELECT, matchingVariants, rankedProductIds, sortByRank } from "@/lib/productSearch";
+import { PRODUCT_SEARCH_SELECT, matchingVariants, rankedProducts, sortByRank } from "@/lib/productSearch";
 
 export const Route = createFileRoute("/search")({
   component: SearchPage,
@@ -19,6 +19,11 @@ export const Route = createFileRoute("/search")({
     brand: typeof search.brand === "string" ? search.brand : null,
   }),
 });
+
+// How confident the top match needs to be (0-1, see search_products_ranked)
+// before we'll use its brand to power the "More from this brand" shelf —
+// high enough that it's a real hit, not a shot-in-the-dark.
+const CONFIDENT_BRAND_MATCH = 0.5;
 
 function SearchPage() {
   const { q, sort, category, brand } = Route.useSearch();
@@ -31,9 +36,12 @@ function SearchPage() {
       // Fuzzy + word-order-independent ranking first (see
       // src/lib/productSearch.ts) — this is what lets "Havells wire 1mm"
       // find a product literally named "1mm Havells Wire", and lets a
-      // misspelling like "havlls" still find "Havells".
-      const rankedIds = await rankedProductIds(term);
-      if (rankedIds.length === 0) return { products: [], variantsByProduct: {} };
+      // glued-together typo like "anchornpemta" still find "Anchor Penta".
+      const ranked = await rankedProducts(term);
+      if (ranked.length === 0) {
+        return { products: [], variantsByProduct: {}, topBrand: null as { id: string; name: string } | null };
+      }
+      const rankedIds = ranked.map((r) => r.id);
 
       let query = supabase
         .from("products")
@@ -64,10 +72,10 @@ function SearchPage() {
           break;
       }
 
-      const { data, error } = await query;
+      const { data: rows, error } = await query;
       if (error) throw error;
 
-      const products = sort === "featured" ? sortByRank(data ?? [], rankedIds) : (data ?? []);
+      const products = sort === "featured" ? sortByRank(rows ?? [], rankedIds) : (rows ?? []);
 
       // Which variant (if any) is the one that actually matched, so a
       // product with several options ("1mm", "1.5mm", "2.5mm"...) can
@@ -80,13 +88,51 @@ function SearchPage() {
         }
       }
 
-      return { products, variantsByProduct };
+      // Surface the rest of the matched brand's catalog alongside a
+      // confident top hit — e.g. searching one specific Anchor Penta
+      // switch also brings up other Anchor Penta products to browse.
+      // Based on the true best match (rankedIds[0]), not whatever the
+      // visible grid happens to be sorted by right now.
+      let topBrand: { id: string; name: string } | null = null;
+      if (!brand) {
+        const topRank = ranked[0];
+        const topProduct = (rows ?? []).find((p) => p.id === topRank?.id);
+        if (topRank && topRank.rank >= CONFIDENT_BRAND_MATCH && topProduct?.brand_id && topProduct?.brands?.name) {
+          topBrand = { id: topProduct.brand_id, name: topProduct.brands.name };
+        }
+      }
+
+      return { products, variantsByProduct, topBrand };
     },
     enabled: term.length > 0,
   });
 
   const products = data?.products ?? [];
   const variantsByProduct = data?.variantsByProduct ?? {};
+  const topBrand = data?.topBrand ?? null;
+  const shownIds = products.map((p) => p.id);
+
+  const { data: moreFromBrand } = useQuery({
+    queryKey: ["search-more-from-brand", topBrand?.id, shownIds.join(",")],
+    queryFn: async () => {
+      if (!topBrand) return [];
+      let moreQuery = supabase
+        .from("products")
+        .select(PRODUCT_SEARCH_SELECT)
+        .eq("active", true)
+        .eq("brand_id", topBrand.id)
+        .order("featured", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (shownIds.length > 0) {
+        moreQuery = moreQuery.not("id", "in", `(${shownIds.join(",")})`);
+      }
+      const { data: rows, error } = await moreQuery;
+      if (error) throw error;
+      return rows ?? [];
+    },
+    enabled: !!topBrand,
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -174,6 +220,17 @@ function SearchPage() {
             </div>
           )}
         </div>
+
+        {!isLoading && topBrand && moreFromBrand && moreFromBrand.length > 0 && (
+          <div className="mt-14">
+            <h2 className="text-lg font-bold text-foreground">More from {topBrand.name}</h2>
+            <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
+              {moreFromBrand.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <StoreFooter />
     </div>
