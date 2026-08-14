@@ -3,6 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { SlidersHorizontal, Frown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { StoreHeader } from "@/components/StoreHeader";
+import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { SearchFilters } from "@/components/SearchFilters";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -28,11 +30,12 @@ const PAGE_SIZE = 24;
 const SORT_VALUES: SearchSortOption[] = ["relevance", "price_asc", "price_desc", "popularity", "newest"];
 
 function parseUUIDList(value: unknown): string[] {
-  if (typeof value !== "string" || value.length === 0) return [];
-  return value
-    .split(",")
-    .map((v) => v.trim())
-    .filter((v) => UUID_RE.test(v));
+  const parts: unknown[] = Array.isArray(value)
+    ? value
+    : typeof value === "string" && value.length > 0
+      ? value.split(",")
+      : [];
+  return parts.map((v) => String(v).trim()).filter((v) => UUID_RE.test(v));
 }
 
 function parseNumber(value: unknown): number | undefined {
@@ -70,8 +73,8 @@ export const Route = createFileRoute("/search")({
 
 function filtersToSearchPatch(filters: ActiveFilters) {
   return {
-    category: filters.categoryIds.length > 0 ? filters.categoryIds.join(",") : undefined,
-    brand: filters.brandIds.length > 0 ? filters.brandIds.join(",") : undefined,
+    category: filters.categoryIds.length > 0 ? filters.categoryIds : undefined,
+    brand: filters.brandIds.length > 0 ? filters.brandIds : undefined,
     minPrice: filters.minPrice ?? undefined,
     maxPrice: filters.maxPrice ?? undefined,
     minRating: filters.minRating ?? undefined,
@@ -262,126 +265,130 @@ function SearchPage() {
   const visibleSortOptions = SORT_VALUES.filter((s) => s !== "relevance" || term.length > 1);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-foreground sm:text-2xl">{heading}</h1>
-          {!isInitialLoading && (
-            <p className="text-sm text-muted-foreground">
-              {totalCount} {totalCount === 1 ? "product" : "products"}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="lg:hidden">
-                <SlidersHorizontal className="mr-1.5 h-4 w-4" />
-                Filters
-                {hasActiveFilters(filters) && (
-                  <span className="ml-1.5 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
-                    {countActiveFilters(filters)}
-                  </span>
-                )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[85vw] max-w-sm overflow-y-auto">
-              <SheetHeader className="mb-4">
-                <SheetTitle>Filters</SheetTitle>
-              </SheetHeader>
-              <SearchFilters filters={filters} onChange={updateFilters} facets={facets} isLoading={facetsLoading} />
-            </SheetContent>
-          </Sheet>
-
-          <Select value={sort} onValueChange={(v: string) => updateSort(v as SearchSortOption)}>
-            <SelectTrigger className="w-[168px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {visibleSortOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {SEARCH_SORT_LABELS[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="flex gap-8">
-        <aside className="hidden w-64 flex-shrink-0 lg:block">
-          <div className="sticky top-24">
-            <SearchFilters filters={filters} onChange={updateFilters} facets={facets} isLoading={facetsLoading} />
+    <div className="min-h-screen bg-background">
+      <StoreHeader />
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-foreground sm:text-2xl">{heading}</h1>
+            {!isInitialLoading && (
+              <p className="text-sm text-muted-foreground">
+                {totalCount} {totalCount === 1 ? "product" : "products"}
+              </p>
+            )}
           </div>
-        </aside>
+          <div className="flex items-center gap-2">
+            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="lg:hidden">
+                  <SlidersHorizontal className="mr-1.5 h-4 w-4" />
+                  Filters
+                  {hasActiveFilters(filters) && (
+                    <span className="ml-1.5 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
+                      {countActiveFilters(filters)}
+                    </span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[85vw] max-w-sm overflow-y-auto">
+                <SheetHeader className="mb-4">
+                  <SheetTitle>Filters</SheetTitle>
+                </SheetHeader>
+                <SearchFilters filters={filters} onChange={updateFilters} facets={facets} isLoading={facetsLoading} />
+              </SheetContent>
+            </Sheet>
 
-        <div className="min-w-0 flex-1">
-          {isInitialLoading ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
-              ))}
+            <Select value={sort} onValueChange={(v: string) => updateSort(v as SearchSortOption)}>
+              <SelectTrigger className="w-[168px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {visibleSortOptions.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {SEARCH_SORT_LABELS[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex gap-8">
+          <aside className="hidden w-64 flex-shrink-0 lg:block">
+            <div className="sticky top-24">
+              <SearchFilters filters={filters} onChange={updateFilters} facets={facets} isLoading={facetsLoading} />
             </div>
-          ) : showZero ? (
-            <div className="py-10 text-center">
-              <Frown className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <p className="text-lg font-semibold text-foreground">No products found</p>
-              {term && <p className="mt-1 text-sm text-muted-foreground">Nothing matched "{term}".</p>}
-              {didYouMean && (
-                <Button
-                  variant="link"
-                  onClick={() => navigate({ search: (prev: any) => ({ ...prev, q: didYouMean }) })}
-                  className="mt-1"
-                >
-                  Did you mean "{didYouMean}"?
-                </Button>
-              )}
-              {hasActiveFilters(filters) && (
-                <Button variant="outline" size="sm" onClick={clearAll} className="mt-3">
-                  Clear filters
-                </Button>
-              )}
-              {(fallbackProducts ?? []).length > 0 && (
-                <div className="mt-10 text-left">
-                  <h2 className="mb-4 text-lg font-bold text-foreground">You might like these</h2>
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                    {(fallbackProducts ?? []).map((p: any) => (
-                      <ProductCard key={p.id} product={p} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
+          </aside>
+
+          <div className="min-w-0 flex-1">
+            {isInitialLoading ? (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                {products.map((p) => (
-                  <ProductCard key={p.id} product={p} />
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
                 ))}
               </div>
-
-              {hasMore && (
-                <div ref={sentinelRef} className="flex justify-center py-8">
-                  <Button variant="outline" onClick={loadMore} disabled={isLoadingMore}>
-                    {isLoadingMore ? "Loading…" : "Load more"}
+            ) : showZero ? (
+              <div className="py-10 text-center">
+                <Frown className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <p className="text-lg font-semibold text-foreground">No products found</p>
+                {term && <p className="mt-1 text-sm text-muted-foreground">Nothing matched "{term}".</p>}
+                {didYouMean && (
+                  <Button
+                    variant="link"
+                    onClick={() => navigate({ search: (prev: any) => ({ ...prev, q: didYouMean }) })}
+                    className="mt-1"
+                  >
+                    Did you mean "{didYouMean}"?
                   </Button>
-                </div>
-              )}
-
-              {(relatedProducts ?? []).length > 0 && (
-                <div className="mt-14 border-t border-border pt-8">
-                  <h2 className="mb-4 text-lg font-bold text-foreground">You might also like</h2>
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                    {(relatedProducts ?? []).map((p: any) => (
-                      <ProductCard key={p.id} product={p} />
-                    ))}
+                )}
+                {hasActiveFilters(filters) && (
+                  <Button variant="outline" size="sm" onClick={clearAll} className="mt-3">
+                    Clear filters
+                  </Button>
+                )}
+                {(fallbackProducts ?? []).length > 0 && (
+                  <div className="mt-10 text-left">
+                    <h2 className="mb-4 text-lg font-bold text-foreground">You might like these</h2>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                      {(fallbackProducts ?? []).map((p: any) => (
+                        <ProductCard key={p.id} product={p} />
+                      ))}
+                    </div>
                   </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {products.map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
                 </div>
-              )}
-            </>
-          )}
+
+                {hasMore && (
+                  <div ref={sentinelRef} className="flex justify-center py-8">
+                    <Button variant="outline" onClick={loadMore} disabled={isLoadingMore}>
+                      {isLoadingMore ? "Loading…" : "Load more"}
+                    </Button>
+                  </div>
+                )}
+
+                {(relatedProducts ?? []).length > 0 && (
+                  <div className="mt-14 border-t border-border pt-8">
+                    <h2 className="mb-4 text-lg font-bold text-foreground">You might also like</h2>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                      {(relatedProducts ?? []).map((p: any) => (
+                        <ProductCard key={p.id} product={p} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
+      <StoreFooter />
     </div>
   );
 }
