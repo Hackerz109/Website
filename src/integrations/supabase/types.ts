@@ -930,6 +930,44 @@ export type Database = {
         }
         Relationships: []
       }
+      product_reviews: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          product_id: string
+          rating: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          product_id: string
+          rating: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          product_id?: string
+          rating?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean
@@ -958,6 +996,9 @@ export type Database = {
           warranty_provider: string | null
           warranty_service_method: Database["public"]["Enums"]["warranty_service_method"] | null
           warranty_notes: string | null
+          rating_avg: number | null
+          rating_count: number
+          popularity_score: number
         }
         Insert: {
           active?: boolean
@@ -986,6 +1027,9 @@ export type Database = {
           warranty_provider?: string | null
           warranty_service_method?: Database["public"]["Enums"]["warranty_service_method"] | null
           warranty_notes?: string | null
+          rating_avg?: number | null
+          rating_count?: number
+          popularity_score?: number
         }
         Update: {
           active?: boolean
@@ -1014,6 +1058,9 @@ export type Database = {
           warranty_provider?: string | null
           warranty_service_method?: Database["public"]["Enums"]["warranty_service_method"] | null
           warranty_notes?: string | null
+          rating_avg?: number | null
+          rating_count?: number
+          popularity_score?: number
         }
         Relationships: [
           {
@@ -1031,6 +1078,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      search_synonyms: {
+        Row: {
+          created_at: string
+          id: string
+          synonym: string
+          term: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          synonym: string
+          term: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          synonym?: string
+          term?: string
+        }
+        Relationships: []
+      }
+      search_logs: {
+        Row: {
+          created_at: string
+          id: string
+          normalized_query: string
+          query: string
+          result_count: number
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          normalized_query: string
+          query: string
+          result_count?: number
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          normalized_query?: string
+          query?: string
+          result_count?: number
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -1489,6 +1587,59 @@ export type Database = {
           p_query: string
         }
         Returns: Json
+      }
+      search_facets: {
+        Args: {
+          p_query?: string | null
+          p_category_ids?: string[] | null
+          p_brand_ids?: string[] | null
+          p_min_price?: number | null
+          p_max_price?: number | null
+          p_min_rating?: number | null
+          p_in_stock_only?: boolean | null
+        }
+        Returns: Json
+      }
+      search_autocomplete: {
+        Args: {
+          p_query: string
+          p_limit?: number
+        }
+        Returns: {
+          label: string
+          kind: string
+          product_id: string | null
+          product_slug: string | null
+          brand_id: string | null
+          category_id: string | null
+          category_slug: string | null
+        }[]
+      }
+      search_did_you_mean: {
+        Args: {
+          p_query: string
+        }
+        Returns: string
+      }
+      get_trending_searches: {
+        Args: {
+          p_limit?: number
+        }
+        Returns: {
+          query: string
+          search_count: number
+        }[]
+      }
+      get_related_products: {
+        Args: {
+          p_category_id?: string | null
+          p_brand_id?: string | null
+          p_exclude_ids?: string[]
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+        }[]
       }
     }
     Enums: {
