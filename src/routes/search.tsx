@@ -1,243 +1,387 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { SearchX, ShoppingBag } from "lucide-react";
-import { StoreHeader } from "@/components/StoreHeader";
-import { StoreFooter } from "@/components/StoreFooter";
-import { ProductCard } from "@/components/ProductCard";
-import { SearchBar } from "@/components/SearchBar";
-import { ProductFilters, type SortOption } from "@/components/ProductFilters";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { SlidersHorizontal, Frown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatMoney } from "@/stores/cart";
-import { PRODUCT_SEARCH_SELECT, matchingVariants, rankedProducts, sortByRank } from "@/lib/productSearch";
+import { ProductCard } from "@/components/ProductCard";
+import { SearchFilters } from "@/components/SearchFilters";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  PRODUCT_SEARCH_SELECT,
+  rankedProducts,
+  sortByRank,
+  fetchFacets,
+  fetchDidYouMean,
+  fetchRelatedProducts,
+  hasActiveFilters,
+  countActiveFilters,
+  SEARCH_SORT_LABELS,
+  type ActiveFilters,
+  type SearchSortOption,
+} from "@/lib/productSearch";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PAGE_SIZE = 24;
+const SORT_VALUES: SearchSortOption[] = ["relevance", "price_asc", "price_desc", "popularity", "newest"];
+
+function parseUUIDList(value: unknown): string[] {
+  if (typeof value !== "string" || value.length === 0) return [];
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => UUID_RE.test(v));
+}
+
+function parseNumber(value: unknown): number | undefined {
+  const n = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
+type SearchPageParams = {
+  q: string;
+  category: string[];
+  brand: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  inStock?: true;
+  sort?: SearchSortOption;
+};
 
 export const Route = createFileRoute("/search")({
+  validateSearch: (search: Record<string, unknown>): SearchPageParams => {
+    const sortRaw = typeof search.sort === "string" ? search.sort : undefined;
+    return {
+      q: typeof search.q === "string" ? search.q : "",
+      category: parseUUIDList(search.category),
+      brand: parseUUIDList(search.brand),
+      minPrice: parseNumber(search.minPrice),
+      maxPrice: parseNumber(search.maxPrice),
+      minRating: parseNumber(search.minRating),
+      inStock: search.inStock === true || search.inStock === "true" ? true : undefined,
+      sort: (SORT_VALUES as string[]).includes(sortRaw ?? "") ? (sortRaw as SearchSortOption) : undefined,
+    };
+  },
   component: SearchPage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    q: typeof search.q === "string" ? search.q : "",
-    sort: (typeof search.sort === "string" ? search.sort : "featured") as SortOption,
-    category: typeof search.category === "string" ? search.category : null,
-    brand: typeof search.brand === "string" ? search.brand : null,
-  }),
 });
 
-// How confident the top match needs to be (0-1, see search_products_ranked)
-// before we'll use its brand to power the "More from this brand" shelf —
-// high enough that it's a real hit, not a shot-in-the-dark.
-const CONFIDENT_BRAND_MATCH = 0.5;
+function filtersToSearchPatch(filters: ActiveFilters) {
+  return {
+    category: filters.categoryIds.length > 0 ? filters.categoryIds.join(",") : undefined,
+    brand: filters.brandIds.length > 0 ? filters.brandIds.join(",") : undefined,
+    minPrice: filters.minPrice ?? undefined,
+    maxPrice: filters.maxPrice ?? undefined,
+    minRating: filters.minRating ?? undefined,
+    inStock: filters.inStockOnly ? (true as const) : undefined,
+  };
+}
+
+function applyFilters(query: any, filters: ActiveFilters) {
+  let q = query;
+  if (filters.categoryIds.length > 0) q = q.in("category_id", filters.categoryIds);
+  if (filters.brandIds.length > 0) q = q.in("brand_id", filters.brandIds);
+  if (filters.minPrice != null) q = q.gte("price_cents", filters.minPrice);
+  if (filters.maxPrice != null) q = q.lte("price_cents", filters.maxPrice);
+  if (filters.minRating != null) q = q.gte("rating_avg", filters.minRating);
+  if (filters.inStockOnly) q = q.or("stock_unlimited.eq.true,stock.gt.0");
+  return q;
+}
+
+function applySort(query: any, sort: SearchSortOption) {
+  switch (sort) {
+    case "price_asc":
+      return query.order("price_cents", { ascending: true });
+    case "price_desc":
+      return query.order("price_cents", { ascending: false });
+    case "popularity":
+      return query.order("popularity_score", { ascending: false });
+    default:
+      return query.order("created_at", { ascending: false });
+  }
+}
 
 function SearchPage() {
-  const { q, sort, category, brand } = Route.useSearch();
-  const navigate = Route.useNavigate();
-  const term = q.trim();
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["search-results", term, sort, category, brand],
+  const filters: ActiveFilters = useMemo(
+    () => ({
+      categoryIds: search.category,
+      brandIds: search.brand,
+      minPrice: search.minPrice ?? null,
+      maxPrice: search.maxPrice ?? null,
+      minRating: search.minRating ?? null,
+      inStockOnly: !!search.inStock,
+    }),
+    [search.category, search.brand, search.minPrice, search.maxPrice, search.minRating, search.inStock],
+  );
+
+  const term = search.q.trim();
+  const sort: SearchSortOption = search.sort ?? (term ? "relevance" : "newest");
+  // Relevance ranking is capped at 200 results and computed as one scan, so
+  // it's fetched once and paged through client-side (visibleCount) rather
+  // than re-queried per page — the other sort orders are plain columns and
+  // get real server-side range() pagination, which scales indefinitely as
+  // the catalog grows.
+  const isRelevanceSort = sort === "relevance" && term.length > 1;
+
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  function updateFilters(next: ActiveFilters) {
+    navigate({ search: (prev: any) => ({ ...prev, ...filtersToSearchPatch(next) }), replace: true });
+  }
+
+  function updateSort(next: SearchSortOption) {
+    navigate({ search: (prev: any) => ({ ...prev, sort: next }), replace: true });
+  }
+
+  function clearAll() {
+    navigate({ search: (prev: any) => ({ q: prev.q }), replace: true });
+  }
+
+  const { data: facets, isLoading: facetsLoading } = useQuery({
+    queryKey: ["search-facets", term, filters],
+    queryFn: () => fetchFacets(term, filters),
+  });
+
+  const relevanceQuery = useQuery({
+    queryKey: ["search-relevance", term, filters],
     queryFn: async () => {
-      // Fuzzy + word-order-independent ranking first (see
-      // src/lib/productSearch.ts) — this is what lets "Havells wire 1mm"
-      // find a product literally named "1mm Havells Wire", and lets a
-      // glued-together typo like "anchornpemta" still find "Anchor Penta".
       const ranked = await rankedProducts(term);
-      if (ranked.length === 0) {
-        return { products: [], variantsByProduct: {}, topBrand: null as { id: string; name: string } | null };
-      }
       const rankedIds = ranked.map((r) => r.id);
-
-      let query = supabase
-        .from("products")
-        .select(PRODUCT_SEARCH_SELECT)
-        .eq("active", true)
-        .in("id", rankedIds);
-      if (category) query = query.eq("category_id", category);
-      if (brand) query = query.eq("brand_id", brand);
-
-      switch (sort) {
-        case "price_asc":
-          query = query.order("price_cents", { ascending: true });
-          break;
-        case "price_desc":
-          query = query.order("price_cents", { ascending: false });
-          break;
-        case "name_asc":
-          query = query.order("name", { ascending: true });
-          break;
-        case "newest":
-          query = query.order("created_at", { ascending: false });
-          break;
-        case "featured":
-        default:
-          // Left unordered here on purpose — for a search, "best match"
-          // is more useful than the Featured flag, so this case is
-          // re-sorted by relevance below instead of by DB column.
-          break;
-      }
-
-      const { data: rows, error } = await query;
+      if (rankedIds.length === 0) return { products: [] as any[] };
+      let q = supabase.from("products").select(PRODUCT_SEARCH_SELECT).eq("active", true).in("id", rankedIds);
+      q = applyFilters(q, filters);
+      const { data, error } = await q;
       if (error) throw error;
-
-      const products = sort === "featured" ? sortByRank(rows ?? [], rankedIds) : (rows ?? []);
-
-      // Which variant (if any) is the one that actually matched, so a
-      // product with several options ("1mm", "1.5mm", "2.5mm"...) can
-      // show exactly the one the search term pointed at.
-      const variantsByProduct: Record<string, { id: string; name: string; price_cents: number }[]> = {};
-      for (const p of products) {
-        const matched = matchingVariants(term, p.product_variants ?? []);
-        if (matched.length > 0) {
-          variantsByProduct[p.id] = matched.map((v) => ({ id: v.id, name: v.name, price_cents: v.price_cents }));
-        }
-      }
-
-      // Surface the rest of the matched brand's catalog alongside a
-      // confident top hit — e.g. searching one specific Anchor Penta
-      // switch also brings up other Anchor Penta products to browse.
-      // Based on the true best match (rankedIds[0]), not whatever the
-      // visible grid happens to be sorted by right now.
-      let topBrand: { id: string; name: string } | null = null;
-      if (!brand) {
-        const topRank = ranked[0];
-        const topProduct = (rows ?? []).find((p) => p.id === topRank?.id);
-        if (topRank && topRank.rank >= CONFIDENT_BRAND_MATCH && topProduct?.brand_id && topProduct?.brands?.name) {
-          topBrand = { id: topProduct.brand_id, name: topProduct.brands.name };
-        }
-      }
-
-      return { products, variantsByProduct, topBrand };
+      return { products: sortByRank(data ?? [], rankedIds) };
     },
-    enabled: term.length > 0,
+    enabled: isRelevanceSort,
   });
 
-  const products = data?.products ?? [];
-  const variantsByProduct = data?.variantsByProduct ?? {};
-  const topBrand = data?.topBrand ?? null;
-  // Products come straight from the "id" UUID column, so this is always
-  // UUID-shaped already — this filter is just a defensive backstop so the
-  // raw string built below can never carry anything else, even if this
-  // code gets refactored later to include a value that isn't DB-sourced.
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const shownIds = products.map((p) => p.id).filter((id) => UUID_RE.test(id));
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    // Reset how much of the relevance-ranked list is revealed whenever the
+    // query/filters/sort change, so a new search doesn't start scrolled in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [term, JSON.stringify(filters), sort]);
 
-  const { data: moreFromBrand } = useQuery({
-    queryKey: ["search-more-from-brand", topBrand?.id, shownIds.join(",")],
-    queryFn: async () => {
-      if (!topBrand) return [];
-      let moreQuery = supabase
-        .from("products")
-        .select(PRODUCT_SEARCH_SELECT)
-        .eq("active", true)
-        .eq("brand_id", topBrand.id)
-        .order("featured", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(8);
-      if (shownIds.length > 0) {
-        moreQuery = moreQuery.not("id", "in", `(${shownIds.join(",")})`);
+  const columnQuery = useInfiniteQuery({
+    queryKey: ["search-paged", term, filters, sort],
+    queryFn: async ({ pageParam }) => {
+      let rankedIds: string[] | null = null;
+      if (term.length > 1) {
+        rankedIds = (await rankedProducts(term)).map((r) => r.id);
+        if (rankedIds.length === 0) return { products: [] as any[], hasMore: false, totalCount: 0 };
       }
-      const { data: rows, error } = await moreQuery;
+      let q = supabase.from("products").select(PRODUCT_SEARCH_SELECT, { count: "exact" }).eq("active", true);
+      if (rankedIds) q = q.in("id", rankedIds);
+      q = applyFilters(q, filters);
+      q = applySort(q, sort);
+      const from = (pageParam as number) * PAGE_SIZE;
+      q = q.range(from, from + PAGE_SIZE - 1);
+      const { data, error, count } = await q;
       if (error) throw error;
-      return rows ?? [];
+      const rows = data ?? [];
+      return { products: rows, hasMore: (count ?? 0) > from + rows.length, totalCount: count ?? 0 };
     },
-    enabled: !!topBrand,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: any, pages: any[]) => (lastPage.hasMore ? pages.length : undefined),
+    enabled: !isRelevanceSort,
   });
+
+  const products: any[] = isRelevanceSort
+    ? (relevanceQuery.data?.products ?? []).slice(0, visibleCount)
+    : (columnQuery.data?.pages.flatMap((p: any) => p.products) ?? []);
+
+  const totalCount = isRelevanceSort
+    ? (relevanceQuery.data?.products.length ?? 0)
+    : (columnQuery.data?.pages[0]?.totalCount ?? 0);
+
+  const hasMore = isRelevanceSort
+    ? visibleCount < (relevanceQuery.data?.products.length ?? 0)
+    : !!columnQuery.hasNextPage;
+
+  const isInitialLoading = isRelevanceSort ? relevanceQuery.isLoading : columnQuery.isLoading;
+  const isLoadingMore = isRelevanceSort ? false : columnQuery.isFetchingNextPage;
+
+  function loadMore() {
+    if (isRelevanceSort) setVisibleCount((c) => c + PAGE_SIZE);
+    else columnQuery.fetchNextPage();
+  }
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!hasMore || isInitialLoading) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "600px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, isInitialLoading, term, JSON.stringify(filters), sort, visibleCount]);
+
+  const showZero = !isInitialLoading && products.length === 0;
+
+  const { data: didYouMean } = useQuery({
+    queryKey: ["search-dym", term],
+    queryFn: () => fetchDidYouMean(term),
+    enabled: showZero && term.length > 1,
+  });
+
+  const { data: fallbackProducts } = useQuery({
+    queryKey: ["search-fallback", filters.categoryIds[0] ?? null, filters.brandIds[0] ?? null],
+    queryFn: () =>
+      fetchRelatedProducts({ categoryId: filters.categoryIds[0] ?? null, brandId: filters.brandIds[0] ?? null, limit: 8 }),
+    enabled: showZero,
+  });
+
+  const topProduct = products[0];
+  const { data: relatedProducts } = useQuery({
+    queryKey: ["search-related", topProduct?.brand_id ?? null, topProduct?.id ?? null],
+    queryFn: () =>
+      fetchRelatedProducts({
+        brandId: topProduct?.brand_id ?? null,
+        categoryId: !topProduct?.brand_id ? (topProduct?.category_id ?? null) : null,
+        excludeIds: products.map((p) => p.id),
+        limit: 8,
+      }),
+    enabled: !showZero && !isInitialLoading && products.length > 0,
+  });
+
+  const heading = term ? `Results for "${term}"` : "All products";
+  const visibleSortOptions = SORT_VALUES.filter((s) => s !== "relevance" || term.length > 1);
 
   return (
-    <div className="min-h-screen bg-background">
-      <StoreHeader />
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
-          {term ? `Results for "${term}"` : "Search"}
-        </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {term
-            ? isLoading
-              ? "Searching…"
-              : `${products.length} product${products.length !== 1 ? "s" : ""} found`
-            : "Search for a product, category, or brand"}
-        </p>
-
-        <div className="mt-6 max-w-lg">
-          <SearchBar />
-        </div>
-
-        {term && (
-          <div className="mt-6">
-            <ProductFilters
-              sort={sort}
-              onSortChange={(v) => navigate({ search: (prev) => ({ ...prev, sort: v }) })}
-              categoryId={category}
-              onCategoryChange={(v) => navigate({ search: (prev) => ({ ...prev, category: v }) })}
-              brandId={brand}
-              onBrandChange={(v) => navigate({ search: (prev) => ({ ...prev, brand: v }) })}
-            />
-          </div>
-        )}
-
-        <div className="mt-10">
-          {isLoading ? (
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="aspect-square rounded-2xl bg-secondary" />
-                  <div className="mt-4 h-4 w-2/3 rounded bg-secondary" />
-                </div>
-              ))}
-            </div>
-          ) : !term ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-16 text-center">
-              <ShoppingBag className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Start typing above to find what you need.</p>
-            </div>
-          ) : products.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-16 text-center">
-              <SearchX className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">No products found</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                Try a different word, or check the spelling of what you're looking for.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((p) => {
-                const matched = variantsByProduct[p.id] ?? [];
-                return (
-                  <div key={p.id}>
-                    <ProductCard product={p} />
-                    {matched.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {matched.map((v) => (
-                          <Link
-                            key={v.id}
-                            to="/product/$slug"
-                            params={{ slug: p.slug }}
-                            search={{ variant: v.id }}
-                            className="flex items-center justify-between rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
-                          >
-                            <span className="truncate text-muted-foreground">↳ {v.name}</span>
-                            <span className="flex-shrink-0 font-semibold text-foreground">
-                              {formatMoney(v.price_cents, p.currency)}
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">{heading}</h1>
+          {!isInitialLoading && (
+            <p className="text-sm text-muted-foreground">
+              {totalCount} {totalCount === 1 ? "product" : "products"}
+            </p>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="lg:hidden">
+                <SlidersHorizontal className="mr-1.5 h-4 w-4" />
+                Filters
+                {hasActiveFilters(filters) && (
+                  <span className="ml-1.5 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
+                    {countActiveFilters(filters)}
+                  </span>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[85vw] max-w-sm overflow-y-auto">
+              <SheetHeader className="mb-4">
+                <SheetTitle>Filters</SheetTitle>
+              </SheetHeader>
+              <SearchFilters filters={filters} onChange={updateFilters} facets={facets} isLoading={facetsLoading} />
+            </SheetContent>
+          </Sheet>
 
-        {!isLoading && topBrand && moreFromBrand && moreFromBrand.length > 0 && (
-          <div className="mt-14">
-            <h2 className="text-lg font-bold text-foreground">More from {topBrand.name}</h2>
-            <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
-              {moreFromBrand.map((p) => (
-                <ProductCard key={p.id} product={p} />
+          <Select value={sort} onValueChange={(v: string) => updateSort(v as SearchSortOption)}>
+            <SelectTrigger className="w-[168px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {visibleSortOptions.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {SEARCH_SORT_LABELS[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex gap-8">
+        <aside className="hidden w-64 flex-shrink-0 lg:block">
+          <div className="sticky top-24">
+            <SearchFilters filters={filters} onChange={updateFilters} facets={facets} isLoading={facetsLoading} />
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          {isInitialLoading ? (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
               ))}
             </div>
-          </div>
-        )}
+          ) : showZero ? (
+            <div className="py-10 text-center">
+              <Frown className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+              <p className="text-lg font-semibold text-foreground">No products found</p>
+              {term && <p className="mt-1 text-sm text-muted-foreground">Nothing matched "{term}".</p>}
+              {didYouMean && (
+                <Button
+                  variant="link"
+                  onClick={() => navigate({ search: (prev: any) => ({ ...prev, q: didYouMean }) })}
+                  className="mt-1"
+                >
+                  Did you mean "{didYouMean}"?
+                </Button>
+              )}
+              {hasActiveFilters(filters) && (
+                <Button variant="outline" size="sm" onClick={clearAll} className="mt-3">
+                  Clear filters
+                </Button>
+              )}
+              {(fallbackProducts ?? []).length > 0 && (
+                <div className="mt-10 text-left">
+                  <h2 className="mb-4 text-lg font-bold text-foreground">You might like these</h2>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                    {(fallbackProducts ?? []).map((p: any) => (
+                      <ProductCard key={p.id} product={p} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                {products.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div ref={sentinelRef} className="flex justify-center py-8">
+                  <Button variant="outline" onClick={loadMore} disabled={isLoadingMore}>
+                    {isLoadingMore ? "Loading…" : "Load more"}
+                  </Button>
+                </div>
+              )}
+
+              {(relatedProducts ?? []).length > 0 && (
+                <div className="mt-14 border-t border-border pt-8">
+                  <h2 className="mb-4 text-lg font-bold text-foreground">You might also like</h2>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                    {(relatedProducts ?? []).map((p: any) => (
+                      <ProductCard key={p.id} product={p} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-      <StoreFooter />
     </div>
   );
 }
