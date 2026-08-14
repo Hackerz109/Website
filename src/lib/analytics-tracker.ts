@@ -170,3 +170,18 @@ export function trackCustomEvent(eventType: string, path: string) {
     event_type: eventType,
   });
 }
+
+/** Fire-and-forget search log for the "trending searches" suggestions (see
+ * get_trending_searches) — call once per completed search, not per
+ * keystroke, so it reflects what people actually searched for rather than
+ * every partial string typed on the way there. */
+export function trackSearch(query: string, resultCount: number) {
+  if (typeof window === "undefined") return;
+  const clean = query.trim();
+  if (clean.length < 2) return;
+  send("/api/search-log", {
+    session_id: getOrCreateSessionId(),
+    query: clean,
+    result_count: resultCount,
+  });
+}

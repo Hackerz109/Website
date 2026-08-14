@@ -88,6 +88,12 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
   analytics_vitals: {
     ip: { limit: 600, windowMs: 10 * 60_000, lockMs: 5 * 60_000 },
   },
+  // One row per completed search (not per keystroke — the client only
+  // calls this once results have settled), same generous per-IP allowance
+  // as the other telemetry scopes above.
+  search_log: {
+    ip: { limit: 600, windowMs: 10 * 60_000, lockMs: 5 * 60_000 },
+  },
   // Coupon validation: unlike the scopes above this isn't really about
   // credential stuffing, it's about stopping a scripted caller from
   // guessing coupon codes (including hidden ones — see the migration that
