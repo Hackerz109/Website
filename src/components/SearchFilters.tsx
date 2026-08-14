@@ -40,6 +40,14 @@ export function SearchFilters({
   }, [filters.minPrice, filters.maxPrice, catalogMin, catalogMax]);
 
   const showPriceSlider = facets && catalogMax > catalogMin;
+  // Belt-and-suspenders on top of the effect above: clamp what's actually
+  // *rendered* every time, so a filter change that narrows the catalog's
+  // price range (e.g. picking a category) can never hand the slider a
+  // value outside its own [min, max] for even one render.
+  const clampedDraft: [number, number] = [
+    Math.min(Math.max(priceDraft[0], catalogMin), catalogMax),
+    Math.min(Math.max(priceDraft[1], catalogMin), catalogMax),
+  ];
   const showRating = !!facets && facets.rating_counts.length > 0;
   const categories = facets?.categories ?? [];
   const brands = facets?.brands ?? [];
@@ -129,10 +137,11 @@ export function SearchFilters({
             <AccordionContent>
               <div className="px-1 pb-1 pt-2">
                 <Slider
+                  key={`${catalogMin}-${catalogMax}`}
                   min={catalogMin}
                   max={catalogMax}
                   step={Math.max(1, Math.round((catalogMax - catalogMin) / 100))}
-                  value={priceDraft}
+                  value={clampedDraft}
                   onValueChange={(v: number[]) => setPriceDraft([v[0], v[1]])}
                   onValueCommit={(v: number[]) =>
                     onChange({
@@ -143,8 +152,8 @@ export function SearchFilters({
                   }
                 />
                 <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{formatMoney(priceDraft[0])}</span>
-                  <span>{formatMoney(priceDraft[1])}</span>
+                  <span>{formatMoney(clampedDraft[0])}</span>
+                  <span>{formatMoney(clampedDraft[1])}</span>
                 </div>
               </div>
             </AccordionContent>
