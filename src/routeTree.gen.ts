@@ -109,6 +109,8 @@ import { Route as ApiAnalyticsCleanupRouteImport } from './routes/api.analytics-
 import { Route as ApiAnalyticsErrorRouteImport } from './routes/api.analytics-error'
 import { Route as ApiAnalyticsReportsRunRouteImport } from './routes/api.analytics-reports-run'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics-track'
+import { Route as ApiSearchLogRouteImport } from './routes/api.search-log'
+import { Route as ApiAnalyticsVitalsRouteImport } from './routes/api.analytics-vitals'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as SupportIdRouteImport } from './routes/support.$id'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
@@ -430,6 +432,16 @@ const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
   path: '/api/analytics-track',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSearchLogRoute = ApiSearchLogRouteImport.update({
+  id: '/api/search-log',
+  path: '/api/search-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnalyticsVitalsRoute = ApiAnalyticsVitalsRouteImport.update({
+  id: '/api/analytics-vitals',
+  path: '/api/analytics-vitals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAiConsoleRoute = AdminAiConsoleRouteImport.update({
   id: '/ai-console',
   path: '/ai-console',
@@ -548,6 +560,8 @@ export interface FileRoutesByFullPath {
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
+  '/api/search-log': typeof ApiSearchLogRoute
+  '/api/analytics-vitals': typeof ApiAnalyticsVitalsRoute
   '/admin/ai-console': typeof AdminAiConsoleRoute
   '/admin/search': typeof AdminSearchRoute
   '/api/ai-console': typeof ApiAiConsoleRoute
@@ -620,6 +634,8 @@ export interface FileRoutesByTo {
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
+  '/api/search-log': typeof ApiSearchLogRoute
+  '/api/analytics-vitals': typeof ApiAnalyticsVitalsRoute
   '/admin/ai-console': typeof AdminAiConsoleRoute
   '/admin/search': typeof AdminSearchRoute
   '/api/ai-console': typeof ApiAiConsoleRoute
@@ -695,6 +711,8 @@ export interface FileRoutesById {
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
+  '/api/search-log': typeof ApiSearchLogRoute
+  '/api/analytics-vitals': typeof ApiAnalyticsVitalsRoute
   '/admin/ai-console': typeof AdminAiConsoleRoute
   '/admin/search': typeof AdminSearchRoute
   '/api/ai-console': typeof ApiAiConsoleRoute
@@ -771,6 +789,8 @@ export interface FileRouteTypes {
     | '/api/analytics-error'
     | '/api/analytics-reports-run'
     | '/api/analytics-track'
+    | '/api/search-log'
+    | '/api/analytics-vitals'
     | '/admin/ai-console'
     | '/admin/search'
     | '/api/ai-console'
@@ -843,6 +863,8 @@ export interface FileRouteTypes {
     | '/api/analytics-error'
     | '/api/analytics-reports-run'
     | '/api/analytics-track'
+    | '/api/search-log'
+    | '/api/analytics-vitals'
     | '/admin/ai-console'
     | '/admin/search'
     | '/api/ai-console'
@@ -917,6 +939,8 @@ export interface FileRouteTypes {
     | '/api/analytics-error'
     | '/api/analytics-reports-run'
     | '/api/analytics-track'
+    | '/api/search-log'
+    | '/api/analytics-vitals'
     | '/admin/ai-console'
     | '/admin/search'
     | '/api/ai-console'
@@ -969,6 +993,8 @@ export interface RootRouteChildren {
   ApiAnalyticsErrorRoute: typeof ApiAnalyticsErrorRoute
   ApiAnalyticsReportsRunRoute: typeof ApiAnalyticsReportsRunRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
+  ApiSearchLogRoute: typeof ApiSearchLogRoute
+  ApiAnalyticsVitalsRoute: typeof ApiAnalyticsVitalsRoute
   ApiAiConsoleRoute: typeof ApiAiConsoleRoute
   ApiValidateCouponRoute: typeof ApiValidateCouponRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -1306,6 +1332,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAnalyticsTrackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/search-log': {
+      id: '/api/search-log'
+      path: '/api/search-log'
+      fullPath: '/api/search-log'
+      preLoaderRoute: typeof ApiSearchLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analytics-vitals': {
+      id: '/api/analytics-vitals'
+      path: '/api/analytics-vitals'
+      fullPath: '/api/analytics-vitals'
+      preLoaderRoute: typeof ApiAnalyticsVitalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/ai-console': {
       id: '/admin/ai-console'
       path: '/ai-console'
@@ -1491,6 +1531,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAnalyticsErrorRoute: ApiAnalyticsErrorRoute,
   ApiAnalyticsReportsRunRoute: ApiAnalyticsReportsRunRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
+  ApiSearchLogRoute: ApiSearchLogRoute,
+  ApiAnalyticsVitalsRoute: ApiAnalyticsVitalsRoute,
   ApiAiConsoleRoute: ApiAiConsoleRoute,
   ApiValidateCouponRoute: ApiValidateCouponRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
