@@ -1,0 +1,39 @@
+Delta package — only the files that changed for the search-bar rework.
+Drop these into your project root, preserving the paths below (they'll
+overwrite the matching files / create new ones). Then run the 8 new
+migrations in supabase/migrations/ (they're also already applied live on
+your Supabase project, so your site is unaffected either way).
+
+REPLACE (existing files):
+  src/components/SearchBar.tsx          - full rewrite: instant search, autocomplete, keyboard nav, history, trending, did-you-mean
+  src/lib/productSearch.ts              - full rewrite: filters/facets/autocomplete/related-products helpers
+  src/routes/search.tsx                 - full rewrite: faceted results page, pagination, zero-results state
+  src/integrations/supabase/types.ts    - edited: added new columns/tables/RPC types (ratings, popularity, synonyms, search_logs, facets, etc.)
+  src/lib/analytics-tracker.ts          - edited: added trackSearch()
+  src/lib/rateLimit.server.ts           - edited: added "search_log" rate-limit scope
+
+ADD (new files):
+  src/components/SearchFilters.tsx      - faceted filter sidebar (category/brand/price/rating/availability)
+  src/stores/searchHistory.ts           - personal recent-searches store (zustand + localStorage, mirrors stores/cart.ts)
+  src/routes/api.search-log.ts          - server route that logs searches for trending suggestions
+
+ADD (new SQL migrations — apply in this order if running manually):
+  supabase/migrations/20260814090000_search_ratings_and_reviews.sql
+  supabase/migrations/20260814090100_search_popularity_tracking.sql
+  supabase/migrations/20260814090200_search_synonyms.sql
+  supabase/migrations/20260814090300_search_products_ranked_synonyms.sql
+  supabase/migrations/20260814090400_search_logs_and_trending.sql
+  supabase/migrations/20260814090500_search_fulltext_and_indexes.sql
+  supabase/migrations/20260814090600_search_autocomplete_didyoumean_related.sql
+  supabase/migrations/20260814090700_search_facets.sql
+
+Fixes included in this version (on top of the first delivery):
+  - search.tsx was missing <StoreHeader />/<StoreFooter /> entirely (every
+    route renders these itself — there's no shared layout route) — that's
+    why the top bar was gone on /search.
+  - Category/brand filters now round-trip through the URL as native arrays
+    instead of a comma-joined string, and the parser accepts either shape.
+  - The price slider in SearchFilters.tsx is now clamped + force-remounted
+    when the catalog's price bounds shift (e.g. after picking a category
+    or toggling in-stock-only), removing a real edge case where it could
+    briefly receive an out-of-range value on any filter change.
