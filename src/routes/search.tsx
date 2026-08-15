@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { SlidersHorizontal, Frown } from "lucide-react";
@@ -86,19 +86,24 @@ function applyFilters(query: any, filters: ActiveFilters) {
   let q = query;
   if (filters.categoryIds.length > 0) q = q.in("category_id", filters.categoryIds);
   if (filters.brandIds.length > 0) q = q.in("brand_id", filters.brandIds);
-  if (filters.minPrice != null) q = q.gte("price_cents", filters.minPrice);
-  if (filters.maxPrice != null) q = q.lte("price_cents", filters.maxPrice);
+  // effective_price_cents/effective_in_stock (not price_cents/stock
+  // directly) — most products here price and stock themselves entirely
+  // through variants, leaving the product row's own price_cents/stock at
+  // placeholder 0/false, so filtering on those directly excluded almost
+  // everything. See the search_effective_price_and_stock migration.
+  if (filters.minPrice != null) q = q.gte("effective_price_cents", filters.minPrice);
+  if (filters.maxPrice != null) q = q.lte("effective_price_cents", filters.maxPrice);
   if (filters.minRating != null) q = q.gte("rating_avg", filters.minRating);
-  if (filters.inStockOnly) q = q.or("stock_unlimited.eq.true,stock.gt.0");
+  if (filters.inStockOnly) q = q.eq("effective_in_stock", true);
   return q;
 }
 
 function applySort(query: any, sort: SearchSortOption) {
   switch (sort) {
     case "price_asc":
-      return query.order("price_cents", { ascending: true });
+      return query.order("effective_price_cents", { ascending: true });
     case "price_desc":
-      return query.order("price_cents", { ascending: false });
+      return query.order("effective_price_cents", { ascending: false });
     case "popularity":
       return query.order("popularity_score", { ascending: false });
     default:
@@ -217,21 +222,32 @@ function SearchPage() {
     else columnQuery.fetchNextPage();
   }
 
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!hasMore || isInitialLoading) return;
-    const el = sentinelRef.current;
-    if (!el) return;
+  // Read via refs inside the observer callback (rather than depending on
+  // hasMore/loadMore directly) so calling loadMore() — which changes both —
+  // never has to tear down and recreate the observer on the same element.
+  // Recreating it there was a real bug: the sentinel is often still within
+  // the 600px trigger margin right after a page loads, so the fresh
+  // observer's initial check could fire again immediately, cascading into
+  // loading several pages at once instead of one at a time.
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+
+  const sentinelObserverRef = useRef<IntersectionObserver | null>(null);
+  const sentinelCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    sentinelObserverRef.current?.disconnect();
+    sentinelObserverRef.current = null;
+    if (!node) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) loadMore();
+        if (entries[0]?.isIntersecting && hasMoreRef.current) loadMoreRef.current();
       },
       { rootMargin: "600px" },
     );
-    observer.observe(el);
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, isInitialLoading, term, JSON.stringify(filters), sort, visibleCount]);
+    observer.observe(node);
+    sentinelObserverRef.current = observer;
+  }, []);
 
   const showZero = !isInitialLoading && products.length === 0;
 
@@ -366,7 +382,7 @@ function SearchPage() {
                 </div>
 
                 {hasMore && (
-                  <div ref={sentinelRef} className="flex justify-center py-8">
+                  <div ref={sentinelCallbackRef} className="flex justify-center py-8">
                     <Button variant="outline" onClick={loadMore} disabled={isLoadingMore}>
                       {isLoadingMore ? "Loading…" : "Load more"}
                     </Button>
