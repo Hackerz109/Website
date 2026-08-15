@@ -376,6 +376,18 @@ export async function purgeAnalyticsDataNow(): Promise<{ ok: boolean; summary: P
   return res.json();
 }
 
+/** Full, unconditional wipe of all analytics data (the "Wipe all data now" danger-zone button), admin-only. */
+export async function wipeAllAnalyticsDataNow(): Promise<{ ok: boolean; summary: PurgeSummary }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  const res = await fetch("/api/analytics-wipe", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error("Failed to wipe data");
+  return res.json();
+}
+
 // ============================================================
 // 10. Reports & Exports
 // ============================================================
