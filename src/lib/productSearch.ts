@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
  * pulling that into every product payload site-wide would be pure waste —
  * nothing in the UI reads it, it's only used inside the search RPCs. */
 export const PRODUCT_SEARCH_SELECT =
-  "id, name, slug, description, price_cents, currency, image_url, stock, active, created_at, updated_at, featured, category_id, brand_id, mrp_cents, specifications, warranty, sku, warranty_available, warranty_type, warranty_duration, warranty_provider, warranty_service_method, warranty_notes, show_stock_count, stock_unlimited, rating_avg, rating_count, popularity_score, product_images(url, is_primary, variant_id), product_variants(id, name, sku, price_cents, stock, stock_unlimited), categories(name, slug), brands(name)";
+  "id, name, slug, description, price_cents, currency, image_url, stock, active, created_at, updated_at, featured, category_id, brand_id, mrp_cents, specifications, warranty, sku, warranty_available, warranty_type, warranty_duration, warranty_provider, warranty_service_method, warranty_notes, show_stock_count, stock_unlimited, rating_avg, rating_count, popularity_score, effective_price_cents, effective_in_stock, product_images(url, is_primary, variant_id), product_variants(id, name, sku, price_cents, stock, stock_unlimited), categories(name, slug), brands(name)";
 
 export function sanitizeSearchQuery(q: string) {
   // Strip characters that would break a PostgREST filter string if this
