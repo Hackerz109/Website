@@ -58,6 +58,21 @@ export function SearchBar({
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const loggedFor = useRef<string | null>(null);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function cancelPendingClose() {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+  }
+
+  // A pending close scheduled by a blur can otherwise fire *after* the user
+  // has already refocused/resumed typing (e.g. a quick blur+refocus while
+  // interacting near the dropdown), silently closing and resetting things
+  // mid-interaction well after the fact — cancel it on unmount too so it
+  // never fires against an unmounted component.
+  useEffect(() => cancelPendingClose, []);
 
   const recent = useSearchHistory((s) => s.recent);
   const addSearch = useSearchHistory((s) => s.addSearch);
@@ -155,6 +170,7 @@ export function SearchBar({
   }
 
   function closeAndReset() {
+    cancelPendingClose();
     setOpen(false);
     setQuery("");
     setDebounced("");
@@ -250,8 +266,17 @@ export function SearchBar({
             autoFocus={autoFocus}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            onFocus={() => {
+              cancelPendingClose();
+              setOpen(true);
+            }}
+            onBlur={() => {
+              cancelPendingClose();
+              blurTimeoutRef.current = setTimeout(() => {
+                setOpen(false);
+                blurTimeoutRef.current = null;
+              }, 150);
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Search products, categories…"
             aria-autocomplete="list"
