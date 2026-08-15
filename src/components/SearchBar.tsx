@@ -243,10 +243,13 @@ export function SearchBar({
   }
 
   // Keep the highlighted row in range whenever the list itself changes
-  // (new results landed, or switched between empty/typing mode).
+  // (new results landed, switched between empty/typing mode, or a recent
+  // search was removed). Depending on navItems directly — rather than
+  // re-listing its own inputs here — means this can't drift out of sync
+  // with what actually changed it.
   useEffect(() => {
     setActiveIndex(-1);
-  }, [isEmptyMode, results, trending]);
+  }, [navItems]);
 
   const showDropdown = open && (isEmptyMode ? navItems.length > 0 : debounced.length > 1);
   let renderIndex = -1;
@@ -455,8 +458,17 @@ export function SearchBar({
                         : `From ${formatMoney(Math.min(...variantPrices), p.currency)}`
                       : formatMoney(p.price_cents, p.currency);
 
-                  renderIndex++;
-                  const productRowIndex = matched.length === 0 ? renderIndex : -1;
+                  // Only counts as a nav item when it has no matched variants —
+                  // mirrors navItems above, which pushes variant rows *instead of*
+                  // the product row in that case. Incrementing renderIndex here
+                  // unconditionally would drift it out of sync with navItems for
+                  // every product after this one (wrong row highlighted, Enter
+                  // selecting something other than what's visually active).
+                  let productRowIndex = -1;
+                  if (matched.length === 0) {
+                    renderIndex++;
+                    productRowIndex = renderIndex;
+                  }
 
                   return (
                     <li key={p.id}>
