@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { forwardGeocodeServer, lookupPincodeServer, reverseGeocodeServer } from "@/lib/geocode.server";
+import { checkRateLimit, recordAttempt, getClientIp } from "@/lib/rateLimit.server";
 
 type GeocodeRequestBody =
   | { action: "reverse"; lat: number; lng: number }
@@ -18,12 +19,26 @@ export const Route = createFileRoute("/api/geocode")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // No auth required (guests use address autofill too), so IP is the
+        // only identifier available — caps scripted floods against the
+        // free, unauthenticated Nominatim/India Post upstreams behind this
+        // route (see geocode.server.ts) without affecting real shoppers,
+        // who only ever trigger a handful of lookups per checkout.
+        const ip = getClientIp(request);
+        const identifiers = [{ type: "ip" as const, value: ip }];
+        const status = await checkRateLimit("geocode", identifiers);
+        if (status.locked) {
+          return json({ error: "Too many lookups — please wait a bit and try again." }, 429);
+        }
+
         let body: GeocodeRequestBody;
         try {
           body = await request.json();
         } catch {
           return json({ error: "Bad request" }, 400);
         }
+
+        await recordAttempt("geocode", identifiers);
 
         if (body.action === "reverse") {
           if (!isFiniteNumber(body.lat) || !isFiniteNumber(body.lng)) return json({ error: "Bad request" }, 400);
