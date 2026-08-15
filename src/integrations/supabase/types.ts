@@ -999,6 +999,8 @@ export type Database = {
           rating_avg: number | null
           rating_count: number
           popularity_score: number
+          effective_price_cents: number
+          effective_in_stock: boolean
         }
         Insert: {
           active?: boolean
@@ -1030,6 +1032,8 @@ export type Database = {
           rating_avg?: number | null
           rating_count?: number
           popularity_score?: number
+          effective_price_cents?: number
+          effective_in_stock?: boolean
         }
         Update: {
           active?: boolean
@@ -1061,6 +1065,8 @@ export type Database = {
           rating_avg?: number | null
           rating_count?: number
           popularity_score?: number
+          effective_price_cents?: number
+          effective_in_stock?: boolean
         }
         Relationships: [
           {
