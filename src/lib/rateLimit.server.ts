@@ -83,6 +83,17 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
   analytics_error: {
     ip: { limit: 100, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
   },
+  // CSP violation reports (see api.csp-report.ts): the browser fires these
+  // on its own via report-uri, so unlike every other scope here there's no
+  // session/user identity available at all — IP is the only signal.
+  // Generous limit because one broadly-blocked resource (e.g. a script
+  // blocked on every page) can fire one report per navigation across many
+  // concurrent visitors sharing an IP (office NAT, carrier-grade NAT) —
+  // this is about stopping a scripted flood of fabricated reports, not
+  // normal browsing.
+  csp_report: {
+    ip: { limit: 300, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
+  },
   // One beacon per pageview (sent on visibilitychange, same cadence as
   // analytics_track), so the same generous per-IP allowance applies.
   analytics_vitals: {
