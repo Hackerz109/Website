@@ -8,7 +8,7 @@
 -- since generated columns can't reference other tables — brand/category
 -- text is already covered by search_products_ranked's identity_blob.
 CREATE OR REPLACE FUNCTION public.jsonb_specs_to_text(specs jsonb)
-RETURNS text LANGUAGE sql IMMUTABLE AS $$
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path TO 'public' AS $$
   SELECT COALESCE(
     string_agg(coalesce(elem->>'key', '') || ' ' || coalesce(elem->>'value', ''), ' '),
     ''
