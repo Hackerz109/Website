@@ -210,7 +210,12 @@ function ReportsExports() {
     mutationFn: purgeAnalyticsDataNow,
     onSuccess: ({ summary }) => {
       setPurgeSummary(summary);
-      const total = summary.analytics_events.deleted + summary.error_logs.deleted + summary.analytics_sessions.deleted;
+      const total =
+        summary.analytics_events.deleted +
+        summary.error_logs.deleted +
+        summary.analytics_performance_metrics.deleted +
+        summary.search_logs.deleted +
+        summary.analytics_sessions.deleted;
       toast.success(total > 0 ? `Cleanup ran — ${total.toLocaleString()} old rows deleted` : "Cleanup ran — nothing old to delete");
     },
     onError: () => toast.error("Couldn't run cleanup right now"),
@@ -244,8 +249,8 @@ function ReportsExports() {
           <div>
             <h3 className="text-sm font-semibold">Data retention</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Events &amp; errors older than 60 days and sessions older than 90 days are purged automatically
-              once a day. Use this to run it early.
+              Events, errors &amp; performance metrics older than 60 days, search history older than 30 days,
+              and sessions older than 90 days are purged automatically once a day. Use this to run it early.
             </p>
           </div>
           <Button
@@ -259,7 +264,7 @@ function ReportsExports() {
           </Button>
         </div>
         {purgeSummary && (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
             <div className="rounded-lg border p-2">
               <p className="text-muted-foreground">Events</p>
               <p className="font-medium">
@@ -272,6 +277,20 @@ function ReportsExports() {
               <p className="font-medium">
                 {purgeSummary.error_logs.deleted.toLocaleString()} deleted
                 {purgeSummary.error_logs.more_remaining ? " · more pending" : ""}
+              </p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Performance</p>
+              <p className="font-medium">
+                {purgeSummary.analytics_performance_metrics.deleted.toLocaleString()} deleted
+                {purgeSummary.analytics_performance_metrics.more_remaining ? " · more pending" : ""}
+              </p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Search history</p>
+              <p className="font-medium">
+                {purgeSummary.search_logs.deleted.toLocaleString()} deleted
+                {purgeSummary.search_logs.more_remaining ? " · more pending" : ""}
               </p>
             </div>
             <div className="rounded-lg border p-2">

@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { isCronOrAdminRequest } from "@/lib/adminAuth.server";
 
-// Purges analytics_events / error_logs / analytics_sessions rows past their
-// retention windows (60 / 60 / 90 days — see analytics_purge_old_data() for
-// the named constants and batching behavior). Two ways in, same pattern as
-// api.analytics-alerts-check.ts:
+// Purges analytics_events / error_logs / analytics_performance_metrics
+// (60 days), search_logs (30 days), and analytics_sessions (90 days) — see
+// analytics_purge_old_data() for the named constants and batching behavior.
+// Two ways in, same pattern as api.analytics-alerts-check.ts:
 //  - the "Run cleanup now" button on /admin/analytics/reports, authenticated
 //    with the signed-in admin's own bearer token
 //  - the Vercel Cron job configured in vercel.json, authenticated with
