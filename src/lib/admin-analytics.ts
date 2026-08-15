@@ -358,6 +358,8 @@ export interface PurgeTableSummary {
 export interface PurgeSummary {
   analytics_events: PurgeTableSummary;
   error_logs: PurgeTableSummary;
+  analytics_performance_metrics: PurgeTableSummary;
+  search_logs: PurgeTableSummary;
   analytics_sessions: PurgeTableSummary;
   ran_at: string;
 }
