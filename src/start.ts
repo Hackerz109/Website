@@ -25,6 +25,11 @@ const SECURITY_HEADERS: Record<string, string> = {
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
+    // Public, unauthenticated-by-design endpoint (the browser sends these
+    // on its own — see src/routes/api.csp-report.ts) that logs violations
+    // into the admin Errors analytics (error_type='csp') so they're
+    // actually visible somewhere other than each visitor's own devtools.
+    "report-uri /api/csp-report",
   ].join("; "),
 };
 

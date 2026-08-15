@@ -45,6 +45,11 @@
 // those existed on disk too but were still missing here, so every
 // analytics API call was 404ing even though the pages themselves loaded.
 // Added as flat root-level routes, same pattern as api.support-notify.
+//
+// MANUALLY CORRECTED AGAIN on 2026-08-15: added the new api.csp-report
+// route (flat root-level, same shape as api.analytics-error). Once the
+// regeneration step is fixed, delete every note above — this file is safe
+// to let `vite build`/`vite dev` fully overwrite from that point on.
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
@@ -108,6 +113,7 @@ import { Route as ApiAnalyticsAlertsCheckRouteImport } from './routes/api.analyt
 import { Route as ApiAnalyticsCleanupRouteImport } from './routes/api.analytics-cleanup'
 import { Route as ApiAnalyticsWipeRouteImport } from './routes/api.analytics-wipe'
 import { Route as ApiAnalyticsErrorRouteImport } from './routes/api.analytics-error'
+import { Route as ApiCspReportRouteImport } from './routes/api.csp-report'
 import { Route as ApiAnalyticsReportsRunRouteImport } from './routes/api.analytics-reports-run'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics-track'
 import { Route as ApiSearchLogRouteImport } from './routes/api.search-log'
@@ -428,6 +434,11 @@ const ApiAnalyticsErrorRoute = ApiAnalyticsErrorRouteImport.update({
   path: '/api/analytics-error',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCspReportRoute = ApiCspReportRouteImport.update({
+  id: '/api/csp-report',
+  path: '/api/csp-report',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAnalyticsReportsRunRoute = ApiAnalyticsReportsRunRouteImport.update({
   id: '/api/analytics-reports-run',
   path: '/api/analytics-reports-run',
@@ -565,6 +576,7 @@ export interface FileRoutesByFullPath {
   '/api/analytics-cleanup': typeof ApiAnalyticsCleanupRoute
   '/api/analytics-wipe': typeof ApiAnalyticsWipeRoute
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
+  '/api/csp-report': typeof ApiCspReportRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
   '/api/search-log': typeof ApiSearchLogRoute
@@ -640,6 +652,7 @@ export interface FileRoutesByTo {
   '/api/analytics-cleanup': typeof ApiAnalyticsCleanupRoute
   '/api/analytics-wipe': typeof ApiAnalyticsWipeRoute
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
+  '/api/csp-report': typeof ApiCspReportRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
   '/api/search-log': typeof ApiSearchLogRoute
@@ -718,6 +731,7 @@ export interface FileRoutesById {
   '/api/analytics-cleanup': typeof ApiAnalyticsCleanupRoute
   '/api/analytics-wipe': typeof ApiAnalyticsWipeRoute
   '/api/analytics-error': typeof ApiAnalyticsErrorRoute
+  '/api/csp-report': typeof ApiCspReportRoute
   '/api/analytics-reports-run': typeof ApiAnalyticsReportsRunRoute
   '/api/analytics-track': typeof ApiAnalyticsTrackRoute
   '/api/search-log': typeof ApiSearchLogRoute
@@ -1004,6 +1018,7 @@ export interface RootRouteChildren {
   ApiAnalyticsCleanupRoute: typeof ApiAnalyticsCleanupRoute
   ApiAnalyticsWipeRoute: typeof ApiAnalyticsWipeRoute
   ApiAnalyticsErrorRoute: typeof ApiAnalyticsErrorRoute
+  ApiCspReportRoute: typeof ApiCspReportRoute
   ApiAnalyticsReportsRunRoute: typeof ApiAnalyticsReportsRunRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   ApiSearchLogRoute: typeof ApiSearchLogRoute
@@ -1338,6 +1353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAnalyticsErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/csp-report': {
+      id: '/api/csp-report'
+      path: '/api/csp-report'
+      fullPath: '/api/csp-report'
+      preLoaderRoute: typeof ApiCspReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/analytics-reports-run': {
       id: '/api/analytics-reports-run'
       path: '/api/analytics-reports-run'
@@ -1550,6 +1572,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAnalyticsCleanupRoute: ApiAnalyticsCleanupRoute,
   ApiAnalyticsWipeRoute: ApiAnalyticsWipeRoute,
   ApiAnalyticsErrorRoute: ApiAnalyticsErrorRoute,
+  ApiCspReportRoute: ApiCspReportRoute,
   ApiAnalyticsReportsRunRoute: ApiAnalyticsReportsRunRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   ApiSearchLogRoute: ApiSearchLogRoute,
