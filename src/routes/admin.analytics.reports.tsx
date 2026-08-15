@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, useLocation } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Send, FileDown, Eraser } from "lucide-react";
+import { Plus, Trash2, Send, FileDown, Eraser, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   fetchScheduledReports,
@@ -17,6 +28,7 @@ import {
   deleteScheduledReport,
   sendReportNow,
   purgeAnalyticsDataNow,
+  wipeAllAnalyticsDataNow,
   fetchOverviewStats,
   fetchUserStats,
   fetchGeoStats,
@@ -221,6 +233,26 @@ function ReportsExports() {
     onError: () => toast.error("Couldn't run cleanup right now"),
   });
 
+  // Danger zone: deletes everything right now, no age filter, no undo.
+  // Kept as a fully separate state/mutation from the safe purge above so
+  // the two result summaries can never be confused with each other.
+  const [wipeSummary, setWipeSummary] = useState<PurgeSummary | null>(null);
+  const [wipeDialogOpen, setWipeDialogOpen] = useState(false);
+  const wipeMutation = useMutation({
+    mutationFn: wipeAllAnalyticsDataNow,
+    onSuccess: ({ summary }) => {
+      setWipeSummary(summary);
+      const total =
+        summary.analytics_events.deleted +
+        summary.error_logs.deleted +
+        summary.analytics_performance_metrics.deleted +
+        summary.search_logs.deleted +
+        summary.analytics_sessions.deleted;
+      toast.success(total > 0 ? `Wiped everything — ${total.toLocaleString()} rows deleted` : "Wiped — there was nothing to delete");
+    },
+    onError: () => toast.error("Couldn't wipe data right now"),
+  });
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border bg-card p-5 shadow-soft">
@@ -299,6 +331,70 @@ function ReportsExports() {
                 {purgeSummary.analytics_sessions.deleted.toLocaleString()} deleted
                 {purgeSummary.analytics_sessions.more_remaining ? " · more pending" : ""}
               </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-5 shadow-soft">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
+              <TriangleAlert className="h-4 w-4" /> Danger zone
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Deletes every row in events, errors, performance metrics, search history &amp; sessions
+              right now — including today's data. This can't be undone.
+            </p>
+          </div>
+          <AlertDialog open={wipeDialogOpen} onOpenChange={setWipeDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="gap-1.5 text-xs" disabled={wipeMutation.isPending}>
+                <Trash2 className="h-3.5 w-3.5" /> Wipe all data now
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Wipe all analytics data?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently deletes every row — events, errors, performance metrics, search
+                  history, and sessions — regardless of age, including anything from today. There is
+                  no way to undo this. The dashboards above will show zeros until new data comes in.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => wipeMutation.mutate()}
+                >
+                  Yes, delete everything
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+        {wipeSummary && (
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Events</p>
+              <p className="font-medium">{wipeSummary.analytics_events.deleted.toLocaleString()} deleted</p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Errors</p>
+              <p className="font-medium">{wipeSummary.error_logs.deleted.toLocaleString()} deleted</p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Performance</p>
+              <p className="font-medium">{wipeSummary.analytics_performance_metrics.deleted.toLocaleString()} deleted</p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Search history</p>
+              <p className="font-medium">{wipeSummary.search_logs.deleted.toLocaleString()} deleted</p>
+            </div>
+            <div className="rounded-lg border p-2">
+              <p className="text-muted-foreground">Sessions</p>
+              <p className="font-medium">{wipeSummary.analytics_sessions.deleted.toLocaleString()} deleted</p>
             </div>
           </div>
         )}
