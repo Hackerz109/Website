@@ -8,6 +8,12 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
   "Permissions-Policy": "camera=(), microphone=(), usb=(), payment=()",
+  // Actually enforced (unlike the CSP below, which is still Report-Only) —
+  // stops the site being loaded in an iframe on another origin, i.e.
+  // clickjacking/UI-redress against checkout, account, and admin pages.
+  // Doesn't affect this site embedding Razorpay/Turnstile — that's the
+  // opposite direction, governed by frame-src below.
+  "X-Frame-Options": "DENY",
   "Content-Security-Policy-Report-Only": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://challenges.cloudflare.com",
@@ -16,6 +22,7 @@ const SECURITY_HEADERS: Record<string, string> = {
     "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.supabase.co",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://checkout.razorpay.com https://challenges.cloudflare.com",
     "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com https://challenges.cloudflare.com",
+    "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
   ].join("; "),
