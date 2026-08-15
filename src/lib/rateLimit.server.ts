@@ -104,6 +104,15 @@ export const RATE_LIMIT_CONFIGS: Record<string, ScopeConfig> = {
     user: { limit: 20, windowMs: 15 * 60_000, lockMs: 30 * 60_000 },
     ip: { limit: 30, windowMs: 15 * 60_000, lockMs: 30 * 60_000 },
   },
+  // Address autofill (reverse/forward/pincode) — unauthenticated, and each
+  // call proxies to a free third-party API (Nominatim / India Post) that
+  // has its own strict usage limits. A genuine shopper triggers this a
+  // handful of times per checkout; this is here to stop a scripted flood
+  // from getting the site's shared outbound IP rate-limited or blocked by
+  // those upstreams for everyone.
+  geocode: {
+    ip: { limit: 40, windowMs: 10 * 60_000, lockMs: 10 * 60_000 },
+  },
 };
 
 // Show a captcha this many attempts before the (email) identifier actually
