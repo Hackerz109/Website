@@ -19,17 +19,24 @@ type QuantityInputProps = {
 // [min, max] — respecting stock/unlimited caps the caller passes in — once
 // the user commits it, by blurring the field or pressing Enter.
 export function QuantityInput({ value, max, min = 1, onChange, className }: QuantityInputProps) {
-  const [draft, setDraft] = useState(String(value));
+  // Guard against a non-finite value/max ever reaching this component (e.g.
+  // a caller passing along corrupted state) — without this, a single NaN
+  // here poisons every Math.min/Math.max below into NaN forever, which
+  // looks exactly like the buttons having silently stopped working.
+  const safeValue = Number.isFinite(value) ? value : min;
+  const safeMax = Number.isFinite(max) ? max : min;
+
+  const [draft, setDraft] = useState(String(safeValue));
 
   useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
+    setDraft(String(safeValue));
+  }, [safeValue]);
 
   function commit(raw: string) {
     const parsed = parseInt(raw, 10);
-    const clamped = Number.isNaN(parsed) ? value : Math.min(Math.max(parsed, min), max);
+    const clamped = Number.isNaN(parsed) ? safeValue : Math.min(Math.max(parsed, min), safeMax);
     setDraft(String(clamped));
-    if (clamped !== value) onChange(clamped);
+    if (clamped !== safeValue) onChange(clamped);
   }
 
   return (
@@ -39,8 +46,8 @@ export function QuantityInput({ value, max, min = 1, onChange, className }: Quan
         size="icon"
         variant="outline"
         className="h-9 w-9 rounded-lg"
-        disabled={value <= min}
-        onClick={() => onChange(Math.max(min, value - 1))}
+        disabled={safeValue <= min}
+        onClick={() => onChange(Math.max(min, safeValue - 1))}
       >
         <Minus className="h-3.5 w-3.5" />
       </Button>
@@ -67,8 +74,8 @@ export function QuantityInput({ value, max, min = 1, onChange, className }: Quan
         size="icon"
         variant="outline"
         className="h-9 w-9 rounded-lg"
-        disabled={value >= max}
-        onClick={() => onChange(Math.min(max, value + 1))}
+        disabled={safeValue >= safeMax}
+        onClick={() => onChange(Math.min(safeMax, safeValue + 1))}
       >
         <Plus className="h-3.5 w-3.5" />
       </Button>
