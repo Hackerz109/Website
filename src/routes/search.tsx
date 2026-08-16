@@ -16,6 +16,7 @@ import {
   rankedProducts,
   sortByRank,
   matchingVariants,
+  pickVariantImage,
   fetchFacets,
   fetchDidYouMean,
   fetchRelatedProducts,
@@ -224,12 +225,17 @@ function SearchPage() {
   // search-bar dropdown preview already uses, so a term that highlights a
   // variant there highlights the same variant here.
   const matchedVariantsByProductId = useMemo(() => {
-    const map: Record<string, { id: string; name: string; price_cents: number }[]> = {};
+    const map: Record<string, { id: string; name: string; price_cents: number; image: string | null }[]> = {};
     if (term.length < 2) return map;
     for (const p of products) {
       const matched = matchingVariants(term, p.product_variants ?? []);
       if (matched.length > 0) {
-        map[p.id] = matched.map((v: any) => ({ id: v.id, name: v.name, price_cents: v.price_cents }));
+        map[p.id] = matched.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          price_cents: v.price_cents,
+          image: pickVariantImage(p.product_images, v.id, null),
+        }));
       }
     }
     return map;
