@@ -1,13 +1,14 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
-import { ArrowLeft, ShoppingBag, Minus, Plus, X } from "lucide-react";
+import { ArrowLeft, ShoppingBag, X } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { WarrantyCard } from "@/components/WarrantyCard";
 import { AvailableOffers } from "@/components/AvailableOffers";
 import { BulkPricingTable } from "@/components/BulkPricingTable";
+import { QuantityInput } from "@/components/QuantityInput";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, formatMoney } from "@/stores/cart";
@@ -201,10 +202,6 @@ function ProductPage() {
   useEffect(() => {
     setQtyState((q) => Math.min(Math.max(q, 1), maxQty));
   }, [stock, unlimited]);
-  function changeQty(delta: number) {
-    setQtyState((q) => Math.min(Math.max(q + delta, 1), maxQty));
-  }
-
   // Bulk tiers apply against whichever price is actually in force for this
   // line (the selected variant's price, or the product's own) — same rule
   // the server enforces in resolve_bulk_unit_price_cents().
@@ -392,29 +389,7 @@ function ProductPage() {
               {canAdd && (
                 <div className="mt-6 flex items-center gap-3">
                   <p className="text-xs font-semibold text-muted-foreground">Qty</p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9 rounded-lg"
-                      disabled={qty <= 1}
-                      onClick={() => changeQty(-1)}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="w-8 text-center text-sm font-semibold tabular-nums">{qty}</span>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9 rounded-lg"
-                      disabled={qty >= maxQty}
-                      onClick={() => changeQty(1)}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  <QuantityInput value={qty} min={1} max={maxQty} onChange={setQtyState} />
                   {!unlimited && product.show_stock_count && (
                     <span className="text-xs text-muted-foreground">{stock} available</span>
                   )}

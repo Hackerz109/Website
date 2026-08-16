@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Minus, Plus, Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet, Home, Building2, PencilLine, CreditCard, Banknote, Layers } from "lucide-react";
+import { Trash2, Ticket, X, Check, MapPin, Store, Truck, LocateFixed, Wallet, Home, Building2, PencilLine, CreditCard, Banknote, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
+import { QuantityInput } from "@/components/QuantityInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -700,13 +701,12 @@ function CartPage() {
                         </p>
                       )}
                       <div className="mt-2 flex items-center gap-1.5">
-                        <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => setQty(i.id, i.quantity - 1, i.variantId)}>
-                          <Minus className="h-3.5 w-3.5" />
-                        </Button>
-                        <span className="w-7 text-center text-sm">{i.quantity}</span>
-                        <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => setQty(i.id, i.quantity + 1, i.variantId)}>
-                          <Plus className="h-3.5 w-3.5" />
-                        </Button>
+                        <QuantityInput
+                          value={i.quantity}
+                          min={1}
+                          max={cap}
+                          onChange={(q) => setQty(i.id, q, i.variantId)}
+                        />
                         <Button size="icon" variant="ghost" className="ml-auto h-9 w-9" onClick={() => remove(i.id, i.variantId)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
