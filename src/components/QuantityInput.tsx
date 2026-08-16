@@ -3,6 +3,7 @@ import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toFiniteNumber } from "@/stores/cart";
 
 type QuantityInputProps = {
   value: number;
@@ -19,12 +20,15 @@ type QuantityInputProps = {
 // [min, max] — respecting stock/unlimited caps the caller passes in — once
 // the user commits it, by blurring the field or pressing Enter.
 export function QuantityInput({ value, max, min = 1, onChange, className }: QuantityInputProps) {
-  // Guard against a non-finite value/max ever reaching this component (e.g.
-  // a caller passing along corrupted state) — without this, a single NaN
-  // here poisons every Math.min/Math.max below into NaN forever, which
-  // looks exactly like the buttons having silently stopped working.
-  const safeValue = Number.isFinite(value) ? value : min;
-  const safeMax = Number.isFinite(max) ? max : min;
+  // Guard against a non-finite (or non-number, e.g. a stray string) value or
+  // max ever reaching this component — e.g. a caller passing along
+  // corrupted state. toFiniteNumber is the same coercion the cart store
+  // uses internally, so this component can never disagree with the store
+  // about what counts as a usable number. Without this, a single bad value
+  // here poisons every Math.min/Math.max below, which looks exactly like
+  // the buttons having silently stopped working.
+  const safeValue = toFiniteNumber(value, min);
+  const safeMax = toFiniteNumber(max, min);
 
   const [draft, setDraft] = useState(String(safeValue));
 
