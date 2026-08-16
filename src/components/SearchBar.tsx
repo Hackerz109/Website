@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Search, X, Loader2, TrendingUp, Clock, Tag, Award } from "lucide-react";
+import { Search, X, Loader2, TrendingUp, Clock, Tag, Award, CornerDownRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/stores/cart";
 import { useSearchHistory } from "@/stores/searchHistory";
@@ -493,7 +493,10 @@ export function SearchBar({
                         <p className="flex-shrink-0 text-sm font-semibold">{priceLabel}</p>
                       </button>
                       {matched.length > 0 && (
-                        <div className="mb-1 ml-[52px] mr-4 space-y-0.5">
+                        <div className="mb-1.5 ml-[52px] mr-4 space-y-0.5 border-l-2 border-border pl-3">
+                          <p className="pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+                            Matching options
+                          </p>
                           {matched.map((v) => {
                             renderIndex++;
                             const idx = renderIndex;
@@ -504,11 +507,14 @@ export function SearchBar({
                                 onMouseDown={(e) => e.preventDefault()}
                                 onMouseEnter={() => setActiveIndex(idx)}
                                 onClick={() => goToProduct(p.slug, v.id)}
-                                className={`flex w-full items-center justify-between rounded-md py-1 text-left text-muted-foreground hover:text-foreground ${
-                                  activeIndex === idx ? "text-foreground" : ""
+                                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                                  activeIndex === idx
+                                    ? "bg-accent text-foreground"
+                                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                                 }`}
                               >
-                                <span className="truncate text-xs">↳ {v.name}</span>
+                                <CornerDownRight className="h-3 w-3 flex-shrink-0 opacity-70" />
+                                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{v.name}</span>
                                 <span className="flex-shrink-0 text-xs font-semibold text-foreground">
                                   {formatMoney(v.price_cents, p.currency)}
                                 </span>
