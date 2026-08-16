@@ -10,7 +10,7 @@ type Product = Database["public"]["Tables"]["products"]["Row"] & {
   brands?: { name: string } | null;
 };
 
-type MatchedVariant = { id: string; name: string; price_cents: number };
+type MatchedVariant = { id: string; name: string; price_cents: number; image: string | null };
 
 export function ProductCard({
   product,
@@ -25,22 +25,30 @@ export function ProductCard({
    * caller (home, category, collections) simply omits this prop. */
   matchedVariants?: MatchedVariant[];
 }) {
-  // A card has no notion of "which variant" — prefer the shared/universal
-  // gallery (variant_id null) for the thumbnail, the same photo every
-  // variant shows on its own page too. Only when a product has NO shared
-  // images at all (increasingly common now that images can be uploaded
-  // straight to a variant) do we fall back to some variant's photo rather
-  // than showing nothing — any variant's primary/first image is a better
-  // thumbnail than a blank "No image" card.
+  // Generic/product-level photo: prefer the shared/universal gallery
+  // (variant_id null) — the same photo every variant shows on its own page
+  // too. Only when a product has NO shared images at all (increasingly
+  // common now that images can be uploaded straight to a variant) do we
+  // fall back to some variant's photo rather than showing nothing — any
+  // variant's primary/first image beats a blank "No image" card. Used as
+  // the card's default hero image, and as the fallback for any matched
+  // variant chip below that has no dedicated photo of its own.
   const allImages = product.product_images ?? [];
   const sharedImages = allImages.filter((i) => !i.variant_id);
   const variantImages = allImages.filter((i) => i.variant_id);
   const variants = product.product_variants ?? [];
-  const primaryImage = sharedImages.find((i) => i.is_primary)?.url
+  const genericImage = sharedImages.find((i) => i.is_primary)?.url
     ?? sharedImages[0]?.url
     ?? variantImages.find((i) => i.is_primary)?.url
     ?? variantImages[0]?.url
     ?? product.image_url;
+
+  // When the search matched a specific variant, show *that* variant's own
+  // photo as the card's hero image instead of the product's generic one —
+  // searching "white" should actually show white, not whatever the first
+  // uploaded photo happens to be. Falls back to the generic image above
+  // when the matched variant has no dedicated photo of its own.
+  const primaryImage = matchedVariants[0]?.image ?? genericImage;
 
   const outOfStock = variants.length > 0
     ? variants.every((v) => !v.stock_unlimited && v.stock <= 0)
@@ -141,19 +149,25 @@ export function ProductCard({
       </Link>
 
       {shownChips.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          {shownChips.map((v) => (
-            <Link
-              key={v.id}
-              to="/product/$slug"
-              params={{ slug: product.slug }}
-              search={{ variant: v.id }}
-              title={v.name}
-              className="max-w-[45%] truncate rounded-full border border-border bg-accent/70 px-2 py-0.5 text-[11px] font-medium text-accent-foreground transition-colors hover:border-copper/50 hover:bg-accent sm:max-w-[110px]"
-            >
-              {v.name}
-            </Link>
-          ))}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {shownChips.map((v) => {
+            const chipImage = v.image ?? genericImage;
+            return (
+              <Link
+                key={v.id}
+                to="/product/$slug"
+                params={{ slug: product.slug }}
+                search={{ variant: v.id }}
+                title={v.name}
+                className="flex max-w-[52%] items-center gap-1.5 rounded-full border border-border bg-accent/70 py-1 pl-1 pr-2.5 text-[11px] font-medium text-accent-foreground transition-colors hover:border-copper/50 hover:bg-accent sm:max-w-[136px]"
+              >
+                <span className="h-5 w-5 flex-shrink-0 overflow-hidden rounded-full border border-border/60 bg-secondary">
+                  {chipImage && <img src={chipImage} alt="" className="h-full w-full object-cover" />}
+                </span>
+                <span className="min-w-0 truncate">{v.name}</span>
+              </Link>
+            );
+          })}
           {extraMatchCount > 0 && (
             <span className="text-[11px] font-medium text-muted-foreground">+{extraMatchCount} more</span>
           )}

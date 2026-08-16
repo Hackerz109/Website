@@ -9,6 +9,7 @@ import { trackSearch } from "@/lib/analytics-tracker";
 import {
   PRODUCT_SEARCH_SELECT,
   matchingVariants,
+  pickVariantImage,
   rankedProductIds,
   sortByRank,
   fetchAutocomplete,
@@ -29,7 +30,7 @@ type ProductResult = {
   categories?: { name: string } | null;
 };
 
-type MatchedVariant = { id: string; name: string; price_cents: number };
+type MatchedVariant = { id: string; name: string; price_cents: number; image: string | null };
 
 // A single flat, keyboard-navigable list backs whatever the dropdown is
 // currently showing (recent/trending when empty, suggestions+products+
@@ -106,7 +107,12 @@ export function SearchBar({
       for (const p of products) {
         const matched = matchingVariants(debounced, p.product_variants ?? []);
         if (matched.length > 0) {
-          variantsByProduct[p.id] = matched.map((v) => ({ id: v.id, name: v.name, price_cents: v.price_cents }));
+          variantsByProduct[p.id] = matched.map((v) => ({
+            id: v.id,
+            name: v.name,
+            price_cents: v.price_cents,
+            image: pickVariantImage(p.product_images, v.id, null),
+          }));
         }
       }
 
@@ -500,6 +506,7 @@ export function SearchBar({
                           {matched.map((v) => {
                             renderIndex++;
                             const idx = renderIndex;
+                            const thumb = v.image ?? img;
                             return (
                               <button
                                 key={v.id}
@@ -507,13 +514,19 @@ export function SearchBar({
                                 onMouseDown={(e) => e.preventDefault()}
                                 onMouseEnter={() => setActiveIndex(idx)}
                                 onClick={() => goToProduct(p.slug, v.id)}
-                                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors ${
                                   activeIndex === idx
                                     ? "bg-accent text-foreground"
                                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                                 }`}
                               >
-                                <CornerDownRight className="h-3 w-3 flex-shrink-0 opacity-70" />
+                                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-secondary">
+                                  {thumb ? (
+                                    <img src={thumb} alt="" className="h-full w-full object-cover" />
+                                  ) : (
+                                    <CornerDownRight className="h-3 w-3 opacity-60" />
+                                  )}
+                                </div>
                                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{v.name}</span>
                                 <span className="flex-shrink-0 text-xs font-semibold text-foreground">
                                   {formatMoney(v.price_cents, p.currency)}
