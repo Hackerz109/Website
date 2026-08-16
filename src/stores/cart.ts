@@ -18,8 +18,11 @@ export type CartItem = {
 };
 
 // Unlimited items have no real ceiling, but the cart still needs some cap
-// to keep quantities sane — matches the cap used on the product page.
-const UNLIMITED_QTY_CAP = 99;
+// to keep quantities sane. Exported so the product page and cart page
+// import this instead of each hardcoding their own copy of the number —
+// one source of truth means the UI's displayed max can never drift out of
+// sync with what actually gets clamped into cart state.
+export const UNLIMITED_QTY_CAP = 999;
 function qtyCap(item: Pick<CartItem, "stock" | "unlimited">) {
   return item.unlimited ? UNLIMITED_QTY_CAP : item.stock;
 }
