@@ -70,6 +70,22 @@ export function matchingVariants<V extends { name: string; sku: string | null }>
   });
 }
 
+/**
+ * Best photo for one specific variant: that variant's own primary (or
+ * first) image — product_images rows whose variant_id matches — if it has
+ * one, else the given fallback (typically the product's own shared/hero
+ * image, so a variant with no dedicated photo still shows something
+ * sensible instead of a blank box).
+ */
+export function pickVariantImage(
+  images: { url: string; is_primary: boolean; variant_id: string | null }[] | undefined,
+  variantId: string,
+  fallback: string | null,
+): string | null {
+  const own = (images ?? []).filter((i) => i.variant_id === variantId);
+  return own.find((i) => i.is_primary)?.url ?? own[0]?.url ?? fallback;
+}
+
 // ---------------------------------------------------------------------------
 // Filters, sorting
 // ---------------------------------------------------------------------------
