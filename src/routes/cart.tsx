@@ -713,7 +713,12 @@ function CartPage() {
                           max={cap}
                           onChange={(q) => setQty(i.id, q, i.variantId)}
                         />
-                        <Button size="icon" variant="ghost" className="ml-auto h-9 w-9" onClick={() => remove(i.id, i.variantId)}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="ml-auto h-10 w-10 touch-manipulation sm:h-9 sm:w-9"
+                          onClick={() => remove(i.id, i.variantId)}
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
