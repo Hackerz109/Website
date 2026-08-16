@@ -723,7 +723,7 @@ function CartPage() {
                         </Button>
                       </div>
                     </div>
-                    <div className="flex-shrink-0 text-sm font-medium">
+                    <div className="min-w-28 flex-shrink-0 text-right text-sm font-medium tabular-nums">
                       {formatMoney(unitPrice * i.quantity)}
                     </div>
                   </div>
