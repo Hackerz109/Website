@@ -1,3 +1,112 @@
+# Security review — 2026-08-16
+
+Follow-up pass, ~3.5 weeks after the review below. Re-verified both fixes
+from 2026-07-24 are still intact, then went through everything added
+since (30 new migrations — bulk pricing, cash on pickup, support tickets,
+analytics, search, CSP). No new critical or medium issues found. One
+thing I can't verify from the exported code and need you to check
+directly — see below.
+
+## Needs your input — can't verify from the exported code
+
+`brands`, `categories`, `product_images`, and `product_variants` exist in
+your live database (confirmed via the generated `types.ts`) but have no
+`CREATE TABLE` anywhere in this migrations folder — unlike every other
+table in the app, which is fully tracked. They almost certainly predate
+migration tracking (created directly in the Supabase/Lovable dashboard
+before 2026-07-11, the earliest migration here).
+
+This isn't just a paperwork gap. `admin.products.tsx` and
+`admin.taxonomy.tsx` write to all four of these directly from the
+signed-in admin's own browser session — `.insert()` / `.update()` /
+`.delete()` calls straight to the client, plus
+`supabase.storage.from("product-images").upload(...)` for images — none
+of it routed through a server API. There's no code-level admin check on
+these calls at all; whatever stops a regular signed-in customer from
+doing the same thing has to be a Postgres RLS policy, and I have no way
+to see whether one exists.
+
+Run this in the Supabase SQL editor to check:
+
+```sql
+-- Is RLS even on?
+SELECT tablename, rowsecurity FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN ('brands','categories','product_images','product_variants');
+
+-- What can write, and who?
+SELECT tablename, policyname, cmd, roles
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('brands','categories','product_images','product_variants')
+ORDER BY tablename, cmd;
+
+-- Same question for the product-images storage bucket
+SELECT policyname, cmd, roles
+FROM pg_policies
+WHERE schemaname = 'storage' AND tablename = 'objects'
+ORDER BY policyname;
+```
+
+If INSERT/UPDATE/DELETE on any of these comes back available to
+`authenticated` without a `has_role(auth.uid(), 'admin')` check (or the
+storage bucket has no admin-only write policy), share the output and
+I'll write the migration to lock it down. I didn't want to guess here —
+writing a policy blind risks either overwriting one that's already
+correct, or, worse, quietly making something more permissive than what's
+already there.
+
+## Verified from 2026-07-24
+
+- **Order pricing integrity** — `recompute_order_total()` is still wired
+  in and was correctly extended on 2026-08-08 to cover the new
+  bulk-quantity pricing feature (still re-derives everything from
+  `products` / `product_variants` / `bulk_pricing_tiers` / `coupons` /
+  `delivery_settings`, never the client). A shopper still can't influence
+  what they're charged, no matter which new pricing feature touches the
+  order.
+- **Login rate-limit reset** — still requires a valid, just-issued
+  session whose email matches the one being cleared.
+
+## New since then, checked fresh
+
+- **Analytics system** — every table RLS'd, admin-only reads, ingestion
+  reachable only via `service_role` from server routes, not from the
+  browser.
+- **Support tickets** — got its own hardening pass the day after launch:
+  rate limits enforced *inside* the RPCs themselves (the Node-side
+  limiter can't see direct `supabase.rpc()` calls from the browser),
+  plus a message-length cap.
+- **CSP** — now live as `Content-Security-Policy-Report-Only`, exactly
+  the cautious rollout the last review suggested, feeding violations
+  into the admin Errors page through a rate-limited, size-capped
+  `/api/csp-report` endpoint. `X-Frame-Options: DENY` is on now too.
+- **Cash on Pickup** — stays `payment_status = 'pending'` (no stock
+  deducted) until staff manually mark it paid — can't be used to get
+  free or unpaid stock.
+- **Webhooks** — Razorpay and WhatsApp signature checks both
+  spot-checked again: HMAC + `timingSafeEqual`, unchanged.
+- **`user_roles`** — re-checked the *entire* migration history, not just
+  current state: no INSERT/UPDATE policy for regular users has ever
+  existed. Self-escalation to admin still isn't possible.
+- Every table that *is* tracked in migrations (27 of them) has RLS
+  enabled — confirmed by diffing the full table list against every
+  `ENABLE ROW LEVEL SECURITY` statement, not spot-checks.
+- Fresh sweep of the whole `src/` tree for hardcoded secrets and
+  `dangerouslySetInnerHTML` / `eval` — clean. The one
+  `dangerouslySetInnerHTML` (chart theming) still only ever receives
+  developer-defined color config, never user input.
+- The 3 files changed earlier in this session (`ProductCard.tsx`,
+  `search.tsx`, `SearchBar.tsx`) — plain-text JSX and typed router links
+  only, nothing touching auth, payments, or raw HTML.
+
+## Still outstanding (unchanged from last time)
+
+- `npm audit` / `bun audit` — still can't run this myself (no registry
+  access in my environment). Worth running yourself, and wiring into CI.
+
+---
+
 # Security review — 2026-07-24
 
 Full read-through of the app (payments, auth, admin, RLS policies, secrets,
