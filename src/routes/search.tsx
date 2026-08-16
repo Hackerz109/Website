@@ -15,6 +15,7 @@ import {
   PRODUCT_SEARCH_SELECT,
   rankedProducts,
   sortByRank,
+  matchingVariants,
   fetchFacets,
   fetchDidYouMean,
   fetchRelatedProducts,
@@ -217,6 +218,23 @@ function SearchPage() {
   const isInitialLoading = isRelevanceSort ? relevanceQuery.isLoading : columnQuery.isLoading;
   const isLoadingMore = isRelevanceSort ? false : columnQuery.isFetchingNextPage;
 
+  // Which of each result's own variants matched the search term (e.g.
+  // searching "white" against a product with White/Black options) — shown
+  // on its card as clickable "sub-product" chips. Same matching rule the
+  // search-bar dropdown preview already uses, so a term that highlights a
+  // variant there highlights the same variant here.
+  const matchedVariantsByProductId = useMemo(() => {
+    const map: Record<string, { id: string; name: string; price_cents: number }[]> = {};
+    if (term.length < 2) return map;
+    for (const p of products) {
+      const matched = matchingVariants(term, p.product_variants ?? []);
+      if (matched.length > 0) {
+        map[p.id] = matched.map((v: any) => ({ id: v.id, name: v.name, price_cents: v.price_cents }));
+      }
+    }
+    return map;
+  }, [term, products]);
+
   function loadMore() {
     if (isRelevanceSort) setVisibleCount((c) => c + PAGE_SIZE);
     else columnQuery.fetchNextPage();
@@ -377,7 +395,7 @@ function SearchPage() {
               <>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {products.map((p) => (
-                    <ProductCard key={p.id} product={p} />
+                    <ProductCard key={p.id} product={p} matchedVariants={matchedVariantsByProductId[p.id]} />
                   ))}
                 </div>
 
