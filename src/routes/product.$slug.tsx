@@ -11,7 +11,7 @@ import { BulkPricingTable } from "@/components/BulkPricingTable";
 import { QuantityInput } from "@/components/QuantityInput";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useCart, formatMoney } from "@/stores/cart";
+import { useCart, formatMoney, UNLIMITED_QTY_CAP } from "@/stores/cart";
 import { fetchBulkTiers, tiersForLine, bestTierFor, tierUnitPriceCents, nextTierHint, describeTierDiscount } from "@/lib/bulkPricing";
 
 export const Route = createFileRoute("/product/$slug")({
@@ -194,7 +194,6 @@ function ProductPage() {
   // An unlimited item has no real ceiling, but the qty stepper still needs
   // some cap so the UI (and a stray tap-and-hold) can't run away to an
   // absurd number.
-  const UNLIMITED_QTY_CAP = 99;
   const maxQty = unlimited ? UNLIMITED_QTY_CAP : Math.max(stock, 1);
 
   const [qty, setQtyState] = useState(1);

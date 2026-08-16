@@ -14,7 +14,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { INDIAN_STATES } from "@/lib/indianStates";
 import { INDIAN_CITIES } from "@/lib/indianCities";
 import { LeafletMap } from "@/components/LeafletMap";
-import { useCart, formatMoney, type CartItem } from "@/stores/cart";
+import { useCart, formatMoney, UNLIMITED_QTY_CAP, type CartItem } from "@/stores/cart";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchBulkTiers,
@@ -675,7 +675,7 @@ function CartPage() {
                   const unitPrice = effectiveUnitPrice(i);
                   const tier = bestTierFor(tiers, i.quantity);
                   const next = nextTierHint(tiers, i.quantity);
-                  const cap = i.unlimited ? 99 : i.stock;
+                  const cap = i.unlimited ? UNLIMITED_QTY_CAP : i.stock;
                   return (
                   <div key={`${i.id}::${i.variantId ?? ""}`} className="flex gap-3 rounded-xl border p-4 sm:gap-4">
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-secondary/60">
