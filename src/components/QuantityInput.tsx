@@ -49,7 +49,7 @@ export function QuantityInput({ value, max, min = 1, onChange, className }: Quan
         type="button"
         size="icon"
         variant="outline"
-        className="h-9 w-9 rounded-lg"
+        className="h-10 w-10 rounded-lg touch-manipulation sm:h-9 sm:w-9"
         disabled={safeValue <= min}
         onClick={() => onChange(Math.max(min, safeValue - 1))}
       >
@@ -71,13 +71,19 @@ export function QuantityInput({ value, max, min = 1, onChange, className }: Quan
             e.currentTarget.blur();
           }
         }}
-        className="h-9 w-14 rounded-lg px-1 text-center text-sm font-semibold tabular-nums"
+        // text-base (16px) below md: NOT text-sm — under 16px, iOS Safari
+        // auto-zooms the viewport on focus, which then leaves every button
+        // on the page offset from where it visually appears until the user
+        // manually pinches back out. That's what made the +/- and delete
+        // buttons next to this field seem to "randomly" stop responding on
+        // phones while working fine on desktop, which never zooms on focus.
+        className="h-10 w-14 rounded-lg px-1 text-center text-base font-semibold tabular-nums md:h-9 md:text-sm"
       />
       <Button
         type="button"
         size="icon"
         variant="outline"
-        className="h-9 w-9 rounded-lg"
+        className="h-10 w-10 rounded-lg touch-manipulation sm:h-9 sm:w-9"
         disabled={safeValue >= safeMax}
         onClick={() => onChange(Math.min(safeMax, safeValue + 1))}
       >
