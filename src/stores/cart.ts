@@ -23,8 +23,22 @@ export type CartItem = {
 // one source of truth means the UI's displayed max can never drift out of
 // sync with what actually gets clamped into cart state.
 export const UNLIMITED_QTY_CAP = 999;
+
+// Coerces to a finite number, falling back when the input is missing,
+// null, or NaN. Cart items live in localStorage indefinitely, so a line
+// added before some field existed (or corrupted by a prior bug) can carry
+// `undefined`/`null` into arithmetic here — and a single non-finite value
+// poisons every Math.min/Math.max that touches it into NaN forever, which
+// is what a permanently "frozen" cart line actually was: quantity had
+// silently become NaN and no button could ever move it off that.
+function toFiniteNumber(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function qtyCap(item: Pick<CartItem, "stock" | "unlimited">) {
-  return item.unlimited ? UNLIMITED_QTY_CAP : item.stock;
+  if (item.unlimited) return UNLIMITED_QTY_CAP;
+  return Math.max(0, toFiniteNumber(item.stock, UNLIMITED_QTY_CAP));
 }
 
 // A cart "line" is identified by product + variant together, since the same
@@ -49,16 +63,17 @@ export const useCart = create<CartState>()(
         set((s) => {
           const key = lineKey(item.id, item.variantId);
           const existing = s.items.find((i) => lineKey(i.id, i.variantId) === key);
+          const safeQty = toFiniteNumber(qty, 1);
           if (existing) {
             return {
               items: s.items.map((i) =>
                 lineKey(i.id, i.variantId) === key
-                  ? { ...i, quantity: Math.min(qtyCap(i), i.quantity + qty) }
+                  ? { ...i, quantity: Math.max(1, Math.min(qtyCap(i), toFiniteNumber(i.quantity, 0) + safeQty)) }
                   : i,
               ),
             };
           }
-          return { items: [...s.items, { ...item, quantity: Math.min(qtyCap(item), qty) }] };
+          return { items: [...s.items, { ...item, quantity: Math.max(1, Math.min(qtyCap(item), safeQty)) }] };
         }),
       remove: (id, variantId = null) =>
         set((s) => ({
@@ -68,7 +83,7 @@ export const useCart = create<CartState>()(
         set((s) => ({
           items: s.items.map((i) =>
             lineKey(i.id, i.variantId) === lineKey(id, variantId)
-              ? { ...i, quantity: Math.max(1, Math.min(qtyCap(i), qty)) }
+              ? { ...i, quantity: Math.max(1, Math.min(qtyCap(i), toFiniteNumber(qty, toFiniteNumber(i.quantity, 1)))) }
               : i,
           ),
         })),
@@ -76,7 +91,7 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "shop-cart",
-      version: 4,
+      version: 5,
       migrate: (persisted: any, version) => {
         if (version < 3 && persisted?.items) {
           persisted.items = persisted.items.map((i: any) => ({
@@ -90,6 +105,17 @@ export const useCart = create<CartState>()(
             unlimited: false,
             ...i,
           }));
+        }
+        // Self-heal any line left with a missing/non-finite stock or
+        // quantity — the root cause of a line whose buttons looked
+        // permanently frozen (see qtyCap/toFiniteNumber above).
+        if (version < 5 && persisted?.items) {
+          persisted.items = persisted.items.map((i: any) => {
+            const stock = i.unlimited ? UNLIMITED_QTY_CAP : Math.max(0, toFiniteNumber(i.stock, 1));
+            const cap = i.unlimited ? UNLIMITED_QTY_CAP : stock;
+            const quantity = Math.max(1, Math.min(cap, toFiniteNumber(i.quantity, 1)));
+            return { ...i, stock, quantity };
+          });
         }
         return persisted;
       },
