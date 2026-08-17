@@ -683,49 +683,71 @@ function CartPage() {
                   // Number.isFinite check downstream.
                   const cap = qtyCap(i);
                   return (
-                  <div key={`${i.id}::${i.variantId ?? ""}`} className="rounded-xl border p-4">
-                    <div className="grid grid-cols-[auto_1fr_auto] gap-3 sm:gap-4">
-                      <div className="h-20 w-20 overflow-hidden rounded-lg bg-secondary/60">
+                  <div key={`${i.id}::${i.variantId ?? ""}`} className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                    <div className="grid grid-cols-[auto_1fr] gap-3.5 sm:gap-4">
+                      <Link
+                        to="/product/$slug"
+                        params={{ slug: i.slug }}
+                        className="h-24 w-24 overflow-hidden rounded-lg border border-border bg-secondary/60"
+                      >
                         {i.image_url && <img src={i.image_url} alt="" className="h-full w-full object-cover" />}
-                      </div>
+                      </Link>
                       <div className="min-w-0">
-                        <p className="break-words font-medium">{i.name}</p>
-                        {i.sku && <p className="break-words text-xs text-muted-foreground">SKU: {i.sku}</p>}
-                        <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                          <span className={tier ? "text-foreground font-medium" : ""}>{formatMoney(unitPrice)}</span>
+                        {/* Name gets a real, dedicated flex row with the price —
+                            same "flexible + never-wrapping fixed" pairing as
+                            below, so a long name can never squeeze anything
+                            else. line-clamp-2 (the same treatment the product
+                            grid cards use) caps it at two tidy lines instead of
+                            wrapping indefinitely down the card. */}
+                        <div className="flex items-start justify-between gap-3">
+                          <Link to="/product/$slug" params={{ slug: i.slug }} className="min-w-0">
+                            <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground transition-colors hover:text-primary">
+                              {i.name}
+                            </h3>
+                          </Link>
+                          <p className="flex-none whitespace-nowrap font-mono text-base font-semibold text-foreground">
+                            {formatMoney(unitPrice * i.quantity)}
+                          </p>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+                          <span className={tier ? "font-mono font-semibold text-foreground" : "font-mono"}>
+                            {formatMoney(unitPrice)}
+                          </span>
                           {tier && (
                             <>
-                              <span className="line-through">{formatMoney(i.price_cents)}</span>
+                              <span className="font-mono line-through">{formatMoney(i.price_cents)}</span>
                               <span className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold text-green-700">
                                 <Layers className="h-2.5 w-2.5" /> {describeTierDiscount(tier)}
                               </span>
                             </>
                           )}
                         </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {cap > 0 ? (
+                            <span className="font-medium text-success">In stock</span>
+                          ) : (
+                            <span className="font-medium text-destructive">Sold out</span>
+                          )}
+                          {i.sku && ` · SKU ${i.sku}`}
+                        </p>
                         {next && next.unitsNeeded <= cap - i.quantity && (
-                          <p className="mt-0.5 text-xs font-medium text-primary">
+                          <p className="mt-1 text-xs font-medium text-primary">
                             Add {next.unitsNeeded} more for {describeTierDiscount(next.tier)}
                           </p>
                         )}
                       </div>
-                      {/* Fixed "auto" column sized purely off this text, and
-                          never allowed to wrap — so it can no longer eat into
-                          the name column's width (or vice versa) depending on
-                          how many digits the total happens to have. */}
-                      <div className="whitespace-nowrap text-right text-sm font-medium tabular-nums">
-                        {formatMoney(unitPrice * i.quantity)}
-                      </div>
                     </div>
+
                     {/* Own full-width row, separate from the grid above, so the
-                        stepper + delete button always have the whole card's
+                        stepper + remove control always have the whole card's
                         width to lay out in. When they shared a row with the
                         name/price columns, a long name (or a wide total) could
-                        squeeze this down so far that + and the delete button
-                        ended up sitting under the price column's invisible
-                        edge — clicks landed there instead of on the button,
-                        which is what made them look unresponsive on phones
-                        (only − survived, since it was leftmost). */}
-                    <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+                        squeeze this down so far that + and delete ended up
+                        sitting under the price column's invisible edge — clicks
+                        landed there instead of on the button, which is what
+                        made them look unresponsive on phones (only − survived,
+                        since it was leftmost). */}
+                    <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">
                       <QuantityInput
                         value={i.quantity}
                         min={1}
@@ -734,12 +756,12 @@ function CartPage() {
                       />
                       <Button
                         type="button"
-                        size="icon"
                         variant="ghost"
-                        className="h-10 w-10 flex-shrink-0 touch-manipulation sm:h-9 sm:w-9"
+                        className="h-10 flex-shrink-0 gap-1.5 rounded-lg px-3 text-muted-foreground touch-manipulation hover:bg-destructive/10 hover:text-destructive sm:h-9"
                         onClick={() => remove(i.id, i.variantId)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
+                        Remove
                       </Button>
                     </div>
                   </div>
