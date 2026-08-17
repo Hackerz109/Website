@@ -693,33 +693,39 @@ function CartPage() {
                         {i.image_url && <img src={i.image_url} alt="" className="h-full w-full object-cover" />}
                       </Link>
                       <div className="min-w-0">
-                        {/* Name gets a real, dedicated flex row with the price —
-                            same "flexible + never-wrapping fixed" pairing as
-                            below, so a long name can never squeeze anything
-                            else. line-clamp-2 (the same treatment the product
-                            grid cards use) caps it at two tidy lines instead of
-                            wrapping indefinitely down the card. */}
-                        <div className="flex items-start justify-between gap-3">
-                          <Link to="/product/$slug" params={{ slug: i.slug }} className="min-w-0">
-                            <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground transition-colors hover:text-primary">
-                              {i.name}
-                            </h3>
-                          </Link>
-                          <p className="flex-none whitespace-nowrap font-mono text-base font-semibold text-foreground">
-                            {formatMoney(unitPrice * i.quantity)}
-                          </p>
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
-                          <span className={tier ? "font-mono font-semibold text-foreground" : "font-mono"}>
-                            {formatMoney(unitPrice)}
-                          </span>
-                          {tier && (
-                            <>
-                              <span className="font-mono line-through">{formatMoney(i.price_cents)}</span>
-                              <span className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold text-green-700">
-                                <Layers className="h-2.5 w-2.5" /> {describeTierDiscount(tier)}
-                              </span>
-                            </>
+                        {/* Name now gets its own full-width row — nothing
+                            shares this line, so it never has to fight the
+                            price for space. No line-clamp either: the full
+                            name always shows, wrapping to as many lines as
+                            it needs instead of getting cut off mid-word. */}
+                        <Link to="/product/$slug" params={{ slug: i.slug }}>
+                          <h3 className="text-base font-semibold leading-snug text-foreground transition-colors hover:text-primary">
+                            {i.name}
+                          </h3>
+                        </Link>
+                        {/* Price drops to its own row below the name. The
+                            line total (qty × unit) only appears once it
+                            actually differs from the unit price — i.e. once
+                            qty > 1 — so a single-quantity line isn't showing
+                            the same number twice. */}
+                        <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                            <span className="font-mono text-base font-semibold text-foreground">
+                              {formatMoney(unitPrice)}
+                            </span>
+                            {tier && (
+                              <>
+                                <span className="font-mono text-sm text-muted-foreground line-through">{formatMoney(i.price_cents)}</span>
+                                <span className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold text-green-700">
+                                  <Layers className="h-2.5 w-2.5" /> {describeTierDiscount(tier)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {i.quantity > 1 && (
+                            <span className="whitespace-nowrap font-mono text-sm text-muted-foreground">
+                              × {i.quantity} = <span className="font-semibold text-foreground">{formatMoney(unitPrice * i.quantity)}</span>
+                            </span>
                           )}
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
