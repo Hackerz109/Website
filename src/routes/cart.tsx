@@ -683,48 +683,64 @@ function CartPage() {
                   // Number.isFinite check downstream.
                   const cap = qtyCap(i);
                   return (
-                  <div key={`${i.id}::${i.variantId ?? ""}`} className="flex gap-3 rounded-xl border p-4 sm:gap-4">
-                    <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-secondary/60">
-                      {i.image_url && <img src={i.image_url} alt="" className="h-full w-full object-cover" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words font-medium">{i.name}</p>
-                      {i.sku && <p className="break-words text-xs text-muted-foreground">SKU: {i.sku}</p>}
-                      <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                        <span className={tier ? "text-foreground font-medium" : ""}>{formatMoney(unitPrice)}</span>
-                        {tier && (
-                          <>
-                            <span className="line-through">{formatMoney(i.price_cents)}</span>
-                            <span className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold text-green-700">
-                              <Layers className="h-2.5 w-2.5" /> {describeTierDiscount(tier)}
-                            </span>
-                          </>
+                  <div key={`${i.id}::${i.variantId ?? ""}`} className="rounded-xl border p-4">
+                    <div className="grid grid-cols-[auto_1fr_auto] gap-3 sm:gap-4">
+                      <div className="h-20 w-20 overflow-hidden rounded-lg bg-secondary/60">
+                        {i.image_url && <img src={i.image_url} alt="" className="h-full w-full object-cover" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="break-words font-medium">{i.name}</p>
+                        {i.sku && <p className="break-words text-xs text-muted-foreground">SKU: {i.sku}</p>}
+                        <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                          <span className={tier ? "text-foreground font-medium" : ""}>{formatMoney(unitPrice)}</span>
+                          {tier && (
+                            <>
+                              <span className="line-through">{formatMoney(i.price_cents)}</span>
+                              <span className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold text-green-700">
+                                <Layers className="h-2.5 w-2.5" /> {describeTierDiscount(tier)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {next && next.unitsNeeded <= cap - i.quantity && (
+                          <p className="mt-0.5 text-xs font-medium text-primary">
+                            Add {next.unitsNeeded} more for {describeTierDiscount(next.tier)}
+                          </p>
                         )}
                       </div>
-                      {next && next.unitsNeeded <= cap - i.quantity && (
-                        <p className="mt-0.5 text-xs font-medium text-primary">
-                          Add {next.unitsNeeded} more for {describeTierDiscount(next.tier)}
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <QuantityInput
-                          value={i.quantity}
-                          min={1}
-                          max={cap}
-                          onChange={(q) => setQty(i.id, q, i.variantId)}
-                        />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="ml-auto h-10 w-10 touch-manipulation sm:h-9 sm:w-9"
-                          onClick={() => remove(i.id, i.variantId)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                      {/* Fixed "auto" column sized purely off this text, and
+                          never allowed to wrap — so it can no longer eat into
+                          the name column's width (or vice versa) depending on
+                          how many digits the total happens to have. */}
+                      <div className="whitespace-nowrap text-right text-sm font-medium tabular-nums">
+                        {formatMoney(unitPrice * i.quantity)}
                       </div>
                     </div>
-                    <div className="min-w-28 flex-shrink-0 text-right text-sm font-medium tabular-nums">
-                      {formatMoney(unitPrice * i.quantity)}
+                    {/* Own full-width row, separate from the grid above, so the
+                        stepper + delete button always have the whole card's
+                        width to lay out in. When they shared a row with the
+                        name/price columns, a long name (or a wide total) could
+                        squeeze this down so far that + and the delete button
+                        ended up sitting under the price column's invisible
+                        edge — clicks landed there instead of on the button,
+                        which is what made them look unresponsive on phones
+                        (only − survived, since it was leftmost). */}
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+                      <QuantityInput
+                        value={i.quantity}
+                        min={1}
+                        max={cap}
+                        onChange={(q) => setQty(i.id, q, i.variantId)}
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-10 w-10 flex-shrink-0 touch-manipulation sm:h-9 sm:w-9"
+                        onClick={() => remove(i.id, i.variantId)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                   );
