@@ -24,7 +24,7 @@ export function StoreHeader() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-none md:bg-background/85 md:backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
         <Link to="/" className="flex min-w-0 flex-shrink items-center gap-2.5">
           <img src="/logo-mark.png" alt="Sanjay Electricals logo" className="h-9 w-9 flex-shrink-0" />
@@ -38,7 +38,7 @@ export function StoreHeader() {
         </div>
 
         <nav className="flex flex-shrink-0 items-center gap-1 sm:gap-1.5">
-          <Button asChild variant="ghost" size="sm" className="rounded-lg">
+          <Button asChild variant="ghost" size="sm" className="h-10 rounded-lg sm:h-8">
             <Link to="/collections">
               <LayoutGrid className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Collections</span>
@@ -47,12 +47,12 @@ export function StoreHeader() {
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-lg md:hidden"
+            className="h-10 rounded-lg sm:h-8 md:hidden"
             onClick={() => setMobileSearchOpen((v) => !v)}
           >
             {mobileSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
           </Button>
-          <Button asChild variant="ghost" size="sm" className="rounded-lg">
+          <Button asChild variant="ghost" size="sm" className="h-10 rounded-lg sm:h-8">
             <Link to="/cart">
               <ShoppingBag className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Cart</span>
@@ -66,7 +66,7 @@ export function StoreHeader() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="rounded-lg px-1.5 sm:px-2.5">
+                <Button variant="ghost" size="sm" className="h-10 rounded-lg px-1.5 sm:h-8 sm:px-2.5">
                   <Avatar className="h-6 w-6 ring-1 ring-brass/40 ring-offset-1 ring-offset-background">
                     <AvatarImage src={profile?.avatar_url ?? undefined} alt="" />
                     <AvatarFallback className="bg-accent text-[10px] font-semibold text-accent-foreground">

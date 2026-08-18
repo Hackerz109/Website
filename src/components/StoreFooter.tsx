@@ -24,7 +24,7 @@ export function StoreFooter() {
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2.5">
-              <img src="/logo-mark.png" alt="Sanjay Electricals logo" className="h-9 w-9" />
+              <img src="/logo-mark.png" alt="Sanjay Electricals logo" loading="lazy" className="h-9 w-9" />
               <div>
                 <span className="font-display text-lg font-semibold tracking-tight text-porcelain">
                   Sanjay Electricals

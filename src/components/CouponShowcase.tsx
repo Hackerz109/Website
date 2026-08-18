@@ -86,7 +86,18 @@ export function CouponShowcase() {
     });
   }, [user?.id]);
 
-  if (!loaded || coupons.length === 0) return null;
+  // Whether anything renders here at all depends on who's asking, and we
+  // don't know that until this resolves — the visitor's session lives in
+  // localStorage, invisible to the server, so this can't be decided at SSR
+  // time the way the product grid now is (see routes/index.tsx). What we
+  // CAN do is cap the damage: reserving a small slot up front, instead of
+  // zero height, means the eventual reveal (or collapse, if nobody
+  // qualifies) shifts the rest of the page by a few pixels instead of by
+  // this whole section's height.
+  if (!loaded) {
+    return <div aria-hidden="true" className="h-12 border-y border-border bg-secondary/30" />;
+  }
+  if (coupons.length === 0) return null;
 
   return (
     <section className="border-y border-border bg-secondary/30 py-10">

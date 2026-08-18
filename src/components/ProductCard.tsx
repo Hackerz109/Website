@@ -15,6 +15,7 @@ type MatchedVariant = { id: string; name: string; price_cents: number; image: st
 export function ProductCard({
   product,
   matchedVariants = [],
+  loading = "lazy",
 }: {
   product: Product;
   /** Variants whose own name/SKU matched the current search term (see
@@ -24,6 +25,12 @@ export function ProductCard({
    * the search results page has a term to match against, so every other
    * caller (home, category, collections) simply omits this prop. */
   matchedVariants?: MatchedVariant[];
+  /** Defaults to lazy — right for any grid that sits below other content
+   * (like the homepage's "Featured picks"). Pass "eager" for cards you
+   * know render above the fold (e.g. the first row on a collection/category
+   * page), so that image isn't needlessly deferred and delaying it doesn't
+   * risk becoming the page's own LCP bottleneck. */
+  loading?: "lazy" | "eager";
 }) {
   // Generic/product-level photo: prefer the shared/universal gallery
   // (variant_id null) — the same photo every variant shows on its own page
@@ -89,9 +96,7 @@ export function ProductCard({
   const extraMatchCount = matchedVariants.length - shownChips.length;
 
   return (
-    <div>
-      <Link
-        to="/product/$slug"
+    <div className="cv-auto">
         params={{ slug: product.slug }}
         search={primaryVariantId ? { variant: primaryVariantId } : {}}
         className="group block rounded-2xl transition-transform duration-500 ease-out hover:-translate-y-1"
@@ -107,6 +112,8 @@ export function ProductCard({
             <img
               src={primaryImage}
               alt={product.name}
+              loading={loading}
+              decoding="async"
               className="h-full w-full object-contain transition-transform duration-700 ease-out group-hover:scale-105"
             />
           ) : (
@@ -162,7 +169,9 @@ export function ProductCard({
                 className="flex max-w-[52%] items-center gap-1.5 rounded-full border border-border bg-accent/70 py-1 pl-1 pr-2.5 text-[11px] font-medium text-accent-foreground transition-colors hover:border-copper/50 hover:bg-accent sm:max-w-[136px]"
               >
                 <span className="h-5 w-5 flex-shrink-0 overflow-hidden rounded-full border border-border/60 bg-secondary">
-                  {chipImage && <img src={chipImage} alt="" className="h-full w-full object-cover" />}
+                  {chipImage && (
+                    <img src={chipImage} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  )}
                 </span>
                 <span className="min-w-0 truncate">{v.name}</span>
               </Link>

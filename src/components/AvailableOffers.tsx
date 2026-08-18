@@ -21,13 +21,23 @@ export function AvailableOffers({
 }) {
   const { user } = useAuth();
   const [coupons, setCoupons] = useState<VisibleCoupon[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetchOffersForProduct(productId, categoryId, brandId, user?.id ?? null).then((all) =>
-      setCoupons(all.filter((c) => c.visibility === "visible")),
-    );
+    fetchOffersForProduct(productId, categoryId, brandId, user?.id ?? null).then((all) => {
+      setCoupons(all.filter((c) => c.visibility === "visible"));
+      setLoaded(true);
+    });
   }, [productId, categoryId, brandId, user?.id]);
 
+  // Same constraint as CouponShowcase on the homepage: whether anything
+  // shows here depends on who's asking, and the server can't know that
+  // (session lives in localStorage, not a cookie it can read). Reserving a
+  // small slot while loading, instead of nothing, caps how far this pushes
+  // the qty/add-to-cart controls below once the answer comes in.
+  if (!loaded) {
+    return <div aria-hidden="true" className="mt-6 h-11 rounded-2xl border border-dashed border-primary/20 bg-primary/5" />;
+  }
   if (coupons.length === 0) return null;
 
   return (

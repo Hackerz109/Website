@@ -17,6 +17,8 @@ function LogoTile({ name, src }: { name: string; src: string }) {
         src={src}
         alt={name}
         title={name}
+        loading="lazy"
+        decoding="async"
         className="max-h-full max-w-full object-contain grayscale opacity-70 transition-all duration-500 ease-out hover:grayscale-0 hover:opacity-100"
       />
     </div>
