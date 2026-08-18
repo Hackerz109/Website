@@ -202,6 +202,20 @@ function AppShell() {
   useRememberMeGuard();
   useIdleLogout(); // auto sign-out after 30 min of inactivity
 
+  // iOS Safari only, doesn't apply :active press states on tap at all
+  // unless the page has at least one touchstart listener registered
+  // somewhere — a decades-old WebKit quirk. Without this, the new
+  // active:ring-copper/active:scale press feedback on Button (see
+  // button.tsx) would work everywhere EXCEPT iPhones, which is exactly the
+  // "did my tap register?" feeling this exists to fix. One empty, passive,
+  // app-wide listener turns :active on globally for the rest of the site.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const enableActiveState = () => {};
+    document.addEventListener("touchstart", enableActiveState, { passive: true });
+    return () => document.removeEventListener("touchstart", enableActiveState);
+  }, []);
+
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {
