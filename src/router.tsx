@@ -25,6 +25,17 @@ export const getRouter = () => {
     // immediately instead, so a tap always feels acknowledged.
     defaultPendingMs: 150,
     defaultPendingMinMs: 250,
+    // Every route change up to now has been an instant, hard DOM swap —
+    // old page gone, new page (or skeleton) in, no in-between. That's
+    // exactly what the pendingMs change above introduces more of: a swap
+    // to the skeleton, then another swap to real content, both abrupt.
+    // This turns every one of those into a soft native cross-fade instead
+    // via the browser's View Transitions API. Automatically respects
+    // prefers-reduced-motion (the browser skips the animation, not just
+    // shortens it) and no-ops on browsers that don't support it yet —
+    // navigation still works exactly as before there, just without the
+    // fade.
+    defaultViewTransition: true,
   });
 
   return router;
