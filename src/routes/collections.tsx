@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, PackageSearch } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
@@ -11,14 +10,32 @@ import { supabase } from "@/integrations/supabase/client";
 const PAGE_SIZE = 12;
 
 export const Route = createFileRoute("/collections")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    sort: (typeof search.sort === "string" ? search.sort : "featured") as SortOption,
-    category: typeof search.category === "string" ? search.category : null,
-    brand: typeof search.brand === "string" ? search.brand : null,
-  }),
+  validateSearch: (search: Record<string, unknown>) => {
+    // visible has to survive round-tripping through a URL, so it may
+    // arrive as a number (already parsed) or a string (raw query param) —
+    // handle either, and fall back to the first page for anything else
+    // (missing, malformed, zero/negative).
+    const rawVisible = search.visible;
+    const parsedVisible =
+      typeof rawVisible === "number" ? rawVisible : typeof rawVisible === "string" ? Number(rawVisible) : NaN;
+    return {
+      sort: (typeof search.sort === "string" ? search.sort : "featured") as SortOption,
+      category: typeof search.category === "string" ? search.category : null,
+      brand: typeof search.brand === "string" ? search.brand : null,
+      // How many products "Load more" has revealed so far. Living in the
+      // URL — not a plain useState — is what makes it survive: clicking
+      // into a product and then hitting browser back returns to this
+      // exact URL, visible count included, instead of remounting the page
+      // back at its default 12.
+      visible: Number.isFinite(parsedVisible) && parsedVisible > 0 ? Math.floor(parsedVisible) : PAGE_SIZE,
+    };
+  },
   // The router only keys its loader cache on path params by default — this
   // is what makes it re-run the loader when sort/category/brand change via
-  // the filter controls, instead of reusing a stale first load.
+  // the filter controls, instead of reusing a stale first load. `visible`
+  // is deliberately left out: it never changes which products match, only
+  // how many of the already-fetched list are sliced into view, so it
+  // should never cause a re-fetch.
   loaderDeps: ({ search }) => ({ sort: search.sort, category: search.category, brand: search.brand }),
   loader: async ({ deps }) => {
     try {
@@ -56,19 +73,21 @@ export const Route = createFileRoute("/collections")({
 });
 
 function CollectionsPage() {
-  const { sort, category, brand } = Route.useSearch();
+  const { sort, category, brand, visible } = Route.useSearch();
   const { products: allProducts, productsError } = Route.useLoaderData();
   const navigate = useNavigate({ from: Route.fullPath });
-  // Resets whenever a filter changes — each filter combination starts its
-  // own page count rather than trying to carry pages across a new query.
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const products = allProducts.slice(0, visibleCount);
-  const hasMore = visibleCount < allProducts.length;
+  const products = allProducts.slice(0, visible);
+  const hasMore = visible < allProducts.length;
 
   function updateSearch(patch: Partial<{ sort: SortOption; category: string | null; brand: string | null }>) {
-    setVisibleCount(PAGE_SIZE);
-    navigate({ search: (prev) => ({ ...prev, ...patch }) });
+    // Folds the visible-count reset into the same navigation as the filter
+    // change, so a new filter always starts back at the first page.
+    navigate({ search: (prev) => ({ ...prev, ...patch, visible: PAGE_SIZE }) });
+  }
+
+  function loadMore() {
+    navigate({ search: (prev) => ({ ...prev, visible: (prev.visible ?? PAGE_SIZE) + PAGE_SIZE }) });
   }
 
   return (
@@ -116,11 +135,7 @@ function CollectionsPage() {
               </div>
               {hasMore && (
                 <div className="mt-10 flex justify-center">
-                  <Button
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                  >
+                  <Button variant="outline" className="rounded-xl" onClick={loadMore}>
                     Load more
                   </Button>
                 </div>
