@@ -101,9 +101,9 @@ export function ProductCard({
         to="/product/$slug"
         params={{ slug: product.slug }}
         search={primaryVariantId ? { variant: primaryVariantId } : {}}
-        className="group block rounded-2xl transition-transform duration-500 ease-out hover:-translate-y-1"
+        className="group block rounded-2xl transition-transform duration-300 ease-out hover:-translate-y-1"
       >
-        <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-all duration-500 ease-out group-hover:shadow-soft-lg group-hover:ring-1 group-hover:ring-copper/30">
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-all duration-300 ease-out group-hover:shadow-soft-lg group-hover:ring-1 group-hover:ring-copper/30">
           {primaryImage ? (
             // object-contain, not object-cover: matches the product detail
             // page's own choice (see product.$slug.tsx) to never crop into
@@ -116,7 +116,7 @@ export function ProductCard({
               alt={product.name}
               loading={loading}
               decoding="async"
-              className="h-full w-full object-contain transition-transform duration-700 ease-out group-hover:scale-105"
+              className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-secondary">
