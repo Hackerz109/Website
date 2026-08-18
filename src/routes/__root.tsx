@@ -134,10 +134,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap",
-      },
+      // NOTE: the Google Fonts stylesheet itself is intentionally NOT linked
+      // here as a plain `rel="stylesheet"` — that would be render-blocking
+      // (the browser can't paint any text until it's fetched). It's loaded
+      // asynchronously instead — see the inline snippet in RootShell below —
+      // so first paint isn't gated on a third-party CSS round trip. Fallback
+      // fonts (see --font-sans/--font-display in styles.css) render
+      // immediately; Sora/Manrope/JetBrains Mono swap in once ready.
     ],
   }),
   shellComponent: RootShell,
@@ -146,11 +149,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const GOOGLE_FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap";
+
+// Loads the Google Fonts stylesheet without blocking first paint. A plain
+// `<link rel="stylesheet">` to a third-party origin makes the browser wait
+// for that fetch before rendering any text — this is the standard
+// "loadCSS" workaround: request it as non-render-blocking (media="print"),
+// then flip it to media="all" once it's actually loaded. Runs as a plain
+// inline script (not a React onLoad handler) so it fires immediately as
+// the HTML streams in, before hydration — CSP here already allows
+// 'unsafe-inline' for script-src, so this doesn't need a nonce.
+const ASYNC_FONT_LOADER = `
+(function () {
+  var l = document.createElement("link");
+  l.rel = "stylesheet";
+  l.href = ${JSON.stringify(GOOGLE_FONTS_HREF)};
+  l.media = "print";
+  l.onload = function () { l.media = "all"; };
+  document.head.appendChild(l);
+})();
+`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: ASYNC_FONT_LOADER }} />
+        <noscript>
+          <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
+        </noscript>
       </head>
       <body className="overflow-x-hidden">
         {children}

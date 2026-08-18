@@ -1,5 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { ArrowLeft, ShoppingBag, X } from "lucide-react";
 import { toast } from "sonner";
@@ -15,10 +14,32 @@ import { useCart, formatMoney, UNLIMITED_QTY_CAP } from "@/stores/cart";
 import { fetchBulkTiers, tiersForLine, bestTierFor, tierUnitPriceCents, nextTierHint, describeTierDiscount } from "@/lib/bulkPricing";
 
 export const Route = createFileRoute("/product/$slug")({
-  component: ProductPage,
   validateSearch: (search: Record<string, unknown>) => ({
     variant: typeof search.variant === "string" ? search.variant : undefined,
   }),
+  // Runs server-side on first load, so the product — and its main photo,
+  // almost always this page's LCP element — is in the very first response
+  // instead of arriving after a post-hydration fetch. Bulk-pricing tiers
+  // are fetched right after, same dependency order the old two-useQuery
+  // version had (tiers only make sense once we know the product id).
+  loader: async ({ params }) => {
+    const { data: product, error } = await supabase
+      .from("products")
+      .select(
+        "*, product_images(id, url, is_primary, sort_order, variant_id), product_variants(id, name, price_cents, mrp_cents, stock, stock_unlimited, sku, sort_order), categories(name, slug), brands(name)"
+      )
+      .eq("slug", params.slug)
+      .eq("active", true)
+      .maybeSingle();
+    // A real query failure now correctly lands on the errorComponent below
+    // instead of silently rendering as "Product not found" — the old
+    // client-only version couldn't tell the two apart (both just left
+    // `product` as undefined).
+    if (error) throw error;
+    if (!product) throw notFound();
+    const bulkTiersByProduct = await fetchBulkTiers([product.id]);
+    return { product, bulkTiersByProduct };
+  },
   errorComponent: ({ error, reset }) => {
     const router = useRouter();
     return (
@@ -37,43 +58,35 @@ export const Route = createFileRoute("/product/$slug")({
     );
   },
   notFoundComponent: () => <div className="p-8 text-center">Product not found</div>,
+  pendingComponent: () => (
+    <div className="min-h-screen bg-background">
+      <StoreHeader />
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        <div className="mt-8 grid gap-8 md:grid-cols-2">
+          <div className="aspect-square animate-pulse rounded-md bg-secondary/60" />
+          <div className="space-y-3">
+            <div className="h-8 w-2/3 animate-pulse rounded bg-secondary/60" />
+            <div className="h-4 w-1/3 animate-pulse rounded bg-secondary/60" />
+          </div>
+        </div>
+      </div>
+      <StoreFooter />
+    </div>
+  ),
+  component: ProductPage,
 });
 
 function ProductPage() {
-  const { slug } = Route.useParams();
   const { variant: variantParam } = Route.useSearch();
   const router = useRouter();
   const add = useCart((s) => s.add);
+  const { product, bulkTiersByProduct } = Route.useLoaderData();
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [variantId, setVariantId] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [frameRatio, setFrameRatio] = useState(1);
   const frameRatioLockedRef = useRef(false);
-
-  const { data: product, isLoading } = useQuery({
-    queryKey: ["product", slug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*, product_images(id, url, is_primary, sort_order, variant_id), product_variants(id, name, price_cents, mrp_cents, stock, stock_unlimited, sku, sort_order), categories(name, slug), brands(name)")
-        .eq("slug", slug)
-        .eq("active", true)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Bulk ("buy more, save more") tiers for this product. Fetched
-  // separately from the main product query since it's public catalog data
-  // (see the RLS policy in the migration) and rarely changes, so it's fine
-  // to cache independently.
-  const { data: bulkTiersByProduct } = useQuery({
-    queryKey: ["bulk-tiers", product?.id],
-    queryFn: () => fetchBulkTiers(product ? [product.id] : []),
-    enabled: !!product?.id,
-  });
 
   const variants = [...(product?.product_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order);
   const hasVariants = variants.length > 0;
@@ -235,19 +248,7 @@ function ProductPage() {
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
 
-        {isLoading ? (
-          <div className="mt-8 grid gap-8 md:grid-cols-2">
-            <div className="aspect-square animate-pulse rounded-md bg-secondary/60" />
-            <div className="space-y-3">
-              <div className="h-8 w-2/3 animate-pulse rounded bg-secondary/60" />
-              <div className="h-4 w-1/3 animate-pulse rounded bg-secondary/60" />
-            </div>
-          </div>
-        ) : !product ? (
-          <div className="mt-12 text-center text-muted-foreground">Product not found.</div>
-        ) : (
-          <>
-          <div className="mt-8 grid gap-10 md:grid-cols-2">
+        <div className="mt-8 grid gap-10 md:grid-cols-2">
             <div className="min-w-0">
               {mainImage ? (
                 <div
@@ -257,6 +258,7 @@ function ProductPage() {
                   <img
                     src={mainImage}
                     alt={product.name}
+                    fetchPriority="high"
                     onClick={() => setLightboxOpen(true)}
                     onLoad={handleMainImageLoad}
                     className="h-full w-full cursor-zoom-in object-contain"
@@ -275,7 +277,7 @@ function ProductPage() {
                         (mainImage === url) ? "border-primary" : "border-border opacity-70 hover:opacity-100"
                       }`}
                     >
-                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -468,8 +470,6 @@ function ProductPage() {
               </div>
             </div>
           )}
-          </>
-        )}
       </div>
       <StoreFooter />
     </div>

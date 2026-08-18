@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, PackageSearch } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
@@ -12,36 +11,58 @@ import { supabase } from "@/integrations/supabase/client";
 const PAGE_SIZE = 12;
 
 export const Route = createFileRoute("/collections")({
-  component: CollectionsPage,
   validateSearch: (search: Record<string, unknown>) => ({
     sort: (typeof search.sort === "string" ? search.sort : "featured") as SortOption,
     category: typeof search.category === "string" ? search.category : null,
     brand: typeof search.brand === "string" ? search.brand : null,
   }),
+  // The router only keys its loader cache on path params by default — this
+  // is what makes it re-run the loader when sort/category/brand change via
+  // the filter controls, instead of reusing a stale first load.
+  loaderDeps: ({ search }) => ({ sort: search.sort, category: search.category, brand: search.brand }),
+  loader: async ({ deps }) => {
+    try {
+      let query = supabase
+        .from("products")
+        .select(
+          "*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug), brands(name)"
+        )
+        .eq("active", true);
+      query = applySortAndFilter(query, deps.sort, deps.category, deps.brand);
+      const { data, error } = await query;
+      return { products: data ?? [], productsError: !!error };
+    } catch {
+      return { products: [], productsError: true };
+    }
+  },
+  component: CollectionsPage,
+  pendingComponent: () => (
+    <div className="min-h-screen bg-background">
+      <StoreHeader />
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="h-7 w-40 animate-pulse rounded bg-secondary/60" />
+        <div className="mt-10 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="aspect-square rounded-2xl bg-secondary" />
+              <div className="mt-4 h-4 w-2/3 rounded bg-secondary" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <StoreFooter />
+    </div>
+  ),
 });
 
 function CollectionsPage() {
   const { sort, category, brand } = Route.useSearch();
+  const { products: allProducts, productsError } = Route.useLoaderData();
   const navigate = useNavigate({ from: Route.fullPath });
   // Resets whenever a filter changes — each filter combination starts its
   // own page count rather than trying to carry pages across a new query.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["collections-products", sort, category, brand],
-    queryFn: async () => {
-      let query = supabase
-        .from("products")
-        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug), brands(name)")
-        .eq("active", true);
-      query = applySortAndFilter(query, sort, category, brand);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const allProducts = data ?? [];
   const products = allProducts.slice(0, visibleCount);
   const hasMore = visibleCount < allProducts.length;
 
@@ -61,7 +82,7 @@ function CollectionsPage() {
         <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">Collections</h1>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            {isLoading ? "Loading…" : `${allProducts.length} product${allProducts.length !== 1 ? "s" : ""}`}
+            {productsError ? "Couldn't load products" : `${allProducts.length} product${allProducts.length !== 1 ? "s" : ""}`}
           </p>
           <ProductFilters
             sort={sort}
@@ -74,14 +95,9 @@ function CollectionsPage() {
         </div>
 
         <div className="mt-10">
-          {isLoading ? (
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="aspect-square rounded-2xl bg-secondary" />
-                  <div className="mt-4 h-4 w-2/3 rounded bg-secondary" />
-                </div>
-              ))}
+          {productsError ? (
+            <div className="rounded-2xl border border-border bg-card p-12 text-center text-sm text-muted-foreground shadow-soft">
+              Couldn't load products right now.
             </div>
           ) : products.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card p-16 text-center">
@@ -94,8 +110,8 @@ function CollectionsPage() {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
-                {products.map((p) => (
-                  <ProductCard key={p.id} product={p} />
+                {products.map((p, i) => (
+                  <ProductCard key={p.id} product={p} loading={i < 4 ? "eager" : "lazy"} />
                 ))}
               </div>
               {hasMore && (

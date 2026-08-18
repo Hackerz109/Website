@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Zap, PackageCheck, ShieldCheck, ToggleLeft, Fan, Cable, Plug, LayoutGrid } from "lucide-react";
 import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
@@ -10,41 +9,66 @@ import { CouponShowcase } from "@/components/CouponShowcase";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/")({ component: Index });
+// A curated preview, not the full catalog — the whole point is to keep
+// the homepage from growing every time a product's added. Featured items
+// (see the "featured" toggle in the admin product editor) surface first;
+// newest fills the rest. The full, filterable list lives at /collections.
+const PREVIEW_COUNT = 8;
+
+export const Route = createFileRoute("/")({
+  // Runs server-side on first load (and again client-side on soft nav) so
+  // products/categories are already in the HTML on first render — no more
+  // client-only fetch-after-hydrate waterfall, no loading-skeleton flash,
+  // no post-mount pop-in. Both queries are public reads (RLS allows anon
+  // access to active products/categories), so the anon client is safe to
+  // use here on the server — see client.ts, which already guards its
+  // localStorage/env access to work in both environments.
+  loader: async () => {
+    try {
+      const [productsResult, categoriesResult] = await Promise.all([
+        supabase
+          .from("products")
+          .select(
+            "*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug)"
+          )
+          .eq("active", true)
+          .order("featured", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(PREVIEW_COUNT),
+        supabase.from("categories").select("name, slug").order("name"),
+      ]);
+      return {
+        products: productsResult.data ?? [],
+        productsError: !!productsResult.error,
+        categories: categoriesResult.data ?? [],
+      };
+    } catch {
+      // Hard network failure rather than a query-level error — degrade the
+      // same way, so header/hero/footer still render fine regardless.
+      return { products: [], productsError: true, categories: [] };
+    }
+  },
+  component: Index,
+  pendingComponent: () => (
+    <div className="min-h-screen bg-background">
+      <StoreHeader />
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="aspect-square rounded-2xl bg-secondary" />
+              <div className="mt-4 h-4 w-2/3 rounded bg-secondary" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <StoreFooter />
+    </div>
+  ),
+});
 
 function Index() {
-  // A curated preview, not the full catalog — the whole point is to keep
-  // the homepage from growing every time a product's added. Featured items
-  // (see the "featured" toggle in the admin product editor) surface first;
-  // newest fills the rest. The full, filterable list lives at /collections.
-  const PREVIEW_COUNT = 8;
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["products", "public", "preview"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug)")
-        .eq("active", true)
-        .order("featured", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(PREVIEW_COUNT);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: categoriesData } = useQuery({
-    queryKey: ["categories", "hero-chips"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("name, slug").order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const products = data ?? [];
-  const categories = categoriesData ?? [];
+  const { products, productsError, categories } = Route.useLoaderData();
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,16 +162,7 @@ function Index() {
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-square rounded-2xl bg-secondary" />
-                <div className="mt-4 h-4 w-2/3 rounded bg-secondary" />
-              </div>
-            ))}
-          </div>
-        ) : isError ? (
+        {productsError ? (
           <div className="rounded-2xl border border-border bg-card p-12 text-center text-sm text-muted-foreground shadow-soft">
             Couldn't load products right now.
           </div>

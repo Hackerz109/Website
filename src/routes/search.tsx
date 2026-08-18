@@ -400,8 +400,13 @@ function SearchPage() {
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {products.map((p) => (
-                    <ProductCard key={p.id} product={p} matchedVariants={matchedVariantsByProductId[p.id]} />
+                  {products.map((p, i) => (
+                    <ProductCard
+                      key={p.id}
+                      product={p}
+                      matchedVariants={matchedVariantsByProductId[p.id]}
+                      loading={i < 4 ? "eager" : "lazy"}
+                    />
                   ))}
                 </div>
 
