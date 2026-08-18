@@ -97,6 +97,8 @@ export function ProductCard({
 
   return (
     <div className="cv-auto">
+      <Link
+        to="/product/$slug"
         params={{ slug: product.slug }}
         search={primaryVariantId ? { variant: primaryVariantId } : {}}
         className="group block rounded-2xl transition-transform duration-500 ease-out hover:-translate-y-1"
