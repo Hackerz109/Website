@@ -216,6 +216,18 @@
   filter: blur(50px);
 }
 
+/* Lets the browser skip layout/paint for product cards once they're off
+   screen, instead of keeping every photo in a long grid fully rendered at
+   all times — the difference between scrolling past 8 products and
+   scrolling past 80 on a mid-range phone. contain-intrinsic-size is a
+   placeholder height only (~one card at the narrow 2-column width); once
+   a card has rendered at least once, the browser remembers its real size
+   for any later scroll instead of reusing this guess. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
 /* Obsidian statement sections — hero and footer bookend the page. A faint
    vignette keeps the corners from feeling flat black. */
 .bg-obsidian {
