@@ -1,3 +1,47 @@
+# Security review — 2026-08-18
+
+Follow-up to the one open item from 2026-08-16, below — now resolved.
+
+## Resolved: RLS confirmed on `brands`, `categories`, `product_images`, `product_variants`
+
+Queried directly against the live database (not inferred from migrations
+— these four tables predate migration tracking, see the 2026-08-16 entry
+below for why that mattered):
+
+- **RLS is enabled** (`rowsecurity = true`) on all four tables.
+- **Every INSERT/UPDATE/DELETE policy** on all four requires
+  `has_role(auth.uid(), 'admin'::app_role)` in `qual`/`with_check` — a
+  regular signed-in customer cannot write to any of them, confirmed from
+  the policy definitions themselves, not just their names.
+- **Reads are correctly scoped**: `product_images`/`product_variants`
+  only expose rows belonging to `active = true` products to
+  anonymous/public callers; `brands`/`categories` are fully public (fine
+  — just taxonomy, no reason to restrict).
+
+This closes the one item the 2026-08-16 review couldn't verify from
+exported code alone. `admin.products.tsx` / `admin.taxonomy.tsx` writing
+directly from the browser to these four tables is safe as-is — the RLS
+policies are the real enforcement, and they're correct.
+
+### Worth knowing, not a fix-it item
+
+`product_images`/`product_variants` also grant any *authenticated* user
+(`auth read all images` / `auth read all variants`, both `qual: true`)
+read access to every row regardless of the parent product's `active`
+status — not just admins. Anonymous visitors are correctly restricted to
+active products only; this is specifically signed-in customers being able
+to see images/variants for inactive/unlaunched products too. Could be
+intentional (e.g. so someone can still see what they ordered after a
+product's discontinued) — flagging so it's a deliberate choice rather
+than an unnoticed one, not urging a change either way.
+
+## Still outstanding
+
+- **`npm audit` / `bun audit`** — still nobody's run this. Same ask as
+  the last two reviews; worth wiring into CI once it's done manually.
+
+---
+
 # Security review — 2026-08-16
 
 Follow-up pass, ~3.5 weeks after the review below. Re-verified both fixes
@@ -7,7 +51,7 @@ analytics, search, CSP). No new critical or medium issues found. One
 thing I can't verify from the exported code and need you to check
 directly — see below.
 
-## Needs your input — can't verify from the exported code
+## Needs your input — can't verify from the exported code (RESOLVED 2026-08-18 — see top of file)
 
 `brands`, `categories`, `product_images`, and `product_variants` exist in
 your live database (confirmed via the generated `types.ts`) but have no
