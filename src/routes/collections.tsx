@@ -87,7 +87,22 @@ function CollectionsPage() {
   }
 
   function loadMore() {
-    navigate({ search: (prev) => ({ ...prev, visible: (prev.visible ?? PAGE_SIZE) + PAGE_SIZE }) });
+    // visible now lives in the URL (see the fix above this one), which
+    // means clicking this is a real navigation, not just a state update —
+    // and the router's default for any navigation is to scroll to top,
+    // same as a fresh page visit would. resetScroll:false is the
+    // documented way to say "this one shouldn't." The explicit scrollTo
+    // afterward is a deliberate belt-and-suspenders on top of that: that
+    // flag is known to be unreliable in some TanStack Router versions
+    // after the first navigation in a session, so this forces the
+    // outcome directly rather than only hoping the flag is honored.
+    const scrollY = window.scrollY;
+    void navigate({
+      search: (prev) => ({ ...prev, visible: (prev.visible ?? PAGE_SIZE) + PAGE_SIZE }),
+      resetScroll: false,
+    }).then(() => {
+      window.scrollTo({ top: scrollY, behavior: "instant" });
+    });
   }
 
   return (
