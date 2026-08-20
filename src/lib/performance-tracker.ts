@@ -57,16 +57,37 @@ export function installPerformanceTracking() {
     // Entry type not supported in this browser — lcp_ms stays null.
   }
 
-  // CLS: sum of every unexpected layout shift's impact score, excluding
-  // shifts that follow a recent user input (per spec — those are expected).
+  // CLS: the real Core Web Vitals definition is the largest "session
+  // window" — shifts within 1s of each other, capped at 5s total — not a
+  // running sum for as long as the tab happens to stay open. That's not a
+  // minor detail: Google changed the metric specifically because summing
+  // everything punishes any page a visitor keeps open for a while (a
+  // product page they're comparing against others, a tab left in the
+  // background) even when no single moment actually felt janky. Excludes
+  // shifts that follow a recent user input, per spec — those are expected.
   try {
+    let sessionValue = 0;
+    let sessionFirstTs: number | null = null;
+    let sessionLastTs = 0;
+
     const clsObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         const shift = entry as LayoutShiftEntry;
-        if (!shift.hadRecentInput) {
-          clsValue += shift.value;
-          clsMeasured = true;
+        if (shift.hadRecentInput) continue;
+        clsMeasured = true;
+
+        const withinWindow =
+          sessionFirstTs !== null && entry.startTime - sessionLastTs < 1000 && entry.startTime - sessionFirstTs < 5000;
+
+        if (withinWindow) {
+          sessionValue += shift.value;
+        } else {
+          sessionValue = shift.value;
+          sessionFirstTs = entry.startTime;
         }
+        sessionLastTs = entry.startTime;
+
+        if (sessionValue > clsValue) clsValue = sessionValue;
       }
     });
     clsObserver.observe({ type: "layout-shift", buffered: true });
