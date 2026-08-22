@@ -1,4 +1,103 @@
-# Security review — 2026-08-18
+# Security review — 2026-08-22
+
+Broader pass alongside a database/frontend performance review (see
+`PERFORMANCE_REVIEW.md`). Re-verified the RLS and function-grant state
+from the 2026-08-18 entry is still intact, closed a grant gap that had
+quietly reopened, and looked into two external things worth knowing
+about. No new logic-level vulnerability found.
+
+## Fixed: 5 newer trigger functions had drifted back to public-executable
+
+The 2026-08-04 hardening pass (`harden_trigger_only_functions`) revoked
+`anon`/`authenticated` EXECUTE from every trigger-only function that
+existed at the time. Postgres grants EXECUTE to PUBLIC on new functions
+by default, so every trigger function added *since* — the effective-price
+triggers (2026-08-15), the popularity-score triggers (2026-08-13),
+`enforce_bulk_tier_variant_matches_product`, and `recalc_product_rating`
+— shipped back in that same publicly-executable state, and the linter
+started flagging them again. Confirmed each is genuinely `RETURNS
+trigger` (so a direct RPC call was never actually possible — `NEW`/`OLD`
+don't exist outside trigger context) before revoking, same reasoning as
+the original pass. Applied via
+`optimize_rls_initplan_and_harden_new_trigger_functions`. Worth a standing
+habit: any new `... FOR EACH ROW EXECUTE FUNCTION` needs the same revoke
+alongside it, or this'll keep recurring as features ship.
+
+## Re-verified, unchanged
+
+- All `admin_*` RPCs read straight from `pg_proc` source: every one
+  re-checks `has_role(auth.uid(), 'admin')` internally, including the
+  `sql`-language ones where the check lives in the `WHERE` clause rather
+  than an `IF`. None rely on the caller already being trusted.
+- All 27+ tracked tables still RLS-enabled, no gaps.
+- `.env`/`.env.*` correctly gitignored (with an explicit comment saying
+  why) — this answers the "no `.gitignore` in the export" open question
+  from 2026-07-24.
+
+## Worth knowing: TanStack npm supply-chain incident (2026-05-11)
+
+Not something I found in your code — flagging because this project
+depends on the affected package family. On 2026-05-11 an attacker
+compromised TanStack's release pipeline (chained GitHub Actions
+vulnerabilities, not a stolen credential) and published 84 malicious
+versions across 42 `@tanstack/*` packages, including `@tanstack/react-router`
+and related router/start packages, for about 4 hours before npm pulled
+the tarballs. TanStack's postmortem: <https://tanstack.com/blog/npm-supply-chain-compromise-postmortem>.
+
+Checked `bun.lock`: this project is pinned to `@tanstack/react-router@1.170.16`
+(and siblings in the same 1.170–1.171 range) — version numbers well past
+the ~1.161.x range that was affected, meaning these were published weeks
+after the incident and were never among the malicious versions. TanStack's
+own all-clear (2026-05-15) confirms every currently-installable version is
+safe. The only real exposure window would've been an actual `npm`/`bun`
+install that ran between 2026-05-11 19:20 UTC and ~23:55 UTC that day
+specifically — I have no git history in this export to check that against
+your commit/deploy timeline. If you know nothing built or deployed during
+those few hours that day, there's nothing to do here.
+
+## Worth knowing: Supabase Auth CVE-2026-31813
+
+An auth-bypass CVE affecting Supabase's hosted Auth service (OIDC ID
+token validation), fixed platform-side in Supabase's own infrastructure
+back in March 2026 — nothing for you to patch or deploy, since it's the
+managed service, not a package in your tree. Only relevant at all if
+**Apple or Azure** sign-in is enabled for this project; if you only use
+email/password, phone OTP, and/or Google, it never applied to you.
+
+## Still outstanding
+
+- **`npm audit` / `bun audit`** — fourth review in a row flagging this;
+  confirmed again why I can't run it myself: `npm ping` against
+  `registry.npmjs.org` returns `403 host_not_allowed` from my sandbox's
+  network policy, and `bun` isn't even installed here. This has to be run
+  from a machine with real registry access — worth doing once and then
+  wiring into CI (a `bun audit` step, or GitHub's Dependabot) so it stops
+  being a manual ask every review.
+- **Leaked Password Protection** — Supabase Auth has a setting (checks new
+  passwords against the HaveIBeenPwned breached-password corpus) that's
+  off by default and isn't something a SQL migration can flip — it's a
+  toggle under Authentication → Policies in the dashboard. Worth turning on;
+  costs nothing and takes 30 seconds.
+- **`pg_trgm` extension lives in the `public` schema** — Supabase's linter
+  flags this as a low-severity hardening note (extensions are conventionally
+  installed in a dedicated schema to keep `public` from accumulating
+  extension-owned objects). Not touching this myself: your trigram search
+  indexes (`idx_products_name_trgm` and three siblings) depend on it being
+  reachable, and moving an extension's schema after indexes already exist
+  on its operator classes needs to be done carefully and tested against
+  actual search queries — a bad move here breaks search sitewide, which is
+  worse than the lint. Low priority; mention if you ever want it done
+  properly as its own focused change.
+- **`product_images`/`product_variants` inactive-row exposure to signed-in
+  users** — unchanged from 2026-08-18, still your call, see below.
+- **CSP is still `Content-Security-Policy-Report-Only`** — `error_logs` has
+  zero rows of any kind in the last 7 days, which is consistent with zero
+  violations, but I can't fully rule out CSP reports landing somewhere
+  other than that table from code alone. If you check the admin Errors tab
+  yourself and it's been quiet, that's your green light to flip it to
+  enforcing.
+
+
 
 Follow-up to the one open item from 2026-08-16, below — now resolved.
 
