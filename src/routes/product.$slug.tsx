@@ -26,7 +26,8 @@ export const Route = createFileRoute("/product/$slug")({
     const { data: product, error } = await supabase
       .from("products")
       .select(
-        "*, product_images(id, url, is_primary, sort_order, variant_id), product_variants(id, name, price_cents, mrp_cents, stock, stock_unlimited, sku, sort_order), categories(name, slug), brands(name)"
+        "id, name, slug, description, price_cents, currency, image_url, stock, active, created_at, updated_at, featured, category_id, brand_id, mrp_cents, specifications, warranty, sku, warranty_available, warranty_type, warranty_duration, warranty_provider, warranty_service_method, warranty_notes, show_stock_count, stock_unlimited, rating_avg, rating_count, popularity_score, effective_price_cents, effective_in_stock, " +
+          "product_images(id, url, is_primary, sort_order, variant_id), product_variants(id, name, price_cents, mrp_cents, stock, stock_unlimited, sku, sort_order), categories(name, slug), brands(name)"
       )
       .eq("slug", params.slug)
       .eq("active", true)

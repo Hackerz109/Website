@@ -6,6 +6,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { PRODUCT_SEARCH_SELECT } from "@/lib/productSearch";
 
 const PAGE_SIZE = 12;
 
@@ -41,11 +42,17 @@ export const Route = createFileRoute("/collections")({
     try {
       let query = supabase
         .from("products")
-        .select(
-          "*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug), brands(name)"
-        )
+        .select(PRODUCT_SEARCH_SELECT)
         .eq("active", true);
-      query = applySortAndFilter(query, deps.sort, deps.category, deps.brand);
+      // Defensive ceiling on top of the existing client-side "Load more"
+      // slicing (see `visible` below) — today the catalog is well under
+      // this, so nothing changes; it just stops a future large catalog
+      // from having every /collections visit pull every active product
+      // regardless of how many are actually on screen. True server-side
+      // pagination (fetch only the next page on each "Load more") would
+      // be the fuller fix but touches this loader and the click handler
+      // together, so it's left as a follow-up rather than done blind here.
+      query = applySortAndFilter(query, deps.sort, deps.category, deps.brand).limit(300);
       const { data, error } = await query;
       return { products: data ?? [], productsError: !!error };
     } catch {

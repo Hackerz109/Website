@@ -5,6 +5,7 @@ import { StoreFooter } from "@/components/StoreFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductFilters, applySortAndFilter, type SortOption } from "@/components/ProductFilters";
 import { supabase } from "@/integrations/supabase/client";
+import { PRODUCT_SEARCH_SELECT } from "@/lib/productSearch";
 
 export const Route = createFileRoute("/category/$name")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -35,11 +36,13 @@ export const Route = createFileRoute("/category/$name")({
 
       let query = supabase
         .from("products")
-        .select(
-          "*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug), brands(name)"
-        )
+        .select(PRODUCT_SEARCH_SELECT)
         .eq("active", true)
-        .eq("category_id", category.id);
+        .eq("category_id", category.id)
+        // Defensive ceiling, not real pagination — this page has no "load
+        // more" UI, it just shows a category in full, so this only bites
+        // if a single category ever grows past 300 active products.
+        .limit(300);
       query = applySortAndFilter(query, deps.sort, null, deps.brand);
       const { data, error } = await query;
       return { category, products: data ?? [], productsError: !!error };

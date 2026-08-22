@@ -8,6 +8,7 @@ import { BrandsStrip } from "@/components/BrandsStrip";
 import { CouponShowcase } from "@/components/CouponShowcase";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { PRODUCT_SEARCH_SELECT } from "@/lib/productSearch";
 
 // A curated preview, not the full catalog — the whole point is to keep
 // the homepage from growing every time a product's added. Featured items
@@ -28,9 +29,7 @@ export const Route = createFileRoute("/")({
       const [productsResult, categoriesResult] = await Promise.all([
         supabase
           .from("products")
-          .select(
-            "*, product_images(url, is_primary, variant_id), product_variants(price_cents, stock, stock_unlimited), categories(name, slug)"
-          )
+          .select(PRODUCT_SEARCH_SELECT)
           .eq("active", true)
           .order("featured", { ascending: false })
           .order("created_at", { ascending: false })
