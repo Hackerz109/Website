@@ -3,13 +3,33 @@ import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
 export const getRouter = () => {
-  const queryClient = new QueryClient();
+  // No defaultOptions meant every query's staleTime was 0 — stale the
+  // instant it lands. Combined with React Query's own default of
+  // refetchOnWindowFocus: true, that's a full refetch of every mounted
+  // query on every tab/app-switch back into the site, on top of every
+  // remount. 60s keeps things feeling current (products/categories/prices
+  // don't change second-to-second) while cutting that refetch volume
+  // dramatically. Any screen that genuinely needs tighter freshness (cart,
+  // checkout stock check, admin live views) can still pass its own shorter
+  // staleTime at the call site — this only sets the fallback.
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000,
+      },
+    },
+  });
 
   const router = createRouter({
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    // Was 0, which meant "intent" preloading below did real work fetching
+    // on touchstart, then threw that result away and re-fetched again the
+    // instant the tap landed, because 0ms-stale data is stale data. 10s
+    // lets an actual tap (which follows touchstart by well under a second)
+    // reuse what was already fetched instead of doubling the request.
+    defaultPreloadStaleTime: 10 * 1000,
     // "intent" starts a route's loader on touchstart/mouseenter — i.e. the
     // moment a finger touches a link, not when the tap finishes — so by
     // the time the tap actually registers, the product/collection data is
