@@ -149,9 +149,9 @@ function AuthPage() {
       email: trimmedEmail,
       password,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       const updated = await reportOutcome("login", trimmedEmail, device, "attempt");
       setLoginStatus(updated);
       setCaptchaToken(null);
@@ -164,6 +164,15 @@ function AuthPage() {
       return;
     }
 
+    // Deliberately not resetting `loading` here: the button needs to stay
+    // disabled until we actually navigate away. signInWithPassword()
+    // resolving isn't "done" — a second tap in this window (slow network,
+    // no visual feedback yet) would fire a second handleSignIn(), duplicating
+    // the /api/rate-limit call below and, worse, calling navigate() a second
+    // time while the first is still mid-view-transition. The router rejects
+    // that overlapping transition ("Transition was aborted because of
+    // invalid state") — harmless to the actual navigation, but it was
+    // showing up in the error log.
     await reportOutcome("login", trimmedEmail, device, "success", signInData.session?.access_token);
     toast.success("Welcome back");
     navigate({ to: "/" });

@@ -36,7 +36,18 @@ export function handleResourceErrorEvent(event: Event) {
 // CORS, aborted) — a 404 or 500 response is still a "successful" fetch as
 // far as the Promise is concerned, so those have to be caught by checking
 // response.ok, not by try/catch alone.
-const SKIP_PATH_PREFIXES = ["/api/analytics-track", "/api/analytics-error", "/api/analytics-vitals"];
+const SKIP_PATH_PREFIXES = [
+  "/api/analytics-track",
+  "/api/analytics-error",
+  "/api/analytics-vitals",
+  // Vercel's own first-party analytics beacon (from the <Analytics /> in
+  // __root.tsx), not an application request. Its timing is governed by the
+  // browser's low-priority scheduling for beacons (and it's a very common
+  // ad-blocker target, which surfaces as a "failed" fetch) — neither
+  // reflects our own backend's health, so it was drowning out real
+  // api/* errors in the error log with false positives.
+  "/_vercel/",
+];
 const SLOW_REQUEST_MS = 4000;
 
 function extractSameOriginPath(input: RequestInfo | URL): string | null {
@@ -79,18 +90,32 @@ export function installFetchMonitoring() {
     }
 
     const start = performance.now();
+    // A backgrounded tab can pause or de-prioritize an in-flight request for
+    // anywhere from seconds to minutes (mobile Safari/Chrome both do this
+    // aggressively) — that shows up as enormous wall-clock duration with
+    // nothing actually wrong. A request that was hidden for any part of its
+    // lifetime is excluded from the "slow" check; a real 4xx/5xx/network
+    // failure is still reported regardless of visibility.
+    let wasHidden = document.visibilityState === "hidden";
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") wasHidden = true;
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     try {
       const response = await originalFetch(input, init);
       const duration = performance.now() - start;
       if (!response.ok) {
         safeTrackNetworkError(requestPath, response.status);
-      } else if (duration > SLOW_REQUEST_MS) {
+      } else if (duration > SLOW_REQUEST_MS && !wasHidden) {
         safeTrackNetworkError(requestPath, response.status, `${Math.round(duration)}ms`);
       }
       return response;
     } catch (err) {
       safeTrackNetworkError(requestPath, 0, err instanceof Error ? err.message : "request failed");
       throw err; // the real caller still needs to see this — never swallow it
+    } finally {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     }
   }) as typeof window.fetch;
 }
