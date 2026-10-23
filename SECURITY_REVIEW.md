@@ -1,3 +1,32 @@
+# Security follow-up — 2026-10-23
+
+## Verified in the exported project
+
+- Updated `@tanstack/react-start` to `^1.168.60`; the npm lockfile resolves
+  `@tanstack/react-start@1.169.4` and
+  `@tanstack/start-server-core@1.169.45`, above the patched versions for
+  [GHSA-qx66-fv34-fjm8](https://github.com/TanStack/router/security/advisories/GHSA-qx66-fv34-fjm8).
+- `npm audit --package-lock-only` reported **0 vulnerabilities** after
+  compatible lockfile fixes.
+- No `.env` files or common private-key/token formats were found in the
+  exported source. `.gitignore` excludes `.env` files.
+- Reviewed the payment, admin, and webhook entry points: they use signed-in
+  user or admin checks, order ownership checks, or webhook HMAC verification;
+  WhatsApp commands also check the sender against `WHATSAPP_ADMIN_NUMBER`.
+
+## Live checks still required
+
+- The delivered copy omits the stale `bun.lock`; `package-lock.json` is the
+  dependency lock. Bun can migrate from `package-lock.json` when no `bun.lock`
+  exists ([Bun lockfile documentation](https://bun.sh/docs/pm/lockfile)).
+- Supabase's current database advisors, effective RLS policies, and leaked
+  password protection setting were not checked against the live project.
+- The app's CSP remains `Content-Security-Policy-Report-Only`; check current
+  reports on the deployed site before enforcing it to avoid breaking checkout
+  or sign-in.
+- A production build and deployment were not run. Redeploy the delivered copy
+  to Vercel for the patched dependency tree to take effect.
+
 # Security review — 2026-08-22
 
 Broader pass alongside a database/frontend performance review (see
