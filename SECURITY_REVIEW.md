@@ -14,18 +14,52 @@
   user or admin checks, order ownership checks, or webhook HMAC verification;
   WhatsApp commands also check the sender against `WHATSAPP_ADMIN_NUMBER`.
 
-## Live checks still required
+## Live Supabase review — 2026-10-23
 
+- All public tables have RLS enabled. The public-role write policies found on
+  `user_addresses` require `auth.uid() = user_id`; `public.rate_limits` has RLS
+  enabled with no policies and therefore returns no rows to client roles.
+- The `public` schema does not grant `CREATE` to `PUBLIC`, `anon`, or
+  `authenticated`.
+- Two `SECURITY DEFINER` helpers,
+  `recalc_effective_price_stock(uuid)` and
+  `recalc_product_popularity(uuid)`, were directly executable by anonymous
+  and signed-in clients. They update derived product values and have no user
+  checks. The site source contains no direct calls to these helpers; database
+  triggers call them instead.
+- Prepared migration
+  `20261023130000_lock_down_internal_derived_field_rpcs.sql` revokes
+  `EXECUTE` from `PUBLIC`, `anon`, and `authenticated` for those helpers and
+  the six related trigger functions. It leaves function bodies, data, table
+  policies, trigger definitions, and explicit `service_role` grants intact.
+  All eight functions are owned by `postgres`; the existing trigger definitions
+  remain installed. PostgreSQL requires `EXECUTE` when creating a trigger,
+  while this migration does not recreate or remove any trigger
+  ([PostgreSQL `CREATE TRIGGER` documentation](https://www.postgresql.org/docs/current/sql-createtrigger.html)).
+- **The migration was not applied to the live database.** The request to apply
+  it was rejected, so the unsafe client grants remain live until the migration
+  is run. The pre-change check still showed those helper grants enabled.
+- The security advisor currently flags 46 `SECURITY DEFINER` functions as
+  callable by `anon`. This includes intended public search/storefront RPCs and
+  auth- or admin-checked functions, as well as the two unguarded recalculation
+  helpers above. The broader grant set still needs function-by-function
+  tightening; revoking it all at once could change storefront behavior.
+- The live security advisor also reports `pg_trgm` in `public` and leaked
+  password protection disabled. The extension was left in place because search
+  depends on its objects. Supabase documents leaked-password protection under
+  [Auth password security](https://supabase.com/docs/guides/auth/password-security);
+  enabling it is a dashboard setting and is available on Pro and above.
+- The app's CSP remains `Content-Security-Policy-Report-Only`. There were 38
+  CSP reports in the last 30 days, with the latest dated 2026-09-23; review the
+  deployed reports before enforcing CSP.
 - The delivered copy omits the stale `bun.lock`; `package-lock.json` is the
   dependency lock. Bun can migrate from `package-lock.json` when no `bun.lock`
   exists ([Bun lockfile documentation](https://bun.sh/docs/pm/lockfile)).
-- Supabase's current database advisors, effective RLS policies, and leaked
-  password protection setting were not checked against the live project.
-- The app's CSP remains `Content-Security-Policy-Report-Only`; check current
-  reports on the deployed site before enforcing it to avoid breaking checkout
-  or sign-in.
-- A production build and deployment were not run. Redeploy the delivered copy
-  to Vercel for the patched dependency tree to take effect.
+- A clean install from `package-lock.json` completed and the production Vite /
+  Nitro build succeeded locally. The build emitted existing Vite, dynamic
+  import, and module-directive warnings, but no build errors. No Vercel deploy
+  was run; redeploy the delivered copy for the patched dependency tree to take
+  effect.
 
 # Security review — 2026-08-22
 
