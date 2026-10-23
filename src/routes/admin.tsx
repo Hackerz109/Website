@@ -9,7 +9,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/admin")({ component: AdminLayout });
+export const Route = createFileRoute("/admin")({
+  component: AdminLayout,
+  // Scoped here (not in __root) so "Add to Home Screen" / install only offers
+  // the admin PWA (order push notifications) while inside /admin. Customer
+  // pages no longer pick up the "SE Admin" name or the admin manifest.
+  head: () => ({
+    meta: [
+      { name: "theme-color", content: "#0A2647" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "SE Admin" },
+    ],
+    links: [{ rel: "manifest", href: "/manifest.webmanifest" }],
+  }),
+});
 
 function AdminLayout() {
   const { user, isAdmin, loading } = useAuth();

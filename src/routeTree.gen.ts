@@ -50,6 +50,10 @@
 // route (flat root-level, same shape as api.analytics-error). Once the
 // regeneration step is fixed, delete every note above — this file is safe
 // to let `vite build`/`vite dev` fully overwrite from that point on.
+//
+// MANUALLY CORRECTED AGAIN on 2026-10-23: added the new api.sitemap route
+// (flat root-level, same shape as api.geocode) backing the dynamic
+// /api/sitemap XML sitemap — see src/routes/api.sitemap.ts.
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
@@ -91,6 +95,7 @@ import { Route as AdminAnalyticsAlertsRouteImport } from './routes/admin.analyti
 import { Route as AdminAnalyticsReportsRouteImport } from './routes/admin.analytics.reports'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api.whatsapp-webhook'
 import { Route as ApiGeocodeRouteImport } from './routes/api.geocode'
+import { Route as ApiSitemapRouteImport } from './routes/api.sitemap'
 import { Route as ApiRateLimitRouteImport } from './routes/api.rate-limit'
 import { Route as ApiSendPhoneOtpRouteImport } from './routes/api.send-phone-otp'
 import { Route as ApiVerifyCaptchaRouteImport } from './routes/api.verify-captcha'
@@ -324,6 +329,11 @@ const ApiGeocodeRoute = ApiGeocodeRouteImport.update({
   path: '/api/geocode',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSitemapRoute = ApiSitemapRouteImport.update({
+  id: '/api/sitemap',
+  path: '/api/sitemap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRateLimitRoute = ApiRateLimitRouteImport.update({
   id: '/api/rate-limit',
   path: '/api/rate-limit',
@@ -554,6 +564,7 @@ export interface FileRoutesByFullPath {
   '/api/verify-razorpay-payment': typeof ApiVerifyRazorpayPaymentRoute
   '/api/whatsapp-webhook': typeof ApiWhatsappWebhookRoute
   '/api/geocode': typeof ApiGeocodeRoute
+  '/api/sitemap': typeof ApiSitemapRoute
   '/api/rate-limit': typeof ApiRateLimitRoute
   '/api/send-phone-otp': typeof ApiSendPhoneOtpRoute
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
@@ -630,6 +641,7 @@ export interface FileRoutesByTo {
   '/api/verify-razorpay-payment': typeof ApiVerifyRazorpayPaymentRoute
   '/api/whatsapp-webhook': typeof ApiWhatsappWebhookRoute
   '/api/geocode': typeof ApiGeocodeRoute
+  '/api/sitemap': typeof ApiSitemapRoute
   '/api/rate-limit': typeof ApiRateLimitRoute
   '/api/send-phone-otp': typeof ApiSendPhoneOtpRoute
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
@@ -709,6 +721,7 @@ export interface FileRoutesById {
   '/api/verify-razorpay-payment': typeof ApiVerifyRazorpayPaymentRoute
   '/api/whatsapp-webhook': typeof ApiWhatsappWebhookRoute
   '/api/geocode': typeof ApiGeocodeRoute
+  '/api/sitemap': typeof ApiSitemapRoute
   '/api/rate-limit': typeof ApiRateLimitRoute
   '/api/send-phone-otp': typeof ApiSendPhoneOtpRoute
   '/api/verify-captcha': typeof ApiVerifyCaptchaRoute
@@ -789,6 +802,7 @@ export interface FileRouteTypes {
     | '/api/verify-razorpay-payment'
     | '/api/whatsapp-webhook'
     | '/api/geocode'
+    | '/api/sitemap'
     | '/api/rate-limit'
     | '/api/send-phone-otp'
     | '/api/verify-captcha'
@@ -864,6 +878,7 @@ export interface FileRouteTypes {
     | '/api/verify-razorpay-payment'
     | '/api/whatsapp-webhook'
     | '/api/geocode'
+    | '/api/sitemap'
     | '/api/rate-limit'
     | '/api/send-phone-otp'
     | '/api/verify-captcha'
@@ -941,6 +956,7 @@ export interface FileRouteTypes {
     | '/api/verify-razorpay-payment'
     | '/api/whatsapp-webhook'
     | '/api/geocode'
+    | '/api/sitemap'
     | '/api/rate-limit'
     | '/api/send-phone-otp'
     | '/api/verify-captcha'
@@ -1001,6 +1017,7 @@ export interface RootRouteChildren {
   ApiVerifyRazorpayPaymentRoute: typeof ApiVerifyRazorpayPaymentRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiGeocodeRoute: typeof ApiGeocodeRoute
+  ApiSitemapRoute: typeof ApiSitemapRoute
   ApiRateLimitRoute: typeof ApiRateLimitRoute
   ApiSendPhoneOtpRoute: typeof ApiSendPhoneOtpRoute
   ApiVerifyCaptchaRoute: typeof ApiVerifyCaptchaRoute
@@ -1555,6 +1572,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVerifyRazorpayPaymentRoute: ApiVerifyRazorpayPaymentRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiGeocodeRoute: ApiGeocodeRoute,
+  ApiSitemapRoute: ApiSitemapRoute,
   ApiRateLimitRoute: ApiRateLimitRoute,
   ApiSendPhoneOtpRoute: ApiSendPhoneOtpRoute,
   ApiVerifyCaptchaRoute: ApiVerifyCaptchaRoute,

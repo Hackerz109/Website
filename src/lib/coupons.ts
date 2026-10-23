@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { CartItem } from "@/stores/cart";
+import { formatMoney, type CartItem } from "@/stores/cart";
 
 export interface CouponValidationResult {
   valid: boolean;
@@ -124,8 +124,8 @@ export async function fetchEligibleCoupons(userId: string | null): Promise<Visib
 export function describeCoupon(c: Pick<VisibleCoupon, "discount_type" | "discount_value" | "max_discount_cents">) {
   if (c.discount_type === "free_shipping") return "Free shipping";
   if (c.discount_type === "percentage") {
-    const cap = c.max_discount_cents ? ` (up to ₹${(c.max_discount_cents / 100).toFixed(0)})` : "";
+    const cap = c.max_discount_cents ? ` (up to ${formatMoney(c.max_discount_cents)})` : "";
     return `${c.discount_value}% off${cap}`;
   }
-  return `₹${(c.discount_value / 100).toFixed(0)} off`;
+  return `${formatMoney(c.discount_value)} off`;
 }

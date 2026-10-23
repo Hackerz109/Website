@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Star } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { formatMoney } from "@/stores/cart";
 
@@ -143,6 +143,13 @@ export function ProductCard({
           {product.warranty_available && (
             <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-copper/80">
               <ShieldCheck className="h-3 w-3" /> Warranty included
+            </p>
+          )}
+          {!!product.rating_count && product.rating_count > 0 && (
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Star className="h-3 w-3 fill-primary text-primary" />
+              <span className="font-medium text-foreground">{product.rating_avg?.toFixed(1)}</span>
+              <span>({product.rating_count})</span>
             </p>
           )}
           <div className="mt-1 flex items-center gap-1.5">

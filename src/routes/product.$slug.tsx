@@ -6,6 +6,7 @@ import { StoreHeader } from "@/components/StoreHeader";
 import { StoreFooter } from "@/components/StoreFooter";
 import { WarrantyCard } from "@/components/WarrantyCard";
 import { AvailableOffers } from "@/components/AvailableOffers";
+import { ReviewsSection } from "@/components/ReviewsSection";
 import { BulkPricingTable } from "@/components/BulkPricingTable";
 import { QuantityInput } from "@/components/QuantityInput";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,42 @@ export const Route = createFileRoute("/product/$slug")({
       </div>
     );
   },
+  head: ({ loaderData }) => {
+    const product = loaderData?.product;
+    if (!product) return {};
+    const title = `${product.name} | Sanjay Electricals`;
+    const rawDescription =
+      product.description?.trim() ||
+      `${product.name}${product.brands?.name ? ` by ${product.brands.name}` : ""}${product.categories?.name ? ` — ${product.categories.name}` : ""} at Sanjay Electricals. Clear warranty details and secure checkout.`;
+    const description = rawDescription.length > 160 ? `${rawDescription.slice(0, 157)}...` : rawDescription;
+    const primaryImage =
+      [...product.product_images].sort((a, b) => Number(b.is_primary) - Number(a.is_primary))[0]?.url ||
+      product.image_url ||
+      "https://sanjayelectricals.shop/logo-full.png";
+    const url = `https://sanjayelectricals.shop/product/${product.slug}`;
+    const priceCents = product.effective_price_cents ?? product.price_cents;
+    const inStock = product.stock_unlimited || product.stock > 0;
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "product" },
+        { property: "og:url", content: url },
+        { property: "og:image", content: primaryImage },
+        { property: "product:price:amount", content: (priceCents / 100).toFixed(2) },
+        { property: "product:price:currency", content: product.currency || "INR" },
+        { property: "product:availability", content: inStock ? "in stock" : "out of stock" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: primaryImage },
+      ],
+      links: [{ rel: "canonical", href: url }],
+    };
+  },
   notFoundComponent: () => <div className="p-8 text-center">Product not found</div>,
   pendingComponent: () => (
     <div className="min-h-screen bg-background">
@@ -88,6 +125,8 @@ function ProductPage() {
   const [zoomed, setZoomed] = useState(false);
   const [frameRatio, setFrameRatio] = useState(1);
   const frameRatioLockedRef = useRef(false);
+  const lightboxTriggerRef = useRef<HTMLImageElement | null>(null);
+  const lightboxCloseRef = useRef<HTMLButtonElement | null>(null);
 
   const variants = [...(product?.product_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order);
   const hasVariants = variants.length > 0;
@@ -161,10 +200,14 @@ function ProductPage() {
     setFrameRatio(Math.min(2.2, Math.max(0.45, w / h)));
   }
 
-  // Close the lightbox on Escape, and lock background scroll while it's open
+  // Close the lightbox on Escape, lock background scroll while it's open,
+  // and move focus into/out of it — otherwise a keyboard or screen-reader
+  // user who opens it loses their place and can tab into page content
+  // hidden behind the overlay.
   useEffect(() => {
     if (!lightboxOpen) return;
     document.body.style.overflow = "hidden";
+    lightboxCloseRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setLightboxOpen(false);
     };
@@ -172,6 +215,7 @@ function ProductPage() {
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", onKey);
+      lightboxTriggerRef.current?.focus();
     };
   }, [lightboxOpen]);
 
@@ -222,8 +266,36 @@ function ProductPage() {
   const effectiveUnitPrice = tierUnitPriceCents(price, bulkTiers, qty);
   const nextTier = nextTierHint(bulkTiers, qty);
 
+  const structuredData = product && {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description || undefined,
+    image: gallery.length > 0 ? gallery : undefined,
+    sku: product.sku || undefined,
+    brand: product.brands?.name ? { "@type": "Brand", name: product.brands.name } : undefined,
+    offers: {
+      "@type": "Offer",
+      url: `https://sanjayelectricals.shop/product/${product.slug}`,
+      priceCurrency: product.currency || "INR",
+      price: (effectiveUnitPrice / 100).toFixed(2),
+      availability: canAdd ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+    },
+    aggregateRating:
+      product.rating_count > 0
+        ? { "@type": "AggregateRating", ratingValue: product.rating_avg, reviewCount: product.rating_count }
+        : undefined,
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
+      {structuredData && (
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
+        />
+      )}
       <StoreHeader />
       <div className="mx-auto max-w-5xl px-6 py-8">
         <Button
@@ -257,10 +329,20 @@ function ProductPage() {
                   style={{ aspectRatio: frameRatio }}
                 >
                   <img
+                    ref={lightboxTriggerRef}
                     src={mainImage}
                     alt={product.name}
                     fetchPriority="high"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="View full-size image"
                     onClick={() => setLightboxOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setLightboxOpen(true);
+                      }
+                    }}
                     onLoad={handleMainImageLoad}
                     className="h-full w-full cursor-zoom-in object-contain"
                   />
@@ -442,12 +524,18 @@ function ProductPage() {
             </div>
           </div>
 
+          {product && <ReviewsSection productId={product.id} />}
+
           {lightboxOpen && mainImage && (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
               onClick={() => setLightboxOpen(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${product.name} — full-size image`}
             >
               <button
+                ref={lightboxCloseRef}
                 onClick={() => setLightboxOpen(false)}
                 className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
                 aria-label="Close"

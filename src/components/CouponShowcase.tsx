@@ -3,6 +3,7 @@ import { Ticket, Copy, Check, Percent, IndianRupee, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchEligibleCoupons, describeCoupon, type VisibleCoupon } from "@/lib/coupons";
+import { formatMoney } from "@/stores/cart";
 import { cn } from "@/lib/utils";
 
 function iconFor(type: VisibleCoupon["discount_type"]) {
@@ -48,7 +49,7 @@ function CouponTicket({ coupon }: { coupon: VisibleCoupon }) {
           )}
           {coupon.min_order_cents ? (
             <p className="mt-1 text-[11px] text-primary-foreground/70">
-              On orders above ₹{(coupon.min_order_cents / 100).toFixed(0)}
+              On orders above {formatMoney(coupon.min_order_cents)}
             </p>
           ) : null}
         </div>

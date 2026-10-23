@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /cart
+Disallow: /orders
+Disallow: /profile
+Disallow: /wallet
+Disallow: /support
+Disallow: /auth
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /api/
+
+Sitemap: https://sanjayelectricals.shop/api/sitemap

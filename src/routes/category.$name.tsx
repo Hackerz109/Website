@@ -50,6 +50,26 @@ export const Route = createFileRoute("/category/$name")({
       return { category: null, products: [], productsError: true };
     }
   },
+  head: ({ loaderData, params }) => {
+    const category = loaderData?.category;
+    const name = category?.name ?? params.name;
+    const title = `${name} | Sanjay Electricals`;
+    const description = `Shop ${name} at Sanjay Electricals — genuine Havells, Orient Electric, Anchor, Polycab and more, with clear warranty details and secure checkout.`;
+    const url = `https://sanjayelectricals.shop/category/${params.name}`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:url", content: url },
+        { name: "twitter:card", content: "summary" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+      ],
+      links: [{ rel: "canonical", href: url }],
+    };
+  },
   component: CategoryPage,
   pendingComponent: () => (
     <div className="min-h-screen bg-background">

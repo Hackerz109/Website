@@ -59,6 +59,27 @@ export const Route = createFileRoute("/collections")({
       return { products: [], productsError: true };
     }
   },
+  head: () => ({
+    meta: [
+      { title: "All Products | Sanjay Electricals" },
+      {
+        name: "description",
+        content:
+          "Browse the full catalog at Sanjay Electricals — switches, wiring, fans, and fittings from Havells, Orient Electric, Anchor, Polycab, and more.",
+      },
+      { property: "og:title", content: "All Products | Sanjay Electricals" },
+      {
+        property: "og:description",
+        content: "Browse switches, wiring, fans, and fittings from trusted brands at Sanjay Electricals.",
+      },
+      { property: "og:url", content: "https://sanjayelectricals.shop/collections" },
+    ],
+    // Filters live in the query string (?category=&brand=&sort=) — the
+    // canonical deliberately ignores them so Google treats every filtered
+    // view as the same page rather than indexing each combination
+    // separately.
+    links: [{ rel: "canonical", href: "https://sanjayelectricals.shop/collections" }],
+  }),
   component: CollectionsPage,
   pendingComponent: () => (
     <div className="min-h-screen bg-background">
